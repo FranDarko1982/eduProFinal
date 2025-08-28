@@ -1,0 +1,226 @@
+<section class="reportes-container" style="max-width:1100px;margin:1.5rem auto;text-align:center;">
+  <h1 style="margin-bottom:2rem;">Reportes</h1>
+
+  <div class="graficos-row">
+    <div class="grafico-col">
+      <h2 class="grafico-title azul">Por usuario</h2>
+      <canvas id="reservasChart" width="400" height="300"></canvas>
+    </div>
+    <div class="grafico-col">
+      <h2 class="grafico-title rosa">Por sala</h2>
+      <canvas id="salasChart" width="400" height="300"></canvas>
+    </div>
+  </div>
+  <div class="graficos-row">
+    <div class="grafico-col">
+      <h2 class="grafico-title rosa">Por ciudad</h2>
+      <canvas id="ciudadesChart" width="400" height="300"></canvas>
+    </div>
+    <div class="grafico-col" style="margin: 0 auto; min-width: 500px; max-width:650px;">
+      <h2 class="grafico-title azul">% Ocupación por centro (últimos 30 días)</h2>
+      <canvas id="ocupacionCentrosChart" width="600" height="350"></canvas>
+    </div>
+  </div>
+</section>
+
+<style>
+  .graficos-row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 2.5rem;
+    margin-bottom: 2.5rem;
+  }
+  .grafico-col {
+    flex: 1 1 370px;
+    min-width: 320px;
+    max-width: 450px;
+    background: none;
+    padding: 0 1vw;
+  }
+  .grafico-title.rosa  { color: #bc348b; margin-bottom: 0.7rem;}
+  .grafico-title.azul  { color: #4c759a; margin-bottom: 0.7rem;}
+  @media (max-width:1100px){
+    .graficos-row { flex-direction: column; align-items: center; gap:1.5rem;}
+    .grafico-col { min-width: 220px; max-width: 100vw;}
+  }
+</style>
+
+<!-- Cargar Chart.js y DataLabels -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+
+<script>
+  // Colores corporativos
+  const rosaIntelcia = 'rgba(188,52,139,0.7)';
+  const azulIntelcia = 'rgba(76,117,154,0.7)';
+  const naranjaSalas = 'rgba(255,159,64,0.6)';
+  const azulOscuro   = 'rgba(54,162,235,0.6)';
+  const gris         = 'rgba(180,180,200,0.13)';
+
+  function renderUsersChart(data) {
+    const ctx = document.getElementById('reservasChart').getContext('2d');
+    const labels = data.map(d => d.email);
+    const counts = data.map(d => d.count);
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Reservas por usuario',
+          data: counts,
+          backgroundColor: azulOscuro,
+          borderColor: '#4c759a',
+          borderWidth: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { display: false },
+          datalabels: {
+            anchor: 'end',
+            align: 'top',
+            color: '#444',
+            font: { weight: 'bold' },
+            formatter: value => value,
+            clamp: true
+          }
+        },
+        scales: {
+          x: { grid: { color: gris } },
+          y: { beginAtZero: true, grid: { color: gris } }
+        }
+      },
+      plugins: [ChartDataLabels]
+    });
+  }
+
+  function renderSalasChart(data) {
+    const ctx = document.getElementById('salasChart').getContext('2d');
+    const labels = data.map(d => d.nombre);
+    const counts = data.map(d => d.count);
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Reservas por sala',
+          data: counts,
+          backgroundColor: naranjaSalas,
+          borderColor: '#bc348b',
+          borderWidth: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { display: false },
+          datalabels: {
+            anchor: 'end',
+            align: 'top',
+            color: '#444',
+            font: { weight: 'bold' },
+            formatter: value => value,
+            clamp: true
+          }
+        },
+        scales: {
+          x: { grid: { color: gris } },
+          y: { beginAtZero: true, grid: { color: gris } }
+        }
+      },
+      plugins: [ChartDataLabels]
+    });
+  }
+
+  function renderCiudadesChart(data) {
+    const ctx = document.getElementById('ciudadesChart').getContext('2d');
+    const labels = data.map(d => d.ciudad);
+    const counts = data.map(d => d.count);
+    const colores = [
+      '#bc348b', '#ffb4e6', '#4c759a', '#ffc107', '#c6d4e1', '#fc97d1', '#3e4d5c'
+    ];
+    new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Reservas por ciudad',
+          data: counts,
+          backgroundColor: colores,
+          borderColor: '#fff',
+          borderWidth: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { position: 'bottom', labels: { color: '#bc348b', font: {weight: 'bold'} } },
+          datalabels: {
+            color: '#bc348b',
+            font: { weight: 'bold', size: 14 },
+            formatter: (value, ctx) => value > 0 ? value : '',
+          },
+          tooltip: {
+            callbacks: {
+              label: ctx => `${ctx.label}: ${ctx.parsed} reservas`
+            }
+          }
+        }
+      },
+      plugins: [ChartDataLabels]
+    });
+  }
+
+  function renderOcupacionCentrosChart(data) {
+    const ctx = document.getElementById('ocupacionCentrosChart').getContext('2d');
+    const labels = data.map(d => d.centro);
+    const ocupacion = data.map(d => d.ocupacion);
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          label: '% ocupación',
+          data: ocupacion,
+          backgroundColor: azulOscuro,
+          borderColor: '#bc348b',
+          borderWidth: 2
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        plugins: {
+          legend: { display: false },
+          datalabels: {
+            anchor: 'end',
+            align: 'right',
+            color: '#bc348b',
+            font: { weight: 'bold' },
+            formatter: value => value + ' %',
+            clamp: true
+          },
+          tooltip: { callbacks: {
+            label: ctx => `% ocupación: ${ctx.parsed.x || ctx.parsed} %`
+          }}
+        },
+        scales: {
+          x: { min: 0, max: 100, title: { display: true, text: '% ocupación' }, grid: { color: gris } },
+          y: { grid: { color: gris } }
+        }
+      },
+      plugins: [ChartDataLabels]
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+      google.script.run.withSuccessHandler(renderUsersChart).getReservasPorUsuario();
+      google.script.run.withSuccessHandler(renderSalasChart).getReservasPorSala();
+      google.script.run.withSuccessHandler(renderCiudadesChart).getReservasPorCiudad();
+      google.script.run.withSuccessHandler(renderOcupacionCentrosChart).getPorcentajeOcupacionPorCentro();
+    }
+  });
+</script>
