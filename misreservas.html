@@ -1,0 +1,369 @@
+<!-- misreservas.html -->
+<div class="reservas-container">
+  <div class="reservas-header" style="display:flex; align-items:center; flex-wrap:wrap; gap:.5rem;">
+    <label for="searchIdMis">Buscar por ID Reserva:</label>
+    <input id="searchIdMis" type="text" placeholder="Introduce ID Reserva…" style="min-width:140px;"/>
+    
+    <!-- Filtro de fecha con icono calendario y modo rango -->
+    <label for="searchDateMis" style="display:flex; align-items:center; gap:0.25rem; cursor:pointer;">
+      <span title="Filtrar por fecha" style="font-size:1.4em; margin-left:.5rem;">📅</span>
+      <input id="searchDateMis" type="text" placeholder="Elige día o rango…" style="width:160px;" readonly />
+    </label>
+
+    <button type="button" id="mis-clear-filters" class="btn-filters-clear" style="margin-left:.5rem;">Quitar filtros</button>
+    <button type="button" id="mis-reservas-reload" class="btn-filters-clear" style="margin-left:.5rem;">Recargar datos</button>
+    <button type="button" id="mis-export-csv" class="btn-filters-clear">Exportar CSV</button>
+  </div>
+
+  <div class="salas-table-container">
+    <table id="misReservasTable" class="table-style" style="margin-top: 1rem;">
+      <thead>
+        <tr>
+          <th>ID Reserva</th><th>Sala</th><th>Ciudad</th><th>Centro</th>
+          <th>Motivo</th><th>Inicio</th><th>Fin</th><th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <!-- Modal editar reserva -->
+  <div id="editModal" class="modal-reserva-bg" style="display:none;">
+    <div class="modal-reserva">
+      <h2 class="modal-reserva-titulo">Editar Reserva</h2>
+      <form id="formEditReserva" autocomplete="off">
+        <input id="editMotivo" type="text" class="modal-reserva-input" placeholder="Motivo de la reserva" required />
+        <div class="modal-reserva-fechas">
+          <div>
+            <label for="editInicio" class="modal-reserva-label">Fecha inicio</label><br />
+            <input id="editInicio" type="datetime-local" class="modal-reserva-datetime" required />
+          </div>
+          <div>
+            <label for="editFin" class="modal-reserva-label">Fecha fin</label><br />
+            <input id="editFin" type="datetime-local" class="modal-reserva-datetime" required />
+          </div>
+        </div>
+        <div class="modal-reserva-botones">
+          <button type="button" id="btnEditCancelar" class="modal-reserva-btn-cancelar">Cancelar</button>
+          <button type="submit" id="btnEditGuardar" class="modal-reserva-btn-guardar">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal eliminar reserva -->
+  <div id="misDeleteOverlay" class="modal-overlay" style="display:none;">
+    <div class="modal flex-col">
+      <div class="modal-header mb-2">Eliminar Reserva</div>
+      <div class="modal-body flex flex-col gap-3">
+        <p id="misDeleteMsg" class="text-[#0d151b]"></p>
+      </div>
+      <div class="modal-footer" style="display:flex;gap:1rem;">
+        <button id="misBtnDeleteCancel" class="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300">Cancelar</button>
+        <button id="misBtnDeleteOk" class="px-4 py-2 rounded bg-[#bc348b] text-white hover:bg-[#a1226d]">Eliminar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal información genérico -->
+  <div id="infoOverlay" class="modal-overlay" style="display:none;">
+    <div class="modal flex-col">
+      <div id="infoHeader" class="modal-header mb-2">Información</div>
+      <div class="modal-body flex flex-col gap-3">
+        <p id="infoMsg" class="text-[#0d151b]"></p>
+      </div>
+      <div class="modal-footer">
+        <button id="btnInfoOk" class="px-4 py-2 rounded bg-[#bc348b] text-white hover:bg-[#a1226d]">Aceptar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Flatpickr para fecha/rango -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
+
+<script>
+  // ---- CSV Export helper ----
+  function downloadText(text, filename, type) {
+    const blob = new Blob([text], {type});
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    setTimeout(() => { document.body.removeChild(link); URL.revokeObjectURL(link.href); }, 150);
+  }
+
+  // ---- Flatpickr para filtrar por rango de fechas ----
+  let selectedRange = [];
+  window.searchDateMisFlatpickr = null;
+  document.addEventListener('DOMContentLoaded', function() {
+    window.searchDateMisFlatpickr = flatpickr('#searchDateMis', {
+      mode: 'range',
+      dateFormat: 'Y-m-d',
+      locale: 'es',
+      allowInput: true,
+      onChange: function(selectedDates, dateStr) {
+        selectedRange = dateStr ? dateStr.split(' a ') : [];
+        App.filterMis();
+      }
+    });
+  });
+
+  const App = {
+    state: { misReservas: [], currentEditId: null, deleteId: null },
+
+    loadMisReservas() {
+      if (typeof showSpinner === 'function') showSpinner();
+      google.script.run
+        .withSuccessHandler(reservas => {
+          if (typeof hideSpinner === 'function') hideSpinner();
+          this.state.misReservas = Array.isArray(reservas) ? reservas : [];
+          this.renderTable(this.state.misReservas, '#misReservasTable tbody', 'No tienes reservas');
+        })
+        .withFailureHandler(err => {
+          if (typeof hideSpinner === 'function') hideSpinner();
+          console.error(err);
+          this.showInfoModal('Error cargando tus reservas.', 'Error');
+        })
+        .getMisReservas();
+    },
+
+    filterMis() {
+      const term = document.getElementById('searchIdMis').value.toLowerCase();
+      const tbody = document.querySelector('#misReservasTable tbody');
+      let visibleCount = 0;
+      const old = document.getElementById('noMatchRow');
+      if (old) old.remove();
+
+      Array.from(tbody.querySelectorAll('tr')).forEach(tr => {
+        let matchId = tr.dataset.id.toLowerCase().includes(term);
+        let matchFecha = true;
+        if (selectedRange && selectedRange.length === 2 && selectedRange[0] && selectedRange[1]) {
+          const tdInicio = tr.children[5].textContent.trim();
+          let parsed = null;
+          if (/^\d{4}-\d{2}-\d{2}/.test(tdInicio)) {
+            parsed = tdInicio.substr(0,10);
+          } else if (/^\d{2}\/\d{2}\/\d{4}/.test(tdInicio)) {
+            const [d,m,y] = tdInicio.split(/[ \/]/);
+            parsed = `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
+          }
+          matchFecha = (parsed >= selectedRange[0] && parsed <= selectedRange[1]);
+        }
+        const match = matchId && matchFecha;
+        tr.style.display = match ? '' : 'none';
+        if (match) visibleCount++;
+      });
+
+      if (((term || (selectedRange && selectedRange[0])) && visibleCount === 0)) {
+        const tr = document.createElement('tr');
+        tr.id = 'noMatchRow';
+        const td = document.createElement('td');
+        td.colSpan = 8; td.style.textAlign = 'center';
+        td.style.color = '#bc348b';
+        td.textContent = 'No hay reservas que coincidan';
+        tr.appendChild(td);
+        tbody.appendChild(tr);
+      } else if (!term && (!selectedRange || !selectedRange[0])) {
+        this.renderTable(this.state.misReservas, '#misReservasTable tbody', 'No tienes reservas');
+      }
+    },
+
+    renderTable(data, selector, emptyMessage) {
+      const tbody = document.querySelector(selector);
+      tbody.innerHTML = '';
+      if (!data.length) {
+        const tr = document.createElement('tr');
+        const td = document.createElement('td');
+        td.colSpan = 8; td.style.textAlign = 'center';
+        td.style.color = '#bc348b';
+        td.textContent = emptyMessage;
+        tr.appendChild(td);
+        tbody.appendChild(tr);
+        return;
+      }
+      data.forEach(r => {
+        const tr = document.createElement('tr');
+        tr.dataset.id = String(r.ID);
+        ['ID','Sala','Ciudad','Centro','Motivo','Inicio','Fin'].forEach(f => {
+          const td = document.createElement('td');
+          td.textContent = r[f] || '';
+          tr.appendChild(td);
+        });
+        const tdA = document.createElement('td');
+        tdA.classList.add('actions');
+        const btnE = document.createElement('button');
+        btnE.textContent = '✏️';
+        btnE.title = 'Editar';
+        btnE.addEventListener('click', () => this.openEditModal(tr.dataset.id));
+        const btnD = document.createElement('button');
+        btnD.textContent = '🗑️';
+        btnD.title = 'Eliminar';
+        btnD.addEventListener('click', () => this.openDeleteModal(tr.dataset.id));
+        tdA.append(btnE, btnD);
+        tr.appendChild(tdA);
+        tbody.appendChild(tr);
+      });
+    },
+
+    openEditModal(id) {
+      const r = this.state.misReservas.find(x => String(x.ID) === id);
+      if (!r) return;
+      this.state.currentEditId = id;
+      document.getElementById('editMotivo').value = r.Motivo || '';
+
+      [['Inicio','editInicio'], ['Fin','editFin']].forEach(([field, el]) => {
+        const val = r[field] || '';
+        const parsed = /^([0-3]?\d)\/([0-1]?\d)\/(\d{4}) (\d{2}:\d{2})$/.exec(val);
+        if (parsed) {
+          const [, d, m, y, time] = parsed;
+          document.getElementById(el).value = `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}T${time}`;
+        } else {
+          document.getElementById(el).value = '';
+        }
+      });
+
+      document.getElementById('editModal').style.display = 'flex';
+    },
+
+    closeEditModal() { document.getElementById('editModal').style.display = 'none'; },
+
+    handleEditSubmit(e) {
+      e.preventDefault();
+      const inicio = document.getElementById('editInicio').value;
+      const fin    = document.getElementById('editFin').value;
+      if (new Date(fin) <= new Date(inicio)) {
+        alert('La fecha fin no puede ser anterior a la fecha inicio.');
+        return;
+      }
+      this.closeEditModal();
+      if (typeof showSpinner === 'function') showSpinner();
+      google.script.run
+        .withSuccessHandler(() => {
+          this.loadMisReservas();
+          this.showInfoModal('Reserva actualizada correctamente.', '¡Reserva Actualizada!');
+        })
+        .withFailureHandler(err => {
+          if (typeof hideSpinner === 'function') hideSpinner();
+          console.error(err);
+          this.showInfoModal('Error actualizando la reserva.', 'Error');
+        })
+        .actualizarReserva({
+          id: this.state.currentEditId,
+          motivo: document.getElementById('editMotivo').value.trim(),
+          fechaInicio: inicio,
+          fechaFin: fin
+        });
+    },
+
+    openDeleteModal(id) {
+      this.state.deleteId = id;
+      document.getElementById('misDeleteMsg').textContent = `¿Eliminar la reserva ${id}?`;
+      document.getElementById('misDeleteOverlay').style.display = 'flex';
+    },
+
+    closeDeleteModal() { document.getElementById('misDeleteOverlay').style.display = 'none'; },
+
+    confirmDelete() {
+      this.closeDeleteModal();
+      if (typeof showSpinner === 'function') showSpinner();
+      google.script.run
+        .withSuccessHandler(() => {
+          this.loadMisReservas();
+          this.showInfoModal('Reserva eliminada correctamente.', '¡Reserva Eliminada!');
+        })
+        .withFailureHandler(err => {
+          if (typeof hideSpinner === 'function') hideSpinner();
+          console.error(err);
+          this.showInfoModal('Error eliminando la reserva.', 'Error');
+        })
+        .eliminarReserva(this.state.deleteId);
+    },
+
+    exportCsv() {
+      if (typeof showSpinner === 'function') showSpinner();
+      google.script.run
+        .withSuccessHandler(csv => {
+          if (typeof hideSpinner === 'function') hideSpinner();
+          downloadText(csv, 'mis-reservas.csv', 'text/csv');
+        })
+        .withFailureHandler(err => {
+          if (typeof hideSpinner === 'function') hideSpinner();
+          console.error(err);
+          this.showInfoModal('Error exportando las reservas.', 'Error');
+        })
+        .exportMisReservasCsv();
+    },
+   
+    showInfoModal(msg, header='Información') {
+      document.getElementById('infoHeader').textContent = header;
+      document.getElementById('infoMsg').textContent = msg;
+      document.getElementById('infoOverlay').style.display = 'flex';
+    },
+    hideInfoModal() { document.getElementById('infoOverlay').style.display = 'none'; },
+
+    init() {
+      // Filtro por ID y por fecha
+      document.getElementById('searchIdMis')
+        .addEventListener('input', this.filterMis.bind(this));
+      document.getElementById('searchDateMis')
+        .addEventListener('input', this.filterMis.bind(this)); // por si escribe a mano
+
+      document.getElementById('mis-clear-filters')
+        .addEventListener('click', () => {
+          document.getElementById('searchIdMis').value = '';
+          if (window.searchDateMisFlatpickr) window.searchDateMisFlatpickr.clear();
+          selectedRange = [];
+          App.filterMis();
+        });
+
+      document.getElementById('mis-reservas-reload')
+        .addEventListener('click', this.loadMisReservas.bind(this));
+      document.getElementById('mis-export-csv')
+        .addEventListener('click', this.exportCsv.bind(this));
+    
+      // editar
+      document.getElementById('btnEditCancelar')
+        .addEventListener('click', this.closeEditModal.bind(this));
+      document.getElementById('formEditReserva')
+        .addEventListener('submit', this.handleEditSubmit.bind(this));
+      document.getElementById('editModal')
+        .addEventListener('click', e => {
+          if (e.target === e.currentTarget) this.closeEditModal();
+        });
+
+      // eliminar
+      document.getElementById('misBtnDeleteCancel')
+        .addEventListener('click', this.closeDeleteModal.bind(this));
+      document.getElementById('misBtnDeleteOk')
+        .addEventListener('click', this.confirmDelete.bind(this));
+      document.getElementById('misDeleteOverlay')
+        .addEventListener('click', e => {
+          if (e.target === e.currentTarget) this.closeDeleteModal();
+        });
+
+      // info genérico
+      document.getElementById('btnInfoOk')
+        .addEventListener('click', this.hideInfoModal.bind(this));
+      document.getElementById('infoOverlay')
+        .addEventListener('click', e => {
+          if (e.target === e.currentTarget) this.hideInfoModal();
+        });
+
+      // menú lateral
+      const menuLink = document.querySelector('.navbar-menu a[href="#mybookings"]');
+      if (menuLink) {
+        menuLink.addEventListener('click', () =>
+          setTimeout(() => this.loadMisReservas(), 0)
+        );
+      }
+
+      // primer fetch
+      this.loadMisReservas();
+    }
+  };
+
+  document.addEventListener('DOMContentLoaded', () => App.init());
+</script>
