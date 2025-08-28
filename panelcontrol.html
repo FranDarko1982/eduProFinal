@@ -1,0 +1,319 @@
+<div class="panel-admin-container">
+  <h1 class="panel-admin-title">Panel de control</h1>
+  <p class="panel-admin-desc">
+    Administra las salas y los usuarios de la aplicación
+  </p>
+
+  <!-- Tabs -->
+  <div class="panel-admin-tabs">
+    <button id="tab-salas" class="panel-admin-tab active" onclick="showPanelAdminTab('salas')">
+      Editar salas
+    </button>
+    <button id="tab-usuarios" class="panel-admin-tab" onclick="showPanelAdminTab('usuarios')">
+      Editar usuarios
+    </button>
+  </div>
+
+  <!-- Panel Salas -->
+  <div id="panel-salas" class="panel-admin-panel active">
+    <div id="salasEmpty" class="panel-admin-center">
+ 
+      <div>
+        <div class="panel-admin-title2">No hay salas</div>
+        <div class="panel-admin-desc2">Añade una sala para empezar a gestionar las reservas</div>
+      </div>
+      <button class="panel-admin-btn">Añadir sala</button>
+    </div>
+    <div id="salasTableContainer" class="salas-table-container hidden">
+      <table id="panelSalasTable" class="table-style">
+        <thead>
+          <tr>
+            <th>ID Sala</th>
+            <th>Centro</th>
+            <th>Ciudad</th>
+            <th>Nombre</th>
+            <th>Capacidad</th>
+            <th>Equipamiento</th>
+            <th>Observaciones</th>
+            <th>Horario</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Panel Usuarios -->
+  <div id="panel-usuarios" class="panel-admin-panel">
+    <div id="usuariosEmpty" class="panel-admin-center">
+
+      <div>
+        <div class="panel-admin-title2">No hay usuarios</div>
+        <div class="panel-admin-desc2">Añade un usuario para empezar a gestionar permisos y reservas</div>
+      </div>
+      <button id="btnEmptyAddUser" class="panel-admin-btn">Añadir usuario</button>
+    </div>
+    <div id="usuariosTableContainer" class="salas-table-container hidden">
+      <button id="btnAddUser" class="panel-admin-btn" style="margin-bottom:0.5rem;">+</button>
+      <table id="usuariosTable" class="table-style">
+        <thead>
+          <tr>
+            <th>Email</th>
+            <th>Nombre</th>
+            <th>Rol</th>
+            <th>Campaña</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Modal editar usuario -->
+<div id="editUserModal" class="modal-reserva-bg">
+  <div class="modal-reserva">
+    <h2 class="modal-reserva-titulo">Editar Usuario</h2>
+    <form id="formEditUser" autocomplete="off">
+      <input id="userEmail" type="email" class="modal-reserva-input" placeholder="Email" required />
+      <input id="userNombre" type="text" class="modal-reserva-input" placeholder="Nombre" />
+      <select id="userRol" class="modal-reserva-input"></select>
+      <input id="userCampania" type="text" class="modal-reserva-input" placeholder="Campaña" />
+      <div class="modal-reserva-botones">
+        <button type="button" id="btnUserCancel" class="modal-reserva-btn-cancelar">Cancelar</button>
+        <button type="submit" id="btnUserSave" class="modal-reserva-btn-guardar">Guardar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal eliminar usuario -->
+<div id="deleteUserOverlay" class="modal-overlay" style="display:none;">
+  <div class="modal flex-col">
+    <div class="modal-header mb-2">Eliminar Usuario</div>
+    <div class="modal-body flex flex-col gap-3">
+      <p id="deleteUserMsg" class="text-[#0d151b]"></p>
+    </div>
+    <div class="modal-footer" style="display:flex;gap:1rem;">
+      <button id="btnDeleteUserCancel" class="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300">Cancelar</button>
+      <button id="btnDeleteUserOk" class="px-4 py-2 rounded bg-[#bc348b] text-white hover:bg-[#a1226d]">Eliminar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal información -->
+<div id="infoOverlay" class="modal-overlay" style="display:none;">
+  <div class="modal flex-col">
+    <div id="infoHeader" class="modal-header mb-2">Información</div>
+    <div class="modal-body flex flex-col gap-3">
+      <p id="infoMsg" class="text-[#0d151b]"></p>
+    </div>
+    <div class="modal-footer">
+      <button id="btnInfoOk" class="px-4 py-2 rounded bg-[#bc348b] text-white hover:bg-[#a1226d]">Aceptar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+ // Tabs funcionales (cambia entre Salas y Usuarios)
+  function showPanelAdminTab(tab) {
+    document.getElementById('tab-salas').classList.toggle('active', tab === 'salas');
+    document.getElementById('tab-usuarios').classList.toggle('active', tab === 'usuarios');
+    document.getElementById('panel-salas').classList.toggle('active', tab === 'salas');
+    document.getElementById('panel-usuarios').classList.toggle('active', tab === 'usuarios');
+  }
+  // Por defecto, muestra "salas"
+  showPanelAdminTab('salas');
+
+  document.addEventListener('DOMContentLoaded', () => {
+    cargarSalas();
+    cargarUsuarios();
+    cargarRoles();
+  });
+
+  function cargarSalas() {
+    if (typeof showSpinner === 'function') showSpinner();
+    google.script.run
+      .withSuccessHandler(d => {
+        console.log('🟢 Salas crudas recibidas del servidor:', d);
+        renderSalas(Array.isArray(d) ? d : []);
+        if (typeof hideSpinner === 'function') hideSpinner();
+      })
+      .withFailureHandler(err => {
+        if (typeof hideSpinner === 'function') hideSpinner();
+        console.error(err);
+        alert('Error al cargar las salas');
+      })
+      .getAllSalas();
+  }
+
+  function renderSalas(salas) {
+  const empty  = document.getElementById('salasEmpty');
+  const tableC = document.getElementById('salasTableContainer');
+  const tbody  = document.querySelector('#panelSalasTable tbody');
+
+  if (!Array.isArray(salas) || !salas.length) {
+    empty.classList.remove('hidden');
+    tableC.classList.add('hidden');
+    return;
+  }
+  empty.classList.add('hidden');
+  tableC.classList.remove('hidden');
+  tbody.innerHTML = '';
+
+  const cols = ['ID Sala','Centro','Ciudad','Nombre','Capacidad','Equipamiento','Observaciones','Horario'];
+
+  salas.forEach(r => {
+    // <<-- Añade este log para ver la fila y el array de valores
+    const values = cols.map(k => r[k]);
+    console.log('🖨️ Fila objeto:', r);
+    console.log('➡️ Valores a renderizar:', values);
+
+    const tr = document.createElement('tr');
+    values.forEach((val, idx) => {
+      const td = document.createElement('td');
+      td.textContent = val != null ? val : '';
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+}
+
+
+  function cargarUsuarios() {
+    if (typeof showSpinner === 'function') showSpinner();
+    google.script.run
+      .withSuccessHandler(d => { renderUsuarios(Array.isArray(d) ? d : []); if (typeof hideSpinner === 'function') hideSpinner(); })
+      .withFailureHandler(err => { if (typeof hideSpinner === 'function') hideSpinner(); console.error(err); alert('Error al cargar los usuarios'); })
+      .getAllUsuarios();
+  }
+
+  function renderUsuarios(users) {
+    usuariosOriginales = users;
+    const empty  = document.getElementById('usuariosEmpty');
+    const tableC = document.getElementById('usuariosTableContainer');
+    const tbody  = document.querySelector('#usuariosTable tbody');
+    if (!users.length) {
+      empty.classList.remove('hidden');
+      tableC.classList.add('hidden');
+      return;
+    }
+    empty.classList.add('hidden');
+    tableC.classList.remove('hidden');
+    tbody.innerHTML = '';
+    users.forEach(u => {
+      const tr = document.createElement('tr');
+      ['email','nombre','rol','Campaña'].forEach(k => {
+        const td = document.createElement('td');
+        td.textContent = u[k] || '';
+        tr.appendChild(td);
+      });
+      const tdAct = document.createElement('td');
+      tdAct.className = 'actions';
+      tdAct.innerHTML = `
+        <button onclick="openUserEditModal('${u.email}')" title="Editar">✏️</button>
+        <button onclick="openUserDeleteModal('${u.email}')" title="Eliminar">🗑️</button>`;
+      tr.appendChild(tdAct);
+      tbody.appendChild(tr);
+    });
+    
+  }
+
+  let usuariosOriginales = [];
+  let roles = [];
+  let currentEmail = null;
+
+  function openUserAddModal() {
+    currentEmail = null;
+    document.querySelector('#editUserModal h2').textContent = 'Añadir Usuario';
+    document.getElementById('userEmail').value = '';
+    document.getElementById('userNombre').value = '';
+    document.getElementById('userCampania').value = '';
+    const sel = document.getElementById('userRol');
+    sel.innerHTML = roles.map(r => `<option value="${r}">${r}</option>`).join('');
+    sel.value = roles[0] || '';
+    document.getElementById('editUserModal').classList.add('activo');
+  }
+
+  function cargarRoles() {
+    google.script.run.withSuccessHandler(list => {
+      roles = Array.isArray(list) ? list : [];
+    }).getRoles();
+  }
+
+  function openUserEditModal(email) {
+    const u = usuariosOriginales.find(x => x.email === email);
+    if (!u) return;
+    currentEmail = email;
+    document.querySelector('#editUserModal h2').textContent = 'Editar Usuario';
+    document.getElementById('userEmail').value = u.email || '';
+    document.getElementById('userNombre').value = u.nombre || '';
+    document.getElementById('userCampania').value = u['Campaña'] || '';
+    const sel = document.getElementById('userRol');
+    sel.innerHTML = roles.map(r => `<option value="${r}">${r}</option>`).join('');
+    sel.value = u.rol || '';
+    document.getElementById('editUserModal').classList.add('activo');
+  }
+
+  function closeUserEditModal() {
+    document.getElementById('editUserModal').classList.remove('activo');
+  }
+  document.getElementById('btnUserCancel').onclick = closeUserEditModal;
+  document.getElementById('editUserModal').onclick = e => { if(e.target===e.currentTarget) closeUserEditModal(); };
+  document.getElementById('formEditUser').onsubmit = e => {
+    e.preventDefault();
+    const data = {
+      originalEmail: currentEmail,
+      email:   document.getElementById('userEmail').value.trim(),
+      nombre:  document.getElementById('userNombre').value.trim(),
+      rol:     document.getElementById('userRol').value,
+      'Campaña': document.getElementById('userCampania').value.trim()
+    };
+    closeUserEditModal();
+    if (typeof showSpinner === 'function') showSpinner();
+    const fn = currentEmail ? 'actualizarUsuario' : 'crearUsuario';
+    const okMsg = currentEmail ? 'Usuario actualizado correctamente.' : 'Usuario creado correctamente.';
+    const okHead = currentEmail ? '\u00a1Usuario Actualizado!' : '\u00a1Usuario Creado!';
+    const errMsg = currentEmail ? 'Error actualizando el usuario' : 'Error creando el usuario';
+    google.script.run
+      .withSuccessHandler(() => { cargarUsuarios(); showInfoModal(okMsg, okHead); })
+      .withFailureHandler(err => { if(typeof hideSpinner==='function') hideSpinner(); console.error(err); alert(errMsg); })
+      [fn](data);
+  };
+
+  let deleteEmail = null;
+  function openUserDeleteModal(email) {
+    deleteEmail = email;
+    document.getElementById('deleteUserMsg').textContent = '¿Eliminar el usuario ' + email + '?';
+    document.getElementById('deleteUserOverlay').style.display = 'flex';
+  }
+  function closeUserDeleteModal() {
+    document.getElementById('deleteUserOverlay').style.display = 'none';
+  }
+  document.getElementById('btnDeleteUserCancel').onclick = closeUserDeleteModal;
+  document.getElementById('deleteUserOverlay').onclick = e => { if(e.target===e.currentTarget) closeUserDeleteModal(); };
+  document.getElementById('btnDeleteUserOk').onclick = () => {
+    closeUserDeleteModal();
+    if (typeof showSpinner === 'function') showSpinner();
+    google.script.run
+      .withSuccessHandler(() => { cargarUsuarios(); showInfoModal('Usuario eliminado correctamente.','\u00a1Usuario Eliminado!'); })
+      .withFailureHandler(err => { if(typeof hideSpinner==='function') hideSpinner(); console.error(err); alert('Error eliminando el usuario'); })
+      .eliminarUsuario(deleteEmail);
+  };
+
+  function showInfoModal(msg, header='Información') {
+    document.getElementById('infoHeader').textContent = header;
+    document.getElementById('infoMsg').textContent = msg;
+    document.getElementById('infoOverlay').style.display = 'flex';
+  }
+  function hideInfoModal() {
+    document.getElementById('infoOverlay').style.display = 'none';
+  }
+  document.getElementById('btnInfoOk').onclick = hideInfoModal;
+  document.getElementById('infoOverlay').onclick = e => { if (e.target===e.currentTarget) hideInfoModal(); };
+
+  document.getElementById('btnAddUser').onclick = openUserAddModal;
+  document.getElementById('btnEmptyAddUser').onclick = openUserAddModal;
+  
+</script>
