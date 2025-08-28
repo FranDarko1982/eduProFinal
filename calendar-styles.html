@@ -1,0 +1,193 @@
+<style>
+  /* ==== ESTILOS FULLCALENDAR (adaptado para evitar colapso de las horas) ==== */
+
+  /* Fuente general */
+  .fc-toolbar-title,
+  .fc-button,
+  .fc-button-primary {
+    font-family: 'Calibri', Arial, sans-serif !important;
+  }
+
+  /* Botones base */
+  .fc-button,
+  .fc-button-primary,
+  .fc-button-active,
+  .fc-button:focus {
+    background: #bc348b !important;
+    border: none !important;
+    color: #fff !important;
+    font-weight: 700 !important;
+    box-shadow: 0 2px 8px #bc348b17 !important;
+    border-radius: 10px !important;
+    transition: background 0.18s, box-shadow 0.18s;
+    padding: 6px 12px !important;
+  }
+  .fc-button:hover,
+  .fc-button-primary:hover,
+  .fc-button-active:hover {
+    background: #a1226d !important;
+    box-shadow: 0 3px 16px #bc348b38 !important;
+  }
+
+  /* Día actual (hoy) */
+  .fc .fc-day-today {
+    background: rgba(188, 52, 139, 0.10) !important;
+  }
+
+  /* Botón "hoy" */
+  .fc-button.fc-today-button {
+    background: #444 !important;
+    color: #fff !important;
+    box-shadow: 0 2px 8px #4444 !important;
+    padding: 6px 12px !important;
+  }
+  .fc-button.fc-today-button:hover {
+    background: #666 !important;
+    box-shadow: 0 4px 16px #6668 !important;
+  }
+
+  /* Deshabilitados */
+  .fc-button:disabled,
+  .fc-button-primary:disabled {
+    background: #eee !important;
+    color: #aaa !important;
+    box-shadow: none !important;
+    cursor: not-allowed !important;
+  }
+
+  /* Vista activa */
+  .fc-button-active,
+  .fc-button-primary:active,
+  .fc-button:active {
+    background: #a1226d !important;
+    box-shadow: 0 4px 18px #bc348b2a !important;
+  }
+
+  /* Sin sombras nativas */
+  .fc .fc-button,
+  .fc .fc-button-primary {
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  /* Separación botones */
+  .fc .fc-button-group > .fc-button,
+  .fc .fc-button-group > .fc-button-primary {
+    margin-right: 6px !important;
+  }
+  .fc .fc-button-group > .fc-button:last-child,
+  .fc .fc-button-group > .fc-button-primary:last-child {
+    margin-right: 0 !important;
+  }
+
+  /* Título calendario */
+  .fc-toolbar-title {
+    color: #222 !important;
+    font-size: 1.25rem !important;
+  }
+
+  /* Flechas grandes y centradas */
+  .fc-prev-button,
+  .fc-next-button {
+    width: 40px !important;
+    height: 40px !important;
+    padding: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+  .fc-prev-button .fc-icon,
+  .fc-next-button .fc-icon {
+    margin: 0 !important;
+    line-height: 1 !important;
+  }
+  .fc-prev-button .fc-icon:before { content: "‹"; }
+  .fc-next-button .fc-icon:before { content: "›"; }
+  .fc-prev-button .fc-icon:before,
+  .fc-next-button .fc-icon:before {
+    font-family: sans-serif !important;
+    font-size: 1.35rem !important;
+    line-height: 1 !important;
+    display: block;
+  }
+
+  /* AJUSTE DE ANCHO CONTENEDORES para evitar colapso */
+  div#calendar {
+    min-width: 850px !important;
+    width: 100% !important;
+    max-width: 1700px !important;
+    overflow-x: auto !important;
+    box-sizing: border-box;
+  }
+
+  /* EVENTOS en rosa */
+  .fc-event-pink,
+  .fc-event {
+    background: #bc348b !important;
+    color: #fff !important;
+    border: none !important;
+    border-radius: 12px !important;
+    font-weight: 700 !important;
+    text-align: center !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer;
+  }
+
+  /* Eventos del usuario actual en naranja */
+  .fc-event-own {
+    background: #ff9800 !important;
+    color: #fff !important;
+  }
+
+
+  /* ==== EJE IZQUIERDO: COLUMNAS DE LAS HORAS ==== */
+  .fc-timegrid-axis,
+  .fc-timegrid-slot-label {
+    min-width: 65px !important;
+    width: 65px !important;
+    max-width: 70px !important;
+    text-align: right !important;
+    padding-right: 8px !important;
+    color: #4c759a !important;
+    font-weight: 600 !important;
+    background: transparent !important;
+    font-size: 0.95rem !important;
+  }
+  .fc-timegrid-axis-cushion {
+    padding: 0 !important;
+  }
+
+  /* Columnas de los días */
+  div#calendar .fc .fc-timegrid-col {
+    min-width: 150px !important;
+    max-width: 200px !important;
+  }
+
+  /* Etiquetas de las franjas horarias, dos líneas (opcional) */
+  .fc-timegrid-slot-label-frame { padding: 0; }
+  .fc-timegrid-slot-label-cushion {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    font-size: 0.85rem;
+    line-height: 1.1;
+    color: #4c759a;
+    padding-right: 0.5rem;
+  }
+  .fc-slot-label-start { font-weight: 600; }
+  .fc-slot-label-end { opacity: 0.6; font-size: 0.75rem; }
+
+  /* OVERRIDE: eliminar zebra striping solo en div#calendar */
+  div#calendar .fc-timegrid-slots .fc-scrollgrid .fc-scrollgrid-section-bg,
+  div#calendar .fc-timegrid-slots .fc-scrollgrid .fc-scrollgrid-section-bg *,
+  div#calendar .fc-timegrid-slots .fc-scrollgrid-section-lane,
+  div#calendar .fc-timegrid-slots .fc-scrollgrid-section-lane::before,
+  div#calendar .fc-timegrid-slots .fc-scrollgrid-section-lane::after {
+    background: none !important;
+    background-color: white !important;
+    background-image: none !important;
+  }
+</style>
