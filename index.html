@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Training Room Booking</title>
+
+    <!-- FullCalendar CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.css" rel="stylesheet" />
+    <?!= include('styles'); ?>
+    <script>
+      window.USER_ROLE = '<?= usuario.rol ?>'.toLowerCase();
+    </script>
+    <?!= include('calendar-styles'); ?>
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
+  </head>
+  <body>
+    <!-- CABECERA MODERNA -->
+    <header class="main-header">
+      <div class="header-content">
+        <div class="header-text">
+          <h1>Reserva Salas de Formación</h1>
+          <p>Consulta la disponibilidad de salas y reserva</p>
+        </div>
+      </div>
+    </header>
+
+    <!-- NAV TABS -->
+    <nav class="tabs" id="mainTabs">
+      <img src="https://seleccion.unisono.es/imagenes/logo_color.png" alt="Company Logo" class="tabs-logo" />
+      <button class="tab active"   data-id="calendar"        data-visible="admin,usuario">Calendario</button>
+      <button class="tab"          data-id="mybookings"      data-visible="usuario">Mis reservas</button>
+      <button class="tab"          data-id="reservas"        data-visible="admin">Reservas</button>
+      <button class="tab"          data-id="rooms"           data-visible="admin,usuario">Salas</button>
+      <button class="tab"          data-id="disponibilidad"  data-visible="admin,usuario">Buscar disponibilidad</button>
+      <button class="tab"          data-id="reports"         data-visible="admin">Informes</button>
+      <button class="tab"          data-id="reportes"        data-visible="admin">Reportes</button>
+      <button class="tab"          data-id="ayuda"           data-visible="admin,usuario">Ayuda</button>
+      <button class="tab"          data-id="panel"           data-visible="admin" style="color:#007bff;">Panel de control</button>
+      <div class="tabs-icons">
+        <a href="#notifications" class="icon-button" aria-label="Notificaciones" title="Notificaciones">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <path d="M12 22c1.1 0 2-.9 2-2h-4a2 2 0 0 0 2 2zm6-6V11c0-3.07-1.63-5.64-4.5-6.32V4a1.5 1.5 0 0 0-3 0v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z" stroke="#111" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </a>
+        <a href="#profile" class="icon-button icon-user" aria-label="Perfil usuario" title="<?= getActiveUserEmail() ?>">
+          <svg width="1.9em" height="1.9em" fill="#111" viewBox="0 0 24 24">
+            <circle cx="12" cy="8" r="4"/>
+            <path d="M12 14c-4 0-7 2-7 4v2h14v-2c0-2-3-4-7-4z"/>
+          </svg>
+        </a>
+      </div>
+    </nav>
+
+    <main class="content">
+      <section id="calendar"   class="section"><?!= include('calendario'); ?></section>
+      <section id="mybookings" class="section"><?!= include('misreservas'); ?></section>
+      <section id="reservas"   class="section"><?!= include('reservas'); ?></section>
+      <section id="rooms"      class="section"><?!= include('salas'); ?></section>
+      <section id="disponibilidad" class="section"><?!= include('disponibilidad'); ?></section>
+      <section id="reports"    class="section"><?!= include('informes'); ?></section>
+      <section id="reportes"   class="section"><?!= include('Reportes'); ?></section>
+      <section id="ayuda"      class="section"><?!= include('ayuda'); ?></section>
+      <section id="panel"      class="section"><?!= include('panelcontrol'); ?></section>
+    </main>
+
+    <!-- SPINNER GLOBAL -->
+    <div
+      id="spinnerOverlay"
+      class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-white bg-opacity-75 hidden"
+    >
+      <div class="w-12 h-12 border-4 border-[#bc348b] border-t-transparent rounded-full animate-spin mb-2"></div>
+      <div class="text-[#bc348b] font-medium">Cargando…</div>
+    </div>
+
+    <script>
+      document.addEventListener('DOMContentLoaded', function () {
+        // VISIBILIDAD SEGÚN ROL
+        const userRole = window.USER_ROLE;
+
+        // 1) Mostrar/ocultar tabs según rol
+        document.querySelectorAll('.tab').forEach(btn => {
+          const vis = btn.getAttribute('data-visible');
+          if (
+            vis === 'all' ||
+            (vis &&
+              vis
+                .split(',')
+                .map(r => r.trim().toLowerCase())
+                .includes(userRole))
+          ) {
+            btn.style.display = '';
+          } else {
+            btn.style.display = 'none';
+          }
+        });
+
+        // 2) Ocultar secciones sin tab visible
+        document.querySelectorAll('.section').forEach(sec => {
+          const menuTab = document.querySelector(
+            `.tab[data-id="${sec.id}"]`
+          );
+          if (!menuTab || menuTab.style.display === 'none') {
+            sec.style.display = 'none';
+          }
+        });
+
+        // 3) Mostrar la sección activa o la primera visible
+        let found = false;
+        document.querySelectorAll('.tab').forEach(btn => {
+          if (!found && btn.classList.contains('active') && btn.style.display !== 'none') {
+            showSection(btn);
+            found = true;
+          }
+        });
+        if (!found) {
+          const first = Array.from(
+            document.querySelectorAll('.tab')
+          ).find(l => l.style.display !== 'none');
+          if (first) {
+            first.classList.add('active');
+            showSection(first);
+          }
+        }
+
+        // 4) Manejo de clicks en las tabs
+        document.querySelectorAll('.tab').forEach(btn => {
+          btn.addEventListener('click', e => {
+            e.preventDefault();
+            document.querySelectorAll('.tab').forEach(l => l.classList.remove('active'));
+            btn.classList.add('active');
+            showSection(btn);
+
+            // Al abrir “Mis reservas”, forzar recarga
+            if (
+              btn.getAttribute('data-id') === 'mybookings' &&
+              typeof loadMisReservas === 'function'
+            ) {
+              loadMisReservas();
+            }
+          });
+        });
+
+        // --- Función para mostrar la sección correspondiente ---
+        function showSection(tabBtn) {
+          const target = tabBtn.getAttribute('data-id');
+          document.querySelectorAll('.section').forEach(sec => {
+            sec.style.display = sec.id === target ? 'block' : 'none';
+          });
+        }
+
+        // Estado notificaciones (lógica tuya)
+        const btnNotif = document.querySelector('.icon-button[aria-label="Notificaciones"]');
+        const tienesNotificaciones = false;
+        if (tienesNotificaciones) {
+          btnNotif.classList.add('has-notifications');
+        }
+      });
+    </script>
+  </body>
+</html>
