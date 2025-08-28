@@ -1,0 +1,639 @@
+<!-- calendario.html -->
+
+<!-- 1) CONTENEDOR PRINCIPAL PARA QUE FULLCALENDAR NO PISE LOS FILTROS -->
+<div class="calendar-container" style="position:relative;">
+
+  <!-- 1a) BLOQUE DE FILTROS -->
+    <div class="filter-style" style="display:flex; align-items:center; gap:0.5rem;">
+    <div class="filter">
+      <label for="filter-city">Ciudad:</label>
+      <select id="filter-city" name="city">
+        <option value="">— Elige Ciudad —</option>
+      </select>
+    </div>
+    <div class="filter">
+      <label for="filter-center">Centro:</label>
+      <select id="filter-center" name="center">
+        <option value="">— Elige Centro —</option>
+      </select>
+    </div>
+    <div class="filter">
+      <label for="filter-room">Sala:</label>
+      <select id="filter-room" name="room">
+        <option value="">— Elige Sala —</option>
+      </select>
+    </div>
+
+    <!-- Botones -->
+    <button type="button"
+            id="clearFilters"
+            class="btn-filters-clear"
+            onclick="clearCalendarFilters()">
+      Quitar filtros
+    </button>
+    <button type="button"
+            id="reloadData"
+            class="btn-filters-clear"
+            onclick="reloadCalendarData()">
+      Recargar datos
+    </button>
+  </div>
+
+  <!-- 1b) DIV donde FullCalendar montará TODO su HTML -->
+  <div id="fc-calendar"></div>
+
+  <!-- SPINNER LOCAL SOLO PARA CALENDARIO -->
+  <div id="calendar-spinner"
+       style="display:none; position:absolute; left:0; top:0; width:100%; height:100%; z-index:30;
+              background:rgba(255,255,255,0.7); align-items:center; justify-content:center;">
+    <div style="width:64px; height:64px; margin:0 auto; display:flex; flex-direction:column; align-items:center; justify-content:center;">
+      <svg style="width:54px; height:54px; margin-bottom:8px;" viewBox="0 0 50 50">
+        <circle cx="25" cy="25" r="20" fill="none" stroke="#bc348b" stroke-width="5" stroke-linecap="round"
+          stroke-dasharray="100" stroke-dashoffset="80">
+          <animateTransform attributeName="transform" type="rotate" from="0 25 25" to="360 25 25" dur="1s" repeatCount="indefinite" />
+        </circle>
+      </svg>
+      <span style="color:#bc348b; font-weight:600; font-size:1.1em;">Cargando...</span>
+    </div>
+  </div>
+
+  <!-- MODAL CREAR RESERVA -->
+  <div id="modalReserva" class="modal-reserva-bg">
+    <div class="modal-reserva">
+      <h2 class="modal-reserva-titulo">Crear Reserva</h2>
+      <form id="formReserva" autocomplete="off">
+        <input id="motivoReserva" type="text" placeholder="Motivo de la reserva"
+               class="modal-reserva-input" required />
+        <div class="modal-reserva-fechas">
+          <div>
+            <label for="fechaInicio" class="modal-reserva-label">Fecha inicio</label><br>
+            <input id="fechaInicio" type="text" required
+                   class="modal-reserva-datetime" autocomplete="off"/>
+          </div>
+          <div>
+            <label for="fechaFin" class="modal-reserva-label">Fecha fin</label><br>
+            <input id="fechaFin" type="text" required
+                   class="modal-reserva-datetime" autocomplete="off"/>
+          </div>
+        </div>
+        <div class="modal-reserva-botones">
+          <button type="button" id="btnCancelarReserva" class="modal-reserva-btn-cancelar">Cancelar</button>
+          <button type="submit" id="btnGuardarReserva" class="modal-reserva-btn-guardar">Guardar</button>
+          <button type="button" id="btnEliminarReserva" class="modal-reserva-btn-borrar" title="Eliminar" style="display:none;">🗑️</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL DE CONFIRMACIÓN -->
+    <div id="confirmOverlay" class="modal-overlay" style="display:none;">
+      <div class="modal flex-col">
+        <div id="confirmHeader" class="modal-header mb-2">¡Reserva Confirmada!</div>
+      <div class="modal-body flex flex-col gap-3">
+        <p id="confirmMsg" class="text-[#0d151b]"></p>
+      </div>
+      <div class="modal-footer">
+        <button id="btnConfirmOk"
+                class="px-4 py-2 rounded bg-[#bc348b] text-white hover:bg-[#a1226d]">
+          Aceptar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL DE ERROR -->
+  <div id="errorOverlay" class="modal-overlay" style="display:none;">
+    <div class="modal flex-col">
+      <div class="modal-header mb-2">Error</div>
+      <div class="modal-body flex flex-col gap-3">
+        <p id="errorMsg" class="text-[#0d151b]"></p>
+      </div>
+      <div class="modal-footer">
+        <button id="btnErrorOk" class="px-4 py-2 rounded bg-[#bc348b] text-white hover:bg-[#a1226d]">
+          Aceptar
+        </button>
+      </div>
+    </div>
+  </div>
+
+
+   <!-- MODAL ELIMINAR RESERVA -->
+  <div id="deleteOverlay" class="modal-overlay" style="display:none;">
+    <div class="modal flex-col">
+      <div class="modal-header mb-2">Eliminar Reserva</div>
+      <div class="modal-body flex flex-col gap-3">
+        <p id="deleteMsg" class="text-[#0d151b]"></p>
+      </div>
+      <div class="modal-footer" style="display:flex;gap:1rem;">
+        <button id="btnDeleteCancel" class="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300">Cancelar</button>
+        <button id="btnDeleteOk" class="px-4 py-2 rounded bg-[#bc348b] text-white hover:bg-[#a1226d]">Eliminar</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Flatpickr (calendar & time picker) -->
+<link rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<link rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/material_pink.css">
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
+
+<script>
+  /* ========= UTILIDADES ========= */
+  function showCalendarSpinner() {
+    document.getElementById('calendar-spinner').style.display = 'flex';
+  }
+  function hideCalendarSpinner() {
+    document.getElementById('calendar-spinner').style.display = 'none';
+  }
+
+  /**
+   * Limpia los selects y recarga el calendario.
+   */
+
+   function clearCalendarFilters() {
+    document.getElementById('filter-city').value = '';
+    document.getElementById('filter-center').innerHTML =
+      '<option value="">— Elige Centro —</option>';
+    document.getElementById('filter-room').innerHTML =
+      '<option value="">— Elige Sala —</option>';
+    calendar.refetchEvents();
+  }
+
+  /**
+   * Muestra el spinner y recarga eventos.
+   */
+  function reloadCalendarData() {
+    showCalendarSpinner();
+    calendar.refetchEvents();
+  }
+
+  /* ========= MODAL RESERVA ========= */
+  let fpInicio, fpFin;
+  let selectedStart = null;
+  let selectedEnd = null;
+  let editReservaId = null;
+  let deleteId = null;
+  let confirmAction = null;
+  let activeEmail = '';
+  function showModalReserva(start, end, motivo = '', id = null) {
+    document.getElementById('modalReserva').classList.add('activo');
+    fpInicio.setDate(start, true, 'Y-m-d H:i');
+    fpFin.setDate(end, true, 'Y-m-d H:i');
+    document.getElementById('motivoReserva').value = motivo;
+    editReservaId = id;
+    deleteId = id;
+    document.getElementById('btnEliminarReserva').style.display = id ? 'inline-block' : 'none';
+    setTimeout(() => document.getElementById('motivoReserva').focus(), 60);
+  }
+  function hideModalReserva() {
+    document.getElementById('modalReserva').classList.remove('activo');
+    if (calendar) calendar.unselect();
+    editReservaId = null;
+    deleteId = null;
+    document.getElementById('btnEliminarReserva').style.display = 'none';
+  }
+
+  /* ========= MODAL CONFIRMACIÓN ========= */
+  function showConfirmModal(idReserva, accion = 'crear') {
+    confirmAction = accion;
+    const header = document.getElementById('confirmHeader');
+    if (accion === 'editar') {
+      header.textContent = '¡Reserva Actualizada!';
+      document.getElementById('confirmMsg').innerHTML =
+        'La reserva con ID <b>' + idReserva + '</b> se ha modificado correctamente.';
+      } else if (accion === 'eliminar') {
+      header.textContent = '¡Reserva Eliminada!';
+      document.getElementById('confirmMsg').innerHTML =
+        'La reserva con ID <b>' + idReserva + '</b> se ha eliminado correctamente.';
+    } else {
+      header.textContent = '¡Reserva Confirmada!';
+      document.getElementById('confirmMsg').innerHTML =
+        'Este es tu ID de reserva: <b>' + idReserva + '</b><br>' +
+        'Tienes un email y un evento en tu Google Calendar 😉';
+    }
+    document.getElementById('confirmOverlay').style.display = 'flex';
+  }
+  function hideConfirmModal() {
+    document.getElementById('confirmOverlay').style.display = 'none';
+    if (confirmAction === 'eliminar') {
+      hideModalReserva();
+    }
+    confirmAction = null;
+    if (calendar) calendar.unselect();
+  }
+
+  /* ========= MODAL ERROR ========= */
+  function showErrorModal(msg) {
+    document.getElementById('errorMsg').textContent = msg;
+    document.getElementById('errorOverlay').style.display = 'flex';
+  }
+  function hideErrorModal() {
+    document.getElementById('errorOverlay').style.display = 'none';
+    if (calendar) calendar.unselect();
+  }
+
+  /* ========= MODAL ELIMINAR ========= */
+  function openDeleteModal(id) {
+    deleteId = id;
+    document.getElementById('deleteMsg').textContent = '¿Eliminar la reserva ' + id + '?';
+    document.getElementById('deleteOverlay').style.display = 'flex';
+  }
+  function closeDeleteModal() {
+    document.getElementById('deleteOverlay').style.display = 'none';
+  }
+
+  window.showConfirmModal = showConfirmModal;
+  window.hideConfirmModal = hideConfirmModal;
+  window.showErrorModal = showErrorModal;
+  window.hideErrorModal = hideErrorModal;
+
+  function formatDateTime(date) {
+    const pad = n => String(n).padStart(2, '0');
+    return (
+      date.getFullYear() +
+      '-' + pad(date.getMonth() + 1) +
+      '-' + pad(date.getDate()) +
+      ' ' + pad(date.getHours()) +
+      ':' + pad(date.getMinutes())
+    );
+  }
+
+  function splitRangeByDay(start, end) {
+    const slots = [];
+    const hStart = start.getHours();
+    const mStart = start.getMinutes();
+    const hEnd = end.getHours();
+    const mEnd = end.getMinutes();
+    let current = new Date(start);
+    current.setHours(0, 0, 0, 0);
+    const last = new Date(end);
+    last.setHours(0, 0, 0, 0);
+    while (current <= last) {
+      const s = new Date(current);
+      s.setHours(hStart, mStart, 0, 0);
+      const e = new Date(current);
+      e.setHours(hEnd, mEnd, 0, 0);
+      slots.push({ start: new Date(s), end: new Date(e) });
+      current.setDate(current.getDate() + 1);
+    }
+    return slots;
+  }
+  
+  /* ========= MAIN ========= */
+  let calendar;
+
+  document.addEventListener('DOMContentLoaded', function () {
+
+    google.script.run.withSuccessHandler(function(email){
+      activeEmail = (email || '').toLowerCase();
+    }).getActiveUserEmail();
+
+    /* --- Flatpickr --- */
+    fpInicio = flatpickr('#fechaInicio', {
+      enableTime:true, time_24hr:true, dateFormat:'Y-m-d H:i',
+      locale:'es', minuteIncrement:5
+    });
+    fpFin = flatpickr('#fechaFin',   {
+      enableTime:true, time_24hr:true, dateFormat:'Y-m-d H:i',
+      locale:'es', minuteIncrement:5
+    });
+
+    /* --- Modal reserva: eventos --- */
+    document.getElementById('btnCancelarReserva').onclick = hideModalReserva;
+    document.getElementById('modalReserva').onclick = e=>{
+      if (e.target===e.currentTarget) hideModalReserva();
+    };
+
+    document.getElementById('formReserva').onsubmit = function(e) {
+      e.preventDefault();
+      const motivo = document.getElementById('motivoReserva').value.trim();
+      const fechaInicio = document.getElementById('fechaInicio').value;
+      const fechaFin    = document.getElementById('fechaFin').value;
+      if (!motivo) { document.getElementById('motivoReserva').focus(); return; }
+      const startDate = new Date(fechaInicio.replace(' ', 'T'));
+      const endDate   = new Date(fechaFin.replace(' ', 'T'));
+      if (endDate <= startDate) {
+        showErrorModal('La fecha fin no puede ser anterior a la fecha inicio.');
+        return;
+      }
+      const idReserva = editReservaId; // guardar antes de cerrar
+      hideModalReserva();
+      showCalendarSpinner();
+            
+      if (idReserva) {     
+        google.script.run
+          .withSuccessHandler(function(){
+              hideCalendarSpinner();
+              calendar.refetchEvents();
+              showConfirmModal(idReserva, 'editar');
+          })
+          .withFailureHandler(function(err){
+              hideCalendarSpinner();
+              showErrorModal('Error al actualizar la reserva: ' + err.message);
+          })
+          .actualizarReserva({
+            id: idReserva,
+            motivo,
+            fechaInicio,
+            fechaFin
+          });
+      } else {
+        const ciudad = document.getElementById('filter-city').value;
+        const centro = document.getElementById('filter-center').value;
+        const sala   = document.getElementById('filter-room').value;
+          
+        google.script.run.withSuccessHandler(function(email){
+          google.script.run
+            .withSuccessHandler(function(id){
+                hideCalendarSpinner();
+                calendar.refetchEvents();
+                showConfirmModal(id);
+            })
+            .withFailureHandler(function(err){
+                hideCalendarSpinner();
+                showErrorModal('Error al crear la reserva: ' + err.message);
+            })
+            .crearReserva({
+              ciudad,
+              centro,
+              nombre: sala,
+              usuario: email,
+              motivo,
+              fechaInicio: formatDateTime(startDate),
+              fechaFin:    formatDateTime(endDate)
+            });
+        }).withFailureHandler(function(err){
+            hideCalendarSpinner();
+            showErrorModal('Error obteniendo el correo del usuario: ' + err.message);
+        }).getActiveUserEmail();
+      }
+    };
+
+    /* --- Modal confirmación: eventos --- */
+    document.getElementById('btnConfirmOk').onclick = hideConfirmModal;
+    document.getElementById('confirmOverlay').onclick = e=>{
+      if (e.target===e.currentTarget) hideConfirmModal();
+    };
+
+    /* --- Modal error: eventos --- */
+    document.getElementById('btnErrorOk').onclick = hideErrorModal;
+    document.getElementById('errorOverlay').onclick = e=>{
+      if (e.target===e.currentTarget) hideErrorModal();
+    };
+
+    /* --- Modal eliminar: eventos --- */
+    document.getElementById('btnEliminarReserva').onclick = () => openDeleteModal(editReservaId);
+    document.getElementById('btnDeleteCancel').onclick = closeDeleteModal;
+    document.getElementById('deleteOverlay').onclick = e=>{ if(e.target===e.currentTarget) closeDeleteModal(); };
+    document.getElementById('btnDeleteOk').onclick = () => {
+      closeDeleteModal();
+      showCalendarSpinner();
+      google.script.run
+        .withSuccessHandler(function(){
+            hideCalendarSpinner();
+            calendar.refetchEvents();
+            showConfirmModal(deleteId, 'eliminar');
+        })
+        .withFailureHandler(function(err){
+            hideCalendarSpinner();
+            showErrorModal('Error al eliminar la reserva: ' + err.message);
+        })
+        .eliminarReserva(deleteId);
+    };
+
+    /* --- Rellenar selects Ciudad/Centro/Sala --- */
+    showCalendarSpinner();
+    google.script.run.withSuccessHandler(function(ciudades){
+      const sel = document.getElementById('filter-city');
+      ciudades.forEach(c=>{
+        const opt=document.createElement('option'); opt.value=c; opt.textContent=c;
+        sel.appendChild(opt);
+      });
+      hideCalendarSpinner();
+    }).withFailureHandler(function(){ hideCalendarSpinner(); alert('Error cargando ciudades'); })
+      .getCiudades();
+
+    document.getElementById('filter-city').addEventListener('change', function(){
+      showCalendarSpinner();
+      const ciudad=this.value;
+      google.script.run.withSuccessHandler(function(centros){
+        const sel=document.getElementById('filter-center');
+        sel.innerHTML='<option value="">— Elige Centro —</option>';
+        centros.forEach(c=>{
+          const opt=document.createElement('option'); opt.value=c; opt.textContent=c;
+          sel.appendChild(opt);
+        });
+        document.getElementById('filter-room').innerHTML='<option value="">— Elige Sala —</option>';
+        hideCalendarSpinner();
+      }).withFailureHandler(function(){ hideCalendarSpinner(); alert('Error cargando centros'); })
+        .getCentros(ciudad);
+    });
+
+    document.getElementById('filter-center').addEventListener('change', function(){
+      showCalendarSpinner();
+      const ciudad=document.getElementById('filter-city').value;
+      const centro=this.value;
+      google.script.run.withSuccessHandler(function(salas){
+        const sel=document.getElementById('filter-room');
+        sel.innerHTML='<option value="">— Elige Sala —</option>';
+        salas.forEach(s=>{
+          const opt=document.createElement('option'); opt.value=s; opt.textContent=s;
+          sel.appendChild(opt);
+        });
+        hideCalendarSpinner();
+      }).withFailureHandler(function(){ hideCalendarSpinner(); alert('Error cargando salas'); })
+        .getSalas(ciudad, centro);
+    });
+
+    /* --- FullCalendar --- */
+    const calendarEl=document.getElementById('fc-calendar');
+    calendar=new FullCalendar.Calendar(calendarEl,{
+      initialView:'timeGridWeek',
+      firstDay:1,
+      headerToolbar:{ left:'prev,next today', center:'title',
+                      right:'timeGridWeek,dayGridMonth'},
+      locale:'es',
+      buttonText: {
+      today: 'hoy',
+      month: 'mes',
+      week: 'semana',
+      day: 'día'
+      },
+      
+      allDaySlot:true,
+      slotMinTime:'08:00:00',
+      slotMaxTime:'23:00:00',
+      nowIndicator:true,
+      businessHours:false,
+      slotLabelFormat:{hour:'2-digit',minute:'2-digit',hour12:false},
+      events:function(fetchInfo,successCallback,failureCallback){
+        showCalendarSpinner();
+        const ciudad=document.getElementById('filter-city').value||'';
+        const centro=document.getElementById('filter-center').value||'';
+        const sala  =document.getElementById('filter-room').value||'';
+        google.script.run.withSuccessHandler(function(email){
+          const me = (email || '').toLowerCase();
+          activeEmail = me;
+          google.script.run.withSuccessHandler(function(reservas){
+            hideCalendarSpinner();
+            reservas = reservas.map(ev => {
+              const usuario = (ev.extendedProps && ev.extendedProps.usuario || '').toLowerCase();
+              if (usuario === me) {
+                ev.classNames = (ev.classNames || []).concat('fc-event-own');
+              }
+              return ev;
+            });
+            successCallback(reservas);
+          }).withFailureHandler(function(){
+            hideCalendarSpinner(); failureCallback([]); alert('Error cargando reservas');
+          }).getReservas(ciudad, centro, sala);
+        }).withFailureHandler(function(){
+          hideCalendarSpinner(); failureCallback([]); alert('Error obteniendo el correo del usuario');
+        }).getActiveUserEmail();  
+      },
+      navLinks:true,
+      editable:true,
+      selectable:true,
+
+      // ← aquí va selectAllow
+      selectAllow: function(selectInfo) {
+        const segments = splitRangeByDay(selectInfo.start, selectInfo.end);
+        const events = calendar.getEvents();
+        const overlap = segments.some(seg =>
+          events.some(ev => seg.start < ev.end && ev.start < seg.end)
+        );
+        if (overlap) {
+          showErrorModal('La franja elegida ya est\u00e1 reservada en ese rango de fechas.');
+        }
+        return !overlap;
+      },
+
+      select: function(info) {
+        const ciudad = document.getElementById('filter-city').value;
+        const centro = document.getElementById('filter-center').value;
+        const sala   = document.getElementById('filter-room').value;
+        if (!ciudad || !centro || !sala) {
+          alert('Selecciona ciudad, centro y sala antes de reservar.');
+          return;
+        }
+        selectedStart = info.start;
+        selectedEnd = info.end;
+        showModalReserva(info.start, info.end);
+      },
+
+      eventClick: function(info) {
+        const ev = info.event;
+        const usuario = (ev.extendedProps && ev.extendedProps.usuario || '').toLowerCase();
+        if (usuario === activeEmail) {
+          const motivo = (ev.extendedProps && ev.extendedProps.motivo) || ev.title;
+          showModalReserva(ev.start, ev.end, motivo, ev.id);
+        }
+      },
+
+      eventDrop: function(info) {
+        const ev = info.event;
+        const usuario = (ev.extendedProps && ev.extendedProps.usuario || '').toLowerCase();
+        if (usuario !== activeEmail) { info.revert(); return; }
+        showCalendarSpinner();
+        const fechaInicio = formatDateTime(ev.start);
+        const fechaFin    = formatDateTime(ev.end);
+        const motivo      = (ev.extendedProps && ev.extendedProps.motivo) || ev.title;
+        google.script.run
+          .withSuccessHandler(function(){
+              hideCalendarSpinner();
+              calendar.refetchEvents();
+              showConfirmModal(ev.id, 'editar');
+          })
+          .withFailureHandler(function(err){
+              hideCalendarSpinner();
+              info.revert();
+              showErrorModal('Error al actualizar la reserva: ' + err.message);
+          })
+          .actualizarReserva({
+            id: ev.id,
+            motivo: motivo,
+            fechaInicio: fechaInicio,
+            fechaFin: fechaFin
+          });
+      },
+
+      eventResize: function(info) {
+        const ev = info.event;
+        const usuario = (ev.extendedProps && ev.extendedProps.usuario || '').toLowerCase();
+        if (usuario !== activeEmail) { info.revert(); return; }
+        showCalendarSpinner();
+        const fechaInicio = formatDateTime(ev.start);
+        const fechaFin    = formatDateTime(ev.end);
+        const motivo      = (ev.extendedProps && ev.extendedProps.motivo) || ev.title;
+        google.script.run
+          .withSuccessHandler(function(){
+              hideCalendarSpinner();
+              calendar.refetchEvents();
+              showConfirmModal(ev.id, 'editar');
+          })
+          .withFailureHandler(function(err){
+              hideCalendarSpinner();
+              info.revert();
+              showErrorModal('Error al actualizar la reserva: ' + err.message);
+          })
+          .actualizarReserva({
+            id: ev.id,
+            motivo: motivo,
+            fechaInicio: fechaInicio,
+            fechaFin: fechaFin
+          });
+      },
+
+      weekNumbers:false,
+      contentHeight:840 
+    });
+    calendar.render();
+
+    if (window.OPEN_EDIT_ID) {
+      google.script.run.withSuccessHandler(function(res) {
+        if (!res) return;
+        function trySetFilters() {
+          const citySel   = document.getElementById('filter-city');
+          const centroSel = document.getElementById('filter-center');
+          const salaSel   = document.getElementById('filter-room');
+          const cityOk    = [...citySel.options].some(o => o.value === res.ciudad);
+          if (!cityOk) return false;
+          citySel.value = res.ciudad;
+          citySel.dispatchEvent(new Event('change'));
+          setTimeout(() => {
+            centroSel.value = res.centro;
+            centroSel.dispatchEvent(new Event('change'));
+            setTimeout(() => {
+              salaSel.value = res.nombre;
+              calendar.refetchEvents();
+            }, 300);
+          }, 300);
+          return true;
+        }
+        const h = setInterval(() => {
+          if (trySetFilters()) clearInterval(h);
+        }, 300);
+      }).getReservaPorId(window.OPEN_EDIT_ID);
+    }
+
+    calendar.on('eventsSet', function(events) {
+      if (window.OPEN_EDIT_ID) {
+        const ev = events.find(e => String(e.id) === String(window.OPEN_EDIT_ID));
+        if (ev) {
+          const motivo = (ev.extendedProps && ev.extendedProps.motivo) || ev.title;
+          showModalReserva(ev.start, ev.end, motivo, ev.id);
+          window.OPEN_EDIT_ID = null;
+        }
+      }
+    });
+
+    /* --- Refrescar eventos al cambiar filtros --- */
+    ['filter-city','filter-center','filter-room'].forEach(id=>{
+      document.getElementById(id).addEventListener('change', ()=>calendar.refetchEvents());
+    });
+  });
+</script>
