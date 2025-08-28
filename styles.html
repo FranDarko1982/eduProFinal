@@ -1,0 +1,824 @@
+<!-- styles.html -->
+<style>
+  :root {
+    /* Definición de variables CSS para colores principales y neutros */
+    --rosa-principal: #ea297c;
+    --rosa-claro: #f5a1c4;
+    --rosa-pastel: #f7c7df;
+    --gris-suave: #f6f9fc;
+    --gris-claro: #ececec;
+    --negro: #333;
+    --blanco: #fff;
+  }
+
+  /* Estilos generales para el body */
+  body {
+    font-family: 'Roboto', sans-serif;
+    margin: 0;
+    padding: 1.5rem;
+    background-color: var(--gris-suave);
+    color: var(--negro);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Estilos de la cabecera principal */
+  .main-header {
+    background: linear-gradient(90deg, var(--rosa-principal) 80%, #e03e8c 100%);
+    color: var(--blanco);
+    padding: 0.65rem 1rem 0.65rem 2rem;   /* Más estrecho */
+    border-radius: 12px;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 3px 14px -8px var(--rosa-claro);
+    font-size: 0.98em; 
+    position: relative;
+  }
+
+  /* Contenedor interior de la cabecera */
+  .header-content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1.5rem;
+    position: relative;
+  }
+
+  /* Estilos para el título h1 dentro de la cabecera */
+  .header-text h1 {
+    margin: 0;
+    font-size: 1.45rem;      /* Mucho más pequeño */
+    font-weight: 900;
+    font-family: 'Roboto', Arial, sans-serif;
+    color: #fff;
+    letter-spacing: 0.02em;
+    line-height: 1.08;
+    text-shadow: 0 2px 8px #ea297c55;
+  }
+
+  /* Estilos para el texto descriptivo en la cabecera */
+  .header-text p {
+    margin: 0;
+    font-size: 0.96rem;     /* Más pequeña */
+    color: #ffeaf6;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    text-shadow: 0 1px 5px #ea297c33;
+  }
+
+  /* Barra de pestañas de navegación */
+  .tabs {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;               /* Reducido */
+    margin-bottom: 0.5rem;
+    border-bottom: 2px solid var(--rosa-claro);
+    background: var(--blanco);
+    border-radius: 10px 10px 0 0;
+    padding:  0.18rem 0.8rem;
+    position: relative;
+    z-index: 10;
+  }
+
+  .tabs-logo {
+    height: 40px;
+    width: auto;
+    max-width: 180px;
+    object-fit: contain;
+    margin-right: 2.5rem;
+  }
+
+  .tab {
+    background: var(--gris-claro);    /* Gris clarito de tu paleta */
+    color: var(--rosa-principal);
+    border: none;
+    border-bottom: 3px solid transparent;
+    font-weight: 900;
+    font-family: 'Roboto', Arial, sans-serif;
+    letter-spacing: 0.02em;
+    font-size: 0.95rem;
+    padding: 0.37rem 0.9rem;   /* Menos padding arriba y abajo */
+    cursor: pointer;
+    border-radius: 10px 10px 0 0;
+    box-shadow: 0 2px 6px 0 rgba(234,41,124,0.04);
+    position: relative;
+    transition: background 0.3s, color 0.3s, border-color 0.3s;
+  }
+
+  .tab:hover {
+    color: var(--blanco);
+    background: var(--rosa-claro);
+    box-shadow: 0 4px 14px -4px var(--rosa-claro);
+  }
+
+  .tab.active {
+    background: var(--rosa-principal);
+    color: var(--blanco);
+    border-bottom: 3px solid var(--rosa-principal);
+    position: relative;
+    z-index: 2;
+    box-shadow: 0 8px 18px -6px var(--rosa-claro);
+  }
+
+
+  .divider {
+    width: 100%;
+    height: 1px;
+    background: linear-gradient(90deg, #fff 0%, var(--rosa-claro) 60%, #fff 100%);
+    margin-bottom: 1.5rem;
+    opacity: 0.8;
+  }
+
+  /* Bloque para los iconos de usuario y notificaciones alineados a la derecha */
+  .tabs-icons {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 1.2rem;
+  }
+
+  .tabs-icons .icon-user {
+    font-size: 1.2rem;  /* O incluso 2.2rem si quieres más grande */
+    margin-left: 0.1rem;
+  }
+
+
+  /* Botón base para iconos */
+  .icon-button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.45rem;
+    color: #111;
+    transition: background 0.16s, color 0.16s;
+    border-radius: 8px;
+  }
+
+  .icon-button:hover {
+    background: var(--gris-claro);
+    color: var(--rosa-principal);
+  }
+
+  .icon-button svg {
+    display: block;
+  }
+
+  /* Estilos para campos de entrada */
+  input {
+    padding: 0.5rem;
+    margin: 0.5rem 0;
+    border-radius: 4px;
+    border: 1px solid var(--rosa-claro);
+    width: 100%;
+    max-width: 300px;
+    box-sizing: border-box;
+    font-size: 1em;
+  }
+
+  /* Estilos para botones */
+  button, .button-destacado {
+    padding: 0.5rem 1.1rem;
+    background-color: var(--rosa-principal);
+    color: var(--blanco);
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 600;
+    margin-top: 0.3rem;
+    font-size: 1em;
+    box-shadow: 0 1px 5px -2px var(--rosa-claro);
+    transition: background 0.2s;
+  }
+
+  button:hover, .button-destacado:hover {
+    background-color: var(--rosa-claro);
+    color: var(--negro);
+  }
+
+  .footer {
+    margin-top: auto;
+    text-align: center;
+    font-size: 0.75em;
+    color: #888;
+    background: rgba(255,255,255,0.8);
+    padding: 0.1rem 0;
+    border-top: 1px solid #ececec;
+    position: sticky;
+    bottom: 0;
+    left: 0; right: 0;
+    z-index: 10;
+  }
+
+  .respuesta {
+    margin-top: 1rem;
+    font-weight: bold;
+    color: var(--rosa-principal);
+  }
+
+  #spinner-cargando {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    background: rgba(255,255,255,0.6);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 99;
+  }
+
+  .spinner {
+    border: 6px solid #f3f3f3;
+    border-top: 6px solid var(--rosa-principal);
+    border-radius: 50%;
+    width: 48px;
+    height: 48px;
+    animation: spin 1s linear infinite;
+    margin-bottom: 1rem;
+  }
+
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+
+  .spinner-text {
+    color: var(--negro);
+    font-size: 1.15em;
+    font-weight: bold;
+    letter-spacing: 0.04em;
+  }
+
+  @media (max-width: 900px) {
+    .main-header { font-size: 1em; padding: 0.8rem 0.5rem; }
+    .header-text h1 { font-size: 1.5rem; }
+    .tabs-logo { height: 34px; }
+  }
+
+  @media (max-width: 650px) {
+    body { padding: 0.5rem; }
+    .main-header { padding: 0.6rem 0.2rem; }
+    .tabs { gap: 0.3rem; font-size: 0.93em; padding: 0.2rem 0.4rem; }
+    .tab { font-size: 0.75rem; padding: 0.5rem; }
+    .tabs-logo { height: 28px; max-width: 100px; }
+  }
+
+  /* TODO LO ANTERIOR A SACO */
+
+  /* =================== FILTROS GENERALES =================== */
+  .filter-style {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .filter-style .filter label {
+    font-weight: 600;
+    margin-right: 0.5rem;
+    color: #444;
+    font-size: 0.85rem;
+  }
+  .filter-style .filter select {
+    border: 1px solid #bc348b;
+    border-radius: 6px;
+    padding: 2px 6px;
+    background: #fff;
+    color: #444;
+    font-size: 0.85rem;
+    width: 140px;
+    height: 28px;
+    cursor: pointer;
+  }
+  .filter-style .filter select:hover,
+  .filter-style .filter select:focus {
+    border-color: #a1226d;
+    outline: none;
+  }
+  .filter-style .btn-filters-clear {
+    background: #f2f3f6;
+    color: #ea297c;
+    border: none;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.16s;
+  }
+  .filter-style .btn-filters-clear:hover {
+    background: #e1e1e1;
+  }
+
+  /* =================== MODAL DE RESERVA =================== */
+  .modal-reserva-bg {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    background: rgba(0,0,0,0.18);
+    align-items: center;
+    justify-content: center;
+    font-family: Calibri, Arial, sans-serif !important;
+  }
+  .modal-reserva-bg.activo { display: flex; }
+  .modal-reserva {
+    background: #fff;
+    border-radius: 20px;
+    padding: 2.6rem 2.5rem 2.1rem;
+    max-width: 540px;
+    width: 98%;
+    margin: auto;
+    box-shadow: 0 8px 40px #bc348b30;
+    display: flex;
+    flex-direction: column;
+    font-family: Calibri, Arial, sans-serif !important;
+    box-sizing: border-box;
+  }
+  .modal-reserva-titulo { color: #bc348b; font-size: 1.25em; font-weight: bold; margin-bottom: 1.1em; letter-spacing: 0.2px; }
+  .modal-reserva-input {
+    width: 100%; padding: 0.7em 1em; border: 2px solid #bc348b; border-radius: 8px;
+    font-size: 1.08em; margin-bottom: 1.1em; background: #fff; outline: none;
+  }
+  .modal-reserva-input:focus { border-color: #4c759a; box-shadow: 0 0 0 2px #c7d7f6a6; }
+
+  .modal-reserva-fechas { display: flex; gap: 14px; margin-bottom: 1.1em; flex-wrap: wrap; }
+  .modal-reserva-fechas > div { flex: 1 1 0px; min-width: 0; }
+  .modal-reserva-label { font-weight: bold; color: #444; font-size: 0.97em; }
+
+  .modal-reserva-datetime {
+    width: 100%; padding: 0.53em 0.6em; border: 2px solid #bc348b; border-radius: 8px;
+    background: #fff; font-size: 1.03em; letter-spacing: 0.01em;
+  }
+  .modal-reserva-datetime[type="datetime-local"] { padding-right: 0.3em !important; }
+  @media screen and (-webkit-min-device-pixel-ratio:0) {
+    .modal-reserva-datetime[type="datetime-local"]::-webkit-datetime-edit-fields-wrapper { padding-right: 0.05em !important; }
+    .modal-reserva-datetime[type="datetime-local"]::-webkit-clear-button,
+    .modal-reserva-datetime[type="datetime-local"]::-webkit-calendar-picker-indicator { margin-left: 0; margin-right: 0; }
+  }
+  .modal-reserva-datetime:focus { border-color: #4c759a; box-shadow: 0 0 0 2px #c7d7f6a6; outline: none; }
+
+  .modal-reserva-botones { display: flex; gap: 18px; justify-content: flex-end; margin-top: 8px; }
+  .modal-reserva-btn-cancelar {
+    background: #f2f3f6; color: #222; border: none; padding: 0.67em 1.6em; border-radius: 8px;
+    font-weight: 600; cursor: pointer; transition: background 0.16s;
+  }
+  .modal-reserva-btn-cancelar:hover { background: #e1e1e1; }
+
+  .modal-reserva-btn-guardar {
+    background: #bc348b; color: #fff; border: none; padding: 0.67em 1.7em; border-radius: 8px;
+    font-weight: bold; cursor: pointer; transition: background 0.16s;
+  }
+  .modal-reserva-btn-guardar:hover { background: #a1226d; }
+
+  .modal-reserva-btn-borrar {
+    background: none;
+    border: none;
+    color: #bc348b;
+    font-size: 1.3rem;
+    cursor: pointer;
+    line-height: 1;
+  }
+
+  @media (max-width: 500px) {
+    .modal-reserva { padding: 1rem !important; max-width: 98vw !important; }
+    .modal-reserva-fechas { flex-direction: column; gap: 10px; }
+  }
+
+  /* === FLATPICKR ESTILO ROSA === */
+  .flatpickr-calendar { font-family: Calibri, Arial, sans-serif !important; }
+  .flatpickr-day.selected,
+  .flatpickr-day.startRange,
+  .flatpickr-day.endRange,
+  .flatpickr-day.selected.inRange,
+  .flatpickr-day.startRange.inRange,
+  .flatpickr-day.endRange.inRange,
+  .flatpickr-day.today.selected,
+  .flatpickr-day.today.startRange,
+  .flatpickr-day.today.endRange,
+  .flatpickr-day:hover, .flatpickr-day:focus {
+    background: #bc348b !important; border-color: #bc348b !important; color: #fff !important;
+  }
+  .flatpickr-day.today { border-color: #bc348b !important; }
+  .flatpickr-months .flatpickr-month { color: #bc348b; }
+  .flatpickr-months .flatpickr-prev-month,
+  .flatpickr-months .flatpickr-next-month { color: #bc348b !important; }
+  .flatpickr-current-month input.cur-year { color: #bc348b !important; font-weight: bold; }
+  .flatpickr-time input,
+  .flatpickr-time .flatpickr-am-pm {
+    border: 1px solid #bc348b !important; color: #bc348b !important; border-radius: 6px;
+  }
+  .flatpickr-time input:focus { outline: 2px solid #bc348b !important; }
+
+  /* === MODAL DE CONFIRMACIÓN === */
+  .modal-overlay {
+    position: fixed; inset: 0; z-index: 1200; background: rgba(0,0,0,0.14);
+    display: none; align-items: center; justify-content: center;
+  }
+  .modal-overlay[style*="display: flex"] { display: flex !important; }
+  .modal {
+    background: #fff; border-radius: 18px; padding: 2rem 2.3rem 1.5rem;
+    box-shadow: 0 6px 36px #bc348b30; display: flex; flex-direction: column; align-items: center;
+  }
+  .modal-header { color: #bc348b; font-size: 1.18em; font-weight: bold; margin-bottom: 1em; }
+  .modal-footer { margin-top: 1.5em; }
+
+  #btnConfirmOk,
+  #btnErrorOk,
+  #btnInfoOk {
+    font-size: 1.16em;
+    font-weight: bold;
+    padding: 0.9em 2.3em;
+    border-radius: 12px;
+    background: #bc348b;
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    transition: background 0.18s, box-shadow 0.18s;
+    box-shadow: 0 2px 10px #bc348b28;
+  }
+  #btnConfirmOk:hover,
+  #btnErrorOk:hover,
+  #btnInfoOk:hover {
+    background: #a1226d;
+  }
+
+  /* === Lista de notificaciones === */
+  .notifications-list { list-style: none; padding: 0; max-height: 300px; overflow-y: auto; }
+  .notifications-list li { margin-bottom: .5rem; }
+  
+  /* Cabecera de días con gris más oscuro */
+  .fc .fc-col-header-cell,
+  .fc .fc-day-header,
+  .fc .fc-daygrid-day-top { background: #e4e6ea !important; }
+
+  /* === Contenedor para tablas de salas (sin estilos de tabla) === */
+  .salas-table-container { overflow-x: auto; margin-top: 1rem; }
+
+  /* === Estilo genérico para todas las tablas === */
+  .table-style {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: #fff;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 2px 16px #bc348b16;
+    margin-bottom: 1.25rem;
+    font-size: 1rem;
+    text-align: left;
+  }
+  .table-style th,
+  .table-style td {
+    padding: 14px 18px;
+    color: #222;
+  }
+  .table-style th {
+    background: #bc348b;
+    color: #fff;
+    font-weight: bold;
+    font-size: 1.08rem;
+  }
+  .table-style tr:nth-child(even) td {
+    background: #fbe6f5;
+  }
+  .table-style tr:nth-child(odd) td {
+    background: #fff;
+  }
+  /* Hover: iluminar fila al pasar el ratón */
+  .table-style tbody tr:hover td {
+    background-color: #f5f5f5 !important;
+  }
+  @media (max-width: 800px) {
+    .table-style th,
+    .table-style td {
+      padding: 8px 6px;
+      font-size: 0.93rem;
+    }
+  }
+
+  /* Botones de acción en tablas */
+  .actions button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1.1rem;
+    margin-right: 4px;
+  }
+
+  /* --------- Panel de control --------- */
+  .panel-admin-container {
+    max-width: 740px;
+    margin: 48px auto 0 auto;
+    background: none;
+    padding: 0 24px;
+  }
+  @media (max-width: 600px) {
+    .panel-admin-container { padding: 0 10px; }
+  }
+
+  .panel-admin-title {
+    font-size: 2.5rem;
+    font-weight: 900;
+    color: #111;
+    margin-bottom: 8px;
+    margin-top: 0;
+  }
+  .panel-admin-desc {
+    color: #4b779b;
+    font-size: 1.1rem;
+    margin-bottom: 32px;
+  }
+  .panel-admin-tabs {
+    display: flex;
+    border-bottom: 1.5px solid #cfdde8;
+    gap: 38px;
+    margin-bottom: 40px;
+  }
+  .panel-admin-tab {
+    font-weight: bold;
+    font-size: 1rem;
+    border: none;
+    background: none;
+    padding: 10px 0 14px 0;
+    border-bottom: 3px solid transparent;
+    color: #4b779b;
+    cursor: pointer;
+    outline: none;
+    transition: all 0.18s;
+  }
+  .panel-admin-tab.active {
+    color: #111;
+    border-bottom: 3px solid #0f7fdb;
+  }
+  .panel-admin-panel { display: none; }
+  .panel-admin-panel.active { display: block; }
+  .panel-admin-center {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 24px;
+    min-height: 320px;
+  }
+  .panel-admin-img {
+    border-radius: 1.1em;
+    max-width: 330px;
+    width: 95%;
+    aspect-ratio: 16/9;
+    object-fit: cover;
+    background: #f5f6fa;
+    margin-bottom: 8px;
+  }
+  .panel-admin-title2 {
+    font-size: 1.23rem;
+    font-weight: bold;
+    color: #111;
+    text-align: center;
+    margin-bottom: 4px;
+  }
+  .panel-admin-desc2 {
+    font-size: 1rem;
+    color: #444;
+    text-align: center;
+  }
+  .panel-admin-btn {
+    background: #e7eef3;
+    color: #111;
+    font-weight: bold;
+    font-size: 1rem;
+    border: none;
+    border-radius: 32px;
+    padding: 10px 30px;
+    cursor: pointer;
+    box-shadow: 0 1px 4px #dde7ef20;
+    transition: background 0.16s;
+  }
+  .panel-admin-btn:hover { background: #d0dbe3; }
+
+  /* ==== Campana notificaciones ==== */
+
+  /* Punto de notificación (oculto si no tiene la clase) */
+  .icon-button.has-notifications::after {
+    content: '';
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 8px;
+    height: 8px;
+    background-color: #ea297c;
+    border-radius: 50%;
+    animation: pop 0.3s ease-out;
+  }
+
+  /* Animación "pop" al aparecer el puntito */
+  @keyframes pop {
+    from { transform: scale(0); }
+    to   { transform: scale(1); }
+  }
+
+  .icon-button:hover {
+    color: #ea297c;              /* trazo SVG */
+    background-color: transparent; /* sigue sin fondo */
+    
+  }
+
+  /* ==== Utilidades ==== */
+  .hidden { display: none !important; }  /* ← Nueva regla para ocultar elementos */
+
+  /* --------- Ajustes para la vista Buscar disponibilidad --------- */
+
+  /* Contenedor general centrado y SIN márgenes grandes arriba */
+  .busca-dispo-container {
+    max-width: 1800px;
+    margin: 0.5rem auto 0 auto !important;  /* Pegadito al menú */
+    padding: 0 1vw;
+    background: none;
+  }
+
+  .busca-dispo-filtros {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem 2.5rem;
+    align-items: flex-end;
+    margin-bottom: 0.7rem;
+  }
+  .busca-dispo-filtros > div {
+    min-width: 120px;
+    flex-shrink: 0;
+  }
+  .busca-dispo-filtros label {
+    font-weight: 600;
+    color: #444;
+    font-size: 0.91rem;
+    margin-bottom: 3px;
+    display: inline-block;
+  }
+  .busca-dispo-filtros input,
+  .busca-dispo-filtros select {
+    width: 180px !important;
+    min-width: 120px;
+    max-width: 220px;
+  }
+  .salas-table-container {
+    overflow-x: auto;
+    margin-top: 0.0rem;
+  }
+  .table-style {
+    width: 100%;
+    min-width: 1100px;
+  }
+
+
+  /* Estilo botones dentro de la tabla de disponibilidad */
+  .reservar-btn {
+    background: none;
+    color: #bc348b;  /* Color corporativo para el + */
+    border: none;
+    padding: 4px 10px;
+    border-radius: 7px;
+    font-weight: bold;
+    font-size: 1.25em;
+    cursor: pointer;
+    transition: color 0.16s, background 0.16s;
+    box-shadow: none;
+  }
+  .reservar-btn:hover {
+    color: #a1226d;
+    background: #f8e7f4;
+  }
+
+  .solicitar-btn {
+    background: #fff;
+    color: #bc348b;
+    border: 1.5px solid #bc348b;
+    padding: 4px 10px;
+    border-radius: 7px;
+    font-weight: bold;
+    font-size: 1em;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+  .solicitar-btn:hover { background: #f8e7f4; color: #a1226d; }
+
+  /* Modal específico de motivo y confirmación: centrados y adaptables */
+  #motivoModal .modal-reserva,
+  #confirmOverlayDisponibilidad .modal,
+  #solicitudOverlay .modal {
+    max-width: 350px;
+    width: 98vw;
+    padding: 1.7rem 1.2rem 1.5rem;
+  }
+
+  @media (max-width: 900px) {
+    .busca-dispo-container { max-width: 99vw; }
+    .table-style { min-width: 680px; font-size: 0.93em; }
+    .busca-dispo-filtros input,
+    .busca-dispo-filtros select { width: 135px !important; }
+  }
+  @media (max-width: 700px) {
+    .busca-dispo-filtros { flex-direction: column; gap: 1rem; align-items: stretch; }
+    .table-style { min-width: 530px; }
+  }
+
+
+  /* Tamaño de letra reducido para tablas de Mis Reservas, Reservas, Salas, Disponibilidad y Panel de Control */
+  #misReservasTable th,
+  #misReservasTable td,
+  #allReservasTable th,
+  #allReservasTable td,
+  #salasTable th,
+  #salasTable td,
+  #dispoTable th,
+  #dispoTable td,
+  #panelSalasTable th,
+  #panelSalasTable td,
+  #usuariosTable th,
+  #usuariosTable td {
+    font-size: 0.9rem;
+  }
+
+  /* ======== Panel de control: tablas sin scroll horizontal ======== */
+
+  /* 1) Dar más aire al panel y que las tablas puedan ocupar el ancho */
+  .panel-admin-container {
+    max-width: 1200px;            /* antes 740px */
+  }
+
+  /* 2) Solo en el panel de control: anular min-width y fijar layout */
+  .panel-admin-panel .salas-table-container {
+    overflow-x: visible;          /* ya no necesitamos scroll */
+  }
+
+  .panel-admin-panel .table-style {
+    min-width: 0 !important;      /* anula el min-width global de 1100px */
+    table-layout: fixed;          /* columnas fijas -> ellipsis funciona */
+    width: 100%;
+  }
+
+  /* 3) Tipografía y paddings un poco más compactos en esta vista */
+  .panel-admin-panel .table-style th,
+  .panel-admin-panel .table-style td {
+    padding: 10px 12px;
+    font-size: 0.92rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;      /* … cuando no quepa */
+  }
+
+  /* 4) Anchos recomendados por columna — SALAS */
+  #panelSalasTable th:nth-child(1),
+  #panelSalasTable td:nth-child(1) { width: 96px; }   /* ID Sala */
+  #panelSalasTable th:nth-child(2),
+  #panelSalasTable td:nth-child(2) { width: 140px; }  /* Centro */
+  #panelSalasTable th:nth-child(3),
+  #panelSalasTable td:nth-child(3) { width: 120px; }  /* Ciudad */
+  #panelSalasTable th:nth-child(4),
+  #panelSalasTable td:nth-child(4) { width: 180px; }  /* Nombre */
+  #panelSalasTable th:nth-child(5),
+  #panelSalasTable td:nth-child(5) { width: 110px; }  /* Capacidad */
+  #panelSalasTable th:nth-child(6),
+  #panelSalasTable td:nth-child(6) { width: 190px; }  /* Equipamiento */
+  #panelSalasTable th:nth-child(7),
+  #panelSalasTable td:nth-child(7) { width: 220px; }  /* Observaciones */
+  #panelSalasTable th:nth-child(8),
+  #panelSalasTable td:nth-child(8) { width: 150px; }  /* Horario */
+
+  /* 5) Anchos recomendados por columna — USUARIOS */
+  #usuariosTable th:nth-child(1),
+  #usuariosTable td:nth-child(1) { width: 30%; }      /* Email */
+  #usuariosTable th:nth-child(2),
+  #usuariosTable td:nth-child(2) { width: 22%; }      /* Nombre */
+  #usuariosTable th:nth-child(3),
+  #usuariosTable td:nth-child(3) { width: 14%; }      /* Rol */
+  #usuariosTable th:nth-child(4),
+  #usuariosTable td:nth-child(4) { width: 22%; }      /* Campaña */
+  #usuariosTable th:nth-child(5),
+  #usuariosTable td:nth-child(5) {
+    width: 80px;                                      /* Acciones */
+    text-align: center;
+  }
+
+  /* 6) En pantallas pequeñas, compactar aún más y ocultar columnas largas */
+  @media (max-width: 900px) {
+    .panel-admin-panel .table-style th,
+    .panel-admin-panel .table-style td {
+      padding: 8px 8px;
+      font-size: 0.88rem;
+    }
+    /* Oculta Observaciones en Salas para caber mejor en tablets */
+    #panelSalasTable th:nth-child(7),
+    #panelSalasTable td:nth-child(7) { display: none; }
+  }
+
+  @media (max-width: 700px) {
+    /* En móvil, ocultar también Equipamiento para que no rompa */
+    #panelSalasTable th:nth-child(6),
+    #panelSalasTable td:nth-child(6) { display: none; }
+  }
+
+  
+</style>
