@@ -1,0 +1,387 @@
+<div class="busca-dispo-container" style="max-width:1800px; margin:0.5rem auto 0 auto; padding:0 1vw; background:none;">
+  <!-- Filtros compactos como en salas -->
+  <div class="filter-style" style="margin-bottom: 0.7rem;">
+    <div class="filter">
+      <label for="dispoCiudad">Ciudad:</label>
+      <select id="dispoCiudad">
+        <option value="">— Elige Ciudad —</option>
+      </select>
+    </div>
+    <div class="filter">
+      <label for="dispoCentro">Centro:</label>
+      <select id="dispoCentro" disabled>
+        <option value="">— Elige Centro —</option>
+      </select>
+    </div>
+    <div class="filter">
+      <label for="dispoSala">Sala:</label>
+      <select id="dispoSala" disabled>
+        <option value="">— Elige Sala —</option>
+      </select>
+    </div>
+    <div class="filter">
+      <label for="dispoInicio">Inicio:</label>
+      <input id="dispoInicio" type="text" class="modal-reserva-datetime" autocomplete="off" style="width:140px;">
+    </div>
+    <div class="filter">
+      <label for="dispoFin">Fin:</label>
+      <input id="dispoFin" type="text" class="modal-reserva-datetime" autocomplete="off" style="width:140px;">
+    </div>
+    <button type="button" id="dispo-clear-filters" class="btn-filters-clear">Quitar filtros</button>
+  </div>
+
+  <!-- Tabla de resultados, igual que salas -->
+  <div class="salas-table-container">
+    <table id="dispoTable" class="table-style" style="width:100%;">
+      <thead>
+        <tr>
+          <th>Nombre</th>
+          <th>ID Sala</th>
+          <th>Centro</th>
+          <th>Activo</th>
+          <th>Observaciones</th>
+          <th>Software</th>
+          <th>Ciudad</th>
+          <th>Horario</th>
+          <th>Capacidad</th>
+          <th>Equipamiento</th>
+          <th>Estado</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Modal para motivo de la reserva -->
+<div id="motivoModal" class="modal-reserva-bg" style="display:none;">
+  <div class="modal-reserva">
+    <h2 class="modal-reserva-titulo">Confirmar Reserva</h2>
+    <form id="motivoForm" autocomplete="off">
+      <input id="motivoInput" type="text" class="modal-reserva-input" placeholder="Motivo de la reserva" required />
+      <div class="modal-reserva-botones">
+        <button type="button" id="motivoCancel" class="modal-reserva-btn-cancelar">Cancelar</button>
+        <button type="submit" id="motivoOk" class="modal-reserva-btn-guardar">Reservar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+
+<!-- Modal de confirmación SOLO para Disponibilidad -->
+<div id="confirmOverlayDisponibilidad" class="modal-overlay" style="display:none;">
+  <div class="modal flex-col">
+    <div id="confirmHeaderDisponibilidad" class="modal-header mb-2">¡Reserva Confirmada!</div>
+    <div class="modal-body flex flex-col gap-3">
+      <p id="confirmMsgDisponibilidad" class="text-[#0d151b]"></p>
+    </div>
+    <div class="modal-footer">
+      <button id="btnConfirmOkDisponibilidad" class="px-4 py-2 rounded bg-[#bc348b] text-white hover:bg-[#a1226d]">Aceptar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal para solicitar uso de sala ocupada -->
+<div id="solicitarModal" class="modal-reserva-bg" style="display:none;">
+  <div class="modal-reserva">
+    <h2 class="modal-reserva-titulo">Solicitar uso de sala ocupada</h2>
+    <form id="solicitarForm" autocomplete="off">
+      <div style="margin-bottom:0.8em;">
+        <span id="solicitarSalaInfo" style="color:#bc348b; font-weight:bold;"></span>
+      </div>
+      <input id="solicitarMotivoInput" type="text" class="modal-reserva-input" placeholder="Motivo de la solicitud" required />
+      <div class="modal-reserva-botones">
+        <button type="button" id="solicitarCancel" class="modal-reserva-btn-cancelar">Cancelar</button>
+        <button type="submit" id="solicitarOk" class="modal-reserva-btn-guardar">Enviar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal informativo para solicitud enviada -->
+<div id="solicitudOverlay" class="modal-overlay" style="display:none;">
+  <div class="modal flex-col">
+    <div class="modal-header mb-2">Solicitud Enviada</div>
+    <div class="modal-body flex flex-col gap-3">
+      <p id="solicitudMsg" class="text-[#0d151b]"></p>
+    </div>
+    <div class="modal-footer">
+      <button id="btnSolicitudOk" class="px-4 py-2 rounded bg-[#bc348b] text-white hover:bg-[#a1226d]">Aceptar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Flatpickr y JS -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/material_pink.css">
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
+
+<script>
+function id(el){return document.getElementById(el);}
+window.confirmAction = null;
+
+function showConfirmModalDisponibilidad(idReserva, accion = 'crear') {
+  window.confirmAction = accion;
+  const header = document.getElementById('confirmHeaderDisponibilidad');
+  const msg = document.getElementById('confirmMsgDisponibilidad');
+  if (accion === 'editar') {
+    header.textContent = '¡Reserva Actualizada!';
+    msg.innerHTML = 'La reserva con ID <b>' + idReserva + '</b> se ha modificado correctamente.';
+  } else if (accion === 'eliminar') {
+    header.textContent = '¡Reserva Eliminada!';
+    msg.innerHTML = 'La reserva con ID <b>' + idReserva + '</b> se ha eliminado correctamente.';
+  } else {
+    header.textContent = '¡Reserva Confirmada!';
+    msg.innerHTML =
+      'Este es tu ID de reserva: <b>' + idReserva + '</b><br>' +
+      'Tienes un email y un evento en tu Google Calendar 😉';
+  }
+  document.getElementById('confirmOverlayDisponibilidad').style.display = 'flex';
+}
+function hideConfirmModalDisponibilidad() {
+  document.getElementById('confirmOverlayDisponibilidad').style.display = 'none';
+  window.confirmAction = null;
+}
+
+function showSolicitudModal(msg = 'Solicitud enviada correctamente.') {
+  document.getElementById('solicitudMsg').textContent = msg;
+  document.getElementById('solicitudOverlay').style.display = 'flex';
+}
+function hideSolicitudModal() {
+  document.getElementById('solicitudOverlay').style.display = 'none';
+}
+document.addEventListener('DOMContentLoaded', () => {
+  const btn = document.getElementById('btnConfirmOkDisponibilidad');
+  if (btn) btn.addEventListener('click', hideConfirmModalDisponibilidad);
+  const overlay = document.getElementById('confirmOverlayDisponibilidad');
+  if (overlay) overlay.addEventListener('click', e => {
+    if (e.target === overlay) hideConfirmModalDisponibilidad();
+  });
+
+  const btnSol = document.getElementById('btnSolicitudOk');
+  if (btnSol) btnSol.addEventListener('click', hideSolicitudModal);
+  const overlaySol = document.getElementById('solicitudOverlay');
+  if (overlaySol) overlaySol.addEventListener('click', e => {
+    if (e.target === overlaySol) hideSolicitudModal();
+  });
+  
+  DispApp.init();
+  DispApp.loadCiudades();
+
+  // Botón "Quitar filtros"
+  document.getElementById('dispo-clear-filters').addEventListener('click', () => {
+    id('dispoCiudad').value = '';
+    DispApp.loadCentros();
+    id('dispoCentro').value = '';
+    DispApp.loadSalas();
+    id('dispoSala').value = '';
+    id('dispoInicio').value = '';
+    id('dispoFin').value = '';
+    DispApp.updateResults();
+  });
+
+  // Solicitar uso: listeners del modal
+  id('solicitarCancel').addEventListener('click', () => DispApp.cerrarSolicitarModal());
+  id('solicitarForm').addEventListener('submit', DispApp.confirmarSolicitud.bind(DispApp));
+  id('solicitarModal').addEventListener('click', e => { if (e.target === e.currentTarget) DispApp.cerrarSolicitarModal(); });
+});
+
+const DispApp = {
+  selectedRoom: null,
+  reservaEnCurso: false,
+  solicitudEnCurso: false,
+  selectedSolicitud: null,
+  init() {
+    this.fpInicio = flatpickr('#dispoInicio', { enableTime:true, time_24hr:true, dateFormat:'Y-m-d H:i', locale:'es', minuteIncrement:5, onChange:() => this.updateResults() });
+    this.fpFin    = flatpickr('#dispoFin',    { enableTime:true, time_24hr:true, dateFormat:'Y-m-d H:i', locale:'es', minuteIncrement:5, onChange:() => this.updateResults() });
+
+    id('dispoCiudad').addEventListener('change', () => { this.loadCentros(); this.loadSalas(); this.updateResults(); });
+    id('dispoCentro').addEventListener('change', () => { this.loadSalas(); this.updateResults(); });
+    id('dispoSala').addEventListener('change', () => this.updateResults());
+
+    id('motivoCancel').addEventListener('click', () => this.closeMotivoModal(true));
+    id('motivoForm').addEventListener('submit', this.confirmReserva.bind(this));
+    id('motivoModal').addEventListener('click', e => { if (e.target===e.currentTarget) this.closeMotivoModal(true); });
+  },
+  loadCiudades() {
+    if (typeof showSpinner === 'function') showSpinner();
+    google.script.run.withSuccessHandler(c => {
+      const sel = id('dispoCiudad');
+      sel.innerHTML = '<option value="">— Elige Ciudad —</option>';
+      (c||[]).forEach(ci => { const o = document.createElement('option'); o.value = ci; o.textContent = ci; sel.appendChild(o); });
+      if (typeof hideSpinner === 'function') hideSpinner();
+    }).withFailureHandler(err => { if (typeof hideSpinner === 'function') hideSpinner(); console.error(err); alert('Error al cargar ciudades'); }).getCiudades();
+  },
+  loadCentros() {
+    const ciudad = id('dispoCiudad').value;
+    const sel = id('dispoCentro');
+    sel.disabled = !ciudad;
+    sel.innerHTML = '<option value="">— Elige Centro —</option>';
+    if (!ciudad) return;
+    if (typeof showSpinner === 'function') showSpinner();
+    google.script.run.withSuccessHandler(cs => {
+      (cs||[]).forEach(c => { const o=document.createElement('option'); o.value=c; o.textContent=c; sel.appendChild(o); });
+      if (typeof hideSpinner === 'function') hideSpinner();
+    }).withFailureHandler(err => { if (typeof hideSpinner === 'function') hideSpinner(); console.error(err); alert('Error al cargar centros'); }).getCentros(ciudad);
+  },
+  loadSalas() {
+    const ciudad = id('dispoCiudad').value;
+    const centro = id('dispoCentro').value;
+    const sel = id('dispoSala');
+    sel.disabled = !centro;
+    sel.innerHTML = '<option value="">— Elige Sala —</option>';
+    if (!centro) return;
+    if (typeof showSpinner === 'function') showSpinner();
+    google.script.run.withSuccessHandler(ss => {
+      (ss||[]).forEach(s => { const o=document.createElement('option'); o.value=s; o.textContent=s; sel.appendChild(o); });
+      if (typeof hideSpinner === 'function') hideSpinner();
+    }).withFailureHandler(err => { if (typeof hideSpinner === 'function') hideSpinner(); console.error(err); alert('Error al cargar salas'); }).getSalas(ciudad, centro);
+  },
+  updateResults() {
+    const inicio = id('dispoInicio').value;
+    const fin = id('dispoFin').value;
+    if (!inicio || !fin) return;
+    if (typeof showSpinner === 'function') showSpinner();
+    const ciudad = id('dispoCiudad').value;
+    const centro = id('dispoCentro').value;
+    const sala   = id('dispoSala').value;
+    google.script.run.withSuccessHandler(data => {
+      this.renderTable(Array.isArray(data)?data:[]);
+      if (typeof hideSpinner === 'function') hideSpinner();
+    }).withFailureHandler(err => { if (typeof hideSpinner === 'function') hideSpinner(); console.error(err); alert('Error buscando disponibilidad'); }).buscarTodasSalasConEstado({ fechaInicio: inicio, fechaFin: fin, ciudad, centro, sala });
+  },
+  renderTable(list) {
+    const tbody = id('dispoTable').querySelector('tbody');
+    if (!list.length) {
+      tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;color:#bc348b;">No hay salas</td></tr>';
+      return;
+    }
+    tbody.innerHTML = '';
+    const campos = [
+      'Nombre','ID Sala','Centro','Activo','Observaciones','Software','Ciudad','Horario','Capacidad','Equipamiento'
+    ];
+    list.forEach(r => {
+      const tr = document.createElement('tr');
+      campos.forEach(k => {
+        const td = document.createElement('td');
+        td.textContent = r[k] || '';
+        tr.appendChild(td);
+      });
+      // Estado
+      const tdEstado = document.createElement('td');
+      tdEstado.textContent = r.estado === "disponible" ? "Disponible" : "Ocupada";
+      tdEstado.style.fontWeight = "bold";
+      tdEstado.style.color = r.estado === "disponible" ? "#2e7d32" : "#d32f2f";
+      tr.appendChild(tdEstado);
+      // Acciones
+      const tdA = document.createElement('td');
+      if (r.estado === "disponible") {
+        const btn = document.createElement('button');
+        btn.textContent = '➕';
+        btn.title = 'Reservar';
+        btn.disabled = this.reservaEnCurso;
+        btn.classList.add('reservar-btn');
+        btn.addEventListener('click', () => this.reservarSala(r));
+        tdA.appendChild(btn);
+      } else {
+        const btn = document.createElement('button');
+        btn.textContent = 'Solicitar uso';
+        btn.title = 'Solicitar esta sala';
+        btn.classList.add('solicitar-btn');
+        btn.addEventListener('click', () => this.abrirSolicitarModal(r));
+        tdA.appendChild(btn);
+      }
+      tr.appendChild(tdA);
+      tbody.appendChild(tr);
+    });
+  },
+  reservarSala(r) {
+    if (this.reservaEnCurso) return;
+    this.selectedRoom = r;
+    this.openMotivoModal();
+  },
+  openMotivoModal() {
+    id('motivoInput').value = '';
+    document.getElementById('motivoModal').style.display = 'flex';
+    setTimeout(() => id('motivoInput').focus(), 60);
+  },
+  closeMotivoModal(reopen=false) {
+    document.getElementById('motivoModal').style.display = 'none';
+  },
+  confirmarSolicitud(e) {
+    e.preventDefault();
+    if (this.solicitudEnCurso) return;
+    this.solicitudEnCurso = true;
+    const motivo = id('solicitarMotivoInput').value.trim();
+    if (!motivo) { id('solicitarMotivoInput').focus(); this.solicitudEnCurso = false; return; }
+    const r = this.selectedSolicitud;
+    const fechaInicio = id('dispoInicio').value;
+    const fechaFin = id('dispoFin').value;
+    if (typeof showSpinner === 'function') showSpinner();
+    google.script.run.withSuccessHandler(() => {
+        if (typeof hideSpinner === 'function') hideSpinner();
+        this.cerrarSolicitarModal();
+        showSolicitudModal();
+      }).withFailureHandler(err => {
+        if (typeof hideSpinner === 'function') hideSpinner();
+        alert('Error al enviar la solicitud: ' + err.message);
+        this.solicitudEnCurso = false;
+      })
+      .enviarSolicitudUso({
+        sala: r.Nombre,
+        centro: r.Centro,
+        ciudad: r.Ciudad,
+        horario: r.Horario || '',
+        motivo: motivo,
+        fechaInicio: fechaInicio,
+        fechaFin: fechaFin
+      });
+  },
+  abrirSolicitarModal(room) {
+    this.selectedSolicitud = room;
+    id('solicitarSalaInfo').textContent = `Sala: ${room.Nombre} (${room.Centro}, ${room.Ciudad})`;
+    id('solicitarMotivoInput').value = '';
+    document.getElementById('solicitarModal').style.display = 'flex';
+    setTimeout(() => id('solicitarMotivoInput').focus(), 60);
+  },
+  cerrarSolicitarModal() {
+    document.getElementById('solicitarModal').style.display = 'none';
+    this.solicitudEnCurso = false;
+  },
+  confirmReserva(e) {
+    e.preventDefault();
+    if (this.reservaEnCurso) return;
+    this.reservaEnCurso = true;
+    document.querySelectorAll('.reservar-btn').forEach(btn => btn.disabled = true);
+
+    const motivo = id('motivoInput').value.trim();
+    if (!motivo) { id('motivoInput').focus(); this.reservaEnCurso = false; return; }
+    const inicio = id('dispoInicio').value;
+    const fin    = id('dispoFin').value;
+    const r = this.selectedRoom;
+    this.closeMotivoModal();
+    if (typeof showSpinner === 'function') showSpinner();
+    google.script.run.withSuccessHandler(email => {
+      google.script.run.withSuccessHandler(id => {
+        if (typeof hideSpinner === 'function') hideSpinner();
+        showConfirmModalDisponibilidad(id);
+        this.reservaEnCurso = false;
+        document.querySelectorAll('.reservar-btn').forEach(btn => btn.disabled = false);
+        this.updateResults();
+      }).withFailureHandler(err => {
+        if (typeof hideSpinner === 'function') hideSpinner();
+        alert('Error al crear la reserva: '+err.message);
+        this.reservaEnCurso = false;
+        document.querySelectorAll('.reservar-btn').forEach(btn => btn.disabled = false);
+      }).crearReserva({ ciudad:r.Ciudad, centro:r.Centro, nombre:r.Nombre, usuario:email, motivo, fechaInicio:inicio, fechaFin:fin });
+    }).withFailureHandler(err => {
+      if (typeof hideSpinner === 'function') hideSpinner();
+      alert('Error: '+err.message);
+      this.reservaEnCurso = false;
+      document.querySelectorAll('.reservar-btn').forEach(btn => btn.disabled = false);
+    }).getActiveUserEmail();
+  }
+};
+</script>
