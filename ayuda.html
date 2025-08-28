@@ -1,0 +1,153 @@
+<section class="help-section">
+  <div class="help-card">
+    <h1 class="help-title">Ayuda y Preguntas Frecuentes</h1>
+    <p class="help-intro">
+      Bienvenido a la aplicación de <strong>Reserva de Salas</strong>. Aquí tienes todo lo que necesitas saber para usar la plataforma. Si tienes dudas, mira aquí primero 😉.
+    </p>
+    
+    <ol class="help-list">
+      <li>
+        <strong>Acceso:</strong><br>
+        Solo puedes entrar con tu cuenta corporativa autorizada. Si te sale “Acceso denegado”, contacta con el responsable.
+      </li>
+      <li>
+        <strong>¿Cómo reservo una sala?</strong><br>
+        <ul>
+          <li>Selecciona ciudad, centro y sala en los filtros de arriba del calendario.</li>
+          <li>Haz clic o arrastra en el calendario para elegir el horario que quieres reservar.</li>
+          <li>Rellena el motivo y confirma. ¡Listo!</li>
+        </ul>
+      </li>
+      <li>
+        <strong>¿Qué recibo tras reservar?</strong><br>
+        <ul>
+          <li>Un mensaje de confirmación con tu ID de reserva.</li>
+          <li>Un email de confirmación (si no lo ves, revisa el spam).</li>
+          <li>Un evento añadido automáticamente a tu Google Calendar.</li>
+        </ul>
+      </li>
+      <li>
+        <strong>Ver y gestionar mis reservas:</strong><br>
+        Ve a <span class="highlight-menu">Mis reservas</span> para consultar todas tus reservas. Aquí puedes ver la sala, fecha, hora y estado de cada reserva.
+      </li>
+      <li>
+        <strong>Información de salas:</strong><br>
+        En <span class="highlight-menu">Salas</span> puedes ver los detalles, capacidad y características de cada sala disponible.
+      </li>
+      <li>
+        <strong>Informes:</strong><br>
+        Si eres administrador, puedes ver reportes y estadísticas en <span class="highlight-menu">Informes</span>.
+      </li>
+      <li>
+        <strong>¿A quién consulto si tengo dudas?</strong><br>
+        Contacta con el responsable:<br>
+        <a href="mailto:francisco.benavente.salgado@intelcia.com" class="help-mail">francisco.benavente.salgado@intelcia.com</a>
+      </li>
+      <li>
+        <strong>Consejos:</strong><br>
+        <ul>
+          <li>Revisa el calendario antes de reservar para evitar solapamientos.</li>
+          <li>Cancela la reserva si no vas a usarla (si tienes esa opción).</li>
+          <li>Utiliza siempre tu email de empresa.</li>
+        </ul>
+      </li>
+    </ol>
+    
+    <div class="help-footer">
+      <span>¿No encuentras tu respuesta?</span> Escríbenos y te ayudamos.  
+      <span style="font-size:1.3em">✉️</span>
+    </div>
+  </div>
+</section>
+
+<style>
+  .help-section {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 80vh;
+    padding: 2.5rem 0;
+    background: transparent;
+  }
+  .help-card {
+    background: #fff;
+    border-radius: 22px;
+    box-shadow: 0 6px 32px #bc348b22, 0 2px 6px #b6b6b638;
+    max-width: 650px;
+    width: 100%;
+    padding: 2.3rem 2rem 2.1rem 2rem;
+    margin: 0 12px;
+    font-family: Calibri, Arial, Helvetica, sans-serif;
+    color: #191c25;
+    font-size: 1.06em;
+  }
+  .help-title {
+    color: #bc348b;
+    font-size: 2rem;
+    font-weight: 900;
+    letter-spacing: 0.01em;
+    margin-bottom: 1.1em;
+    text-align: center;
+    font-family: inherit;
+  }
+  .help-intro {
+    color: #222;
+    font-size: 1.08em;
+    margin-bottom: 1.3em;
+    text-align: center;
+  }
+  .help-list {
+    padding-left: 1.2em;
+    margin-bottom: 1.6em;
+    display: flex;
+    flex-direction: column;
+    gap: 1.2em;
+  }
+  .help-list > li {
+    margin-bottom: 0.7em;
+    line-height: 1.5em;
+  }
+  .help-list ul {
+    margin: 0.3em 0 0.6em 1.2em;
+    padding: 0;
+    list-style: disc;
+    font-size: 0.98em;
+    color: #444;
+  }
+  .highlight-menu {
+    background: #fff0f7;
+    color: #bc348b;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 6px;
+    font-size: 1em;
+    margin-left: 2px;
+  }
+  .help-mail {
+    color: #bc348b;
+    text-decoration: underline;
+    font-weight: 500;
+    transition: color 0.13s;
+  }
+  .help-mail:hover {
+    color: #a1226d;
+  }
+  .help-footer {
+    text-align: center;
+    color: #5d7589;
+    margin-top: 2em;
+    font-size: 1.09em;
+  }
+  @media (max-width: 700px) {
+    .help-card {
+      padding: 1.1rem 0.6rem 1.5rem 0.6rem;
+      font-size: 0.99em;
+    }
+    .help-title {
+      font-size: 1.2em;
+    }
+    .help-section {
+      padding: 1rem 0;
+    }
+  }
+</style>
