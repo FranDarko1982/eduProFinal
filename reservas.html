@@ -1,0 +1,380 @@
+<!-- reservas.html -->
+<style>
+  .reservas-container .salas-table-container { margin-top:0 !important; }
+  /* Modal activo (por si tu CSS original lo usaba) */
+  .modal-reserva-bg.activo { display:flex !important; }
+</style>
+
+<div class="reservas-container" id="reservas-admin-root">
+  <div class="reservas-header"
+       style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem;">
+
+    <!-- Filtros en cascada -->
+    <div class="filter-style">
+      <div class="filter">
+        <label for="filterCiudadAll">Ciudad:</label>
+        <select id="filterCiudadAll">
+          <option value="">— Elige Ciudad —</option>
+        </select>
+      </div>
+
+      <div class="filter">
+        <label for="filterCentroAll">Centro:</label>
+        <select id="filterCentroAll" disabled>
+          <option value="">— Elige Centro —</option>
+        </select>
+      </div>
+
+      <div class="filter">
+        <label for="filterSalaAll">Sala:</label>
+        <select id="filterSalaAll" disabled>
+          <option value="">— Elige Sala —</option>
+        </select>
+      </div>
+
+      <button type="button" id="clearFiltersAll" class="btn-filters-clear">Quitar filtros</button>
+      <button type="button" id="reloadDataAll"  class="btn-filters-clear" style="margin-left: .5rem;">Recargar datos</button>
+    </div>
+
+    <!-- Buscador de ID Reserva -->
+    <div style="display:flex; align-items:center; gap:.5rem;">
+      <label for="searchIdAll">Buscar por ID Reserva:</label>
+      <input id="searchIdAll" type="text" placeholder="Introduce ID Reserva…" />
+      <button type="button" id="exportAllCsv" class="btn-filters-clear" style="margin-left:.5rem;">Exportar CSV</button>   
+    </div>
+  </div>
+
+  <!-- Tabla -->
+  <div class="salas-table-container">
+    <table id="allReservasTable" class="table-style">
+      <thead>
+        <tr>
+          <th>ID Reserva</th>
+          <th>Sala</th>
+          <th>Ciudad</th>
+          <th>Centro</th>
+          <th>Usuario</th>
+          <th>Motivo</th>
+          <th>Inicio</th>
+          <th>Fin</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <!-- Modal editar reserva -->
+  <div id="editModalAll" class="modal-reserva-bg" style="display:none;">
+    <div class="modal-reserva">
+      <h2 class="modal-reserva-titulo">Editar Reserva</h2>
+      <form id="formEditReservaAll" autocomplete="off">
+        <input id="editMotivoAll" type="text" class="modal-reserva-input" placeholder="Motivo de la reserva" required />
+        <div class="modal-reserva-fechas">
+          <div>
+            <label for="editInicioAll" class="modal-reserva-label">Fecha inicio</label><br />
+            <input id="editInicioAll" type="datetime-local" class="modal-reserva-datetime" required />
+          </div>
+          <div>
+            <label for="editFinAll" class="modal-reserva-label">Fecha fin</label><br />
+            <input id="editFinAll" type="datetime-local" class="modal-reserva-datetime" required />
+          </div>
+        </div>
+        <div class="modal-reserva-botones">
+          <button type="button" id="btnEditCancelarAll" class="modal-reserva-btn-cancelar">Cancelar</button>
+          <button type="submit" id="btnEditGuardarAll" class="modal-reserva-btn-guardar">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal eliminar reserva -->
+  <div id="deleteOverlayAll" class="modal-overlay" style="display:none;">
+    <div class="modal flex-col">
+      <div class="modal-header mb-2">Eliminar Reserva</div>
+      <div class="modal-body flex flex-col gap-3">
+        <p id="deleteMsgAll" class="text-[#0d151b]"></p>
+      </div>
+      <div class="modal-footer" style="display:flex;gap:1rem;">
+        <button id="btnDeleteCancelAll" class="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300">Cancelar</button>
+        <button id="btnDeleteOkAll"     class="px-4 py-2 rounded bg-[#bc348b] text-white hover:bg-[#a1226d]">Eliminar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal información genérico -->
+  <div id="infoOverlayAll" class="modal-overlay" style="display:none;">
+    <div class="modal flex-col">
+      <div id="infoHeaderAll" class="modal-header mb-2">Información</div>
+      <div class="modal-body flex flex-col gap-3">
+        <p id="infoMsgAll" class="text-[#0d151b]"></p>
+      </div>
+      <div class="modal-footer">
+        <button id="btnInfoOkAll" class="px-4 py-2 rounded bg-[#bc348b] text-white hover:bg-[#a1226d]">Aceptar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function (w) {
+
+  const AdminApp = {
+    state: {
+      reservas: [],
+      currentEditId: null,
+      deleteId: null
+    },
+
+    init() {
+      // Cargar datos al entrar
+      this.recargarReservas();
+
+      // Listeners filtros/búsqueda
+      id('filterCiudadAll').addEventListener('change', () => { this.poblarCentros(); this.poblarSalas(); this.renderTabla(); });
+      id('filterCentroAll').addEventListener('change', () => { this.poblarSalas(); this.renderTabla(); });
+      id('filterSalaAll').addEventListener('change', () => this.renderTabla());
+      id('searchIdAll').addEventListener('input', () => this.renderTabla());
+      id('clearFiltersAll').addEventListener('click', () => this.limpiarFiltros());
+      id('reloadDataAll').addEventListener('click', () => this.recargarReservas());
+      id('exportAllCsv').addEventListener('click', () => this.exportCsv());
+
+      // Modales info
+      id('btnInfoOkAll').addEventListener('click', () => this.hideInfoModal());
+      id('infoOverlayAll').addEventListener('click', e => { if (e.target === e.currentTarget) this.hideInfoModal(); });
+
+      // Modal editar
+      id('btnEditCancelarAll').addEventListener('click', () => this.closeEditModal());
+      id('editModalAll').addEventListener('click', e => { if (e.target === e.currentTarget) this.closeEditModal(); });
+      id('formEditReservaAll').addEventListener('submit', e => this.submitEdit(e));
+
+      // Modal eliminar
+      id('btnDeleteCancelAll').addEventListener('click', () => this.closeDeleteModal());
+      id('deleteOverlayAll').addEventListener('click', e => { if (e.target === e.currentTarget) this.closeDeleteModal(); });
+      id('btnDeleteOkAll').addEventListener('click', () => this.confirmDelete());
+    },
+
+    recargarReservas() {
+      if (typeof showSpinner === 'function') showSpinner();
+      google.script.run
+        .withSuccessHandler(d => {
+          console.log('getTodasReservas -> length:', Array.isArray(d) ? d.length : 'no array', d?.slice?.(0,3));
+          this.state.reservas = Array.isArray(d) ? d : [];
+          w.__debugReservas = this.state.reservas; // para inspeccionar
+          this.poblarCiudades();
+          this.renderTabla();
+          if (typeof hideSpinner === 'function') hideSpinner();
+        })
+        .withFailureHandler(err => {
+          if (typeof hideSpinner === 'function') hideSpinner();
+          console.error('Error getTodasReservas:', err);
+          alert('Error al cargar las reservas.');
+        })
+        .getTodasReservas();
+    },
+
+    poblarCiudades() {
+      const sel = id('filterCiudadAll');
+      sel.innerHTML = '<option value="">— Elige Ciudad —</option>';
+      [...new Set(this.state.reservas.map(r => r.Ciudad?.trim()).filter(Boolean))].sort()
+        .forEach(c => sel.insertAdjacentHTML('beforeend', `<option value="${c}">${c}</option>`));
+      sel.disabled = false;
+      // reset dependientes
+      id('filterCentroAll').innerHTML = '<option value="">— Elige Centro —</option>';
+      id('filterSalaAll').innerHTML   = '<option value="">— Elige Sala —</option>';
+    },
+
+    poblarCentros() {
+      const ciudad = id('filterCiudadAll').value;
+      const sel = id('filterCentroAll');
+      sel.innerHTML = '<option value="">— Elige Centro —</option>';
+      let datos = this.state.reservas;
+      if (ciudad) datos = datos.filter(r => r.Ciudad?.trim() === ciudad);
+      [...new Set(datos.map(r => r.Centro?.trim()).filter(Boolean))].sort()
+        .forEach(c => sel.insertAdjacentHTML('beforeend', `<option value="${c}">${c}</option>`));
+      sel.disabled = false;
+    },
+
+    poblarSalas() {
+      const ciudad = id('filterCiudadAll').value;
+      const centro = id('filterCentroAll').value;
+      const sel = id('filterSalaAll');
+      sel.innerHTML = '<option value="">— Elige Sala —</option>';
+      let datos = this.state.reservas;
+      if (ciudad) datos = datos.filter(r => r.Ciudad?.trim() === ciudad);
+      if (centro) datos = datos.filter(r => r.Centro?.trim() === centro);
+      [...new Set(datos.map(r => r.Sala?.trim()).filter(Boolean))].sort()
+        .forEach(s => sel.insertAdjacentHTML('beforeend', `<option value="${s}">${s}</option>`));
+      sel.disabled = false;
+    },
+
+    limpiarFiltros() {
+      id('filterCiudadAll').value = '';
+      this.poblarCentros();
+      id('filterCentroAll').value = '';
+      this.poblarSalas();
+      id('filterSalaAll').value = '';
+      id('searchIdAll').value = '';
+      this.renderTabla();
+    },
+
+    renderTabla() {
+      const ciudad = id('filterCiudadAll').value;
+      const centro = id('filterCentroAll').value;
+      const sala   = id('filterSalaAll').value;
+      const term   = id('searchIdAll').value.toLowerCase();
+      const tbody  = qs('#allReservasTable tbody');
+
+      let datos = this.state.reservas;
+      if (ciudad) datos = datos.filter(r => r.Ciudad?.trim() === ciudad);
+      if (centro) datos = datos.filter(r => r.Centro?.trim() === centro);
+      if (sala)   datos = datos.filter(r => r.Sala?.trim() === sala);
+      if (term)   datos = datos.filter(r => (r.ID || '').toLowerCase().includes(term));
+
+      if (!datos.length) {
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#bc348b;">No hay reservas</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = '';
+      datos.forEach(r => {
+        tbody.insertAdjacentHTML('beforeend', `
+          <tr data-id="${r.ID}">
+            <td>${r.ID}</td>
+            <td>${r.Sala}</td>
+            <td>${r.Ciudad}</td>
+            <td>${r.Centro}</td>
+            <td>${r.Usuario}</td>
+            <td>${r.Motivo || ''}</td>
+            <td>${r.Inicio}</td>
+            <td>${r.Fin}</td>
+            <td class="actions">
+              <button onclick="AdminApp.openEditModal('${r.ID}')" title="Editar">✏️</button>
+              <button onclick="AdminApp.openDeleteModal('${r.ID}')" title="Eliminar">🗑️</button>
+            </td>
+          </tr>`);
+      });
+    },
+
+    // --------- Editar ---------
+    openEditModal(idReserva) {
+      const r = this.state.reservas.find(x => x.ID === idReserva);
+      if (!r) return;
+      this.state.currentEditId = idReserva;
+      id('editMotivoAll').value = r.Motivo || '';
+      id('editInicioAll').value = this.toInput(r.Inicio);
+      id('editFinAll').value    = this.toInput(r.Fin);
+      id('editModalAll').style.display = 'flex';
+    },
+    closeEditModal() {
+      id('editModalAll').style.display = 'none';
+    },
+    submitEdit(e) {
+      e.preventDefault();
+      const motivo = id('editMotivoAll').value.trim();
+      const inicio = id('editInicioAll').value;
+      const fin    = id('editFinAll').value;
+      if (new Date(fin) <= new Date(inicio)) {
+        alert('La fecha fin no puede ser anterior a la fecha inicio.');
+        return;
+      }
+      this.closeEditModal();
+      if (typeof showSpinner === 'function') showSpinner();
+      google.script.run
+        .withSuccessHandler(() => {
+          this.recargarReservas();
+          this.showInfoModal('Reserva actualizada correctamente.','¡Reserva Actualizada!');
+        })
+        .withFailureHandler(err => {
+          if(typeof hideSpinner==='function') hideSpinner();
+          console.error(err);
+          alert('Error actualizando la reserva');
+        })
+        .actualizarReserva({
+          id: this.state.currentEditId,
+          motivo,
+          fechaInicio: inicio,
+          fechaFin: fin
+        });
+    },
+
+    // --------- Eliminar ---------
+    openDeleteModal(idReserva) {
+      this.state.deleteId = idReserva;
+      id('deleteMsgAll').textContent = `¿Eliminar la reserva ${idReserva}?`;
+      id('deleteOverlayAll').style.display = 'flex';
+    },
+    closeDeleteModal() {
+      id('deleteOverlayAll').style.display = 'none';
+    },
+    confirmDelete() {
+      this.closeDeleteModal();
+      if (typeof showSpinner === 'function') showSpinner();
+      google.script.run
+        .withSuccessHandler(() => {
+          this.recargarReservas();
+          this.showInfoModal('Reserva eliminada correctamente.','¡Reserva Eliminada!');
+        })
+        .withFailureHandler(err => {
+          if(typeof hideSpinner==='function') hideSpinner();
+          console.error(err);
+          alert('Error eliminando la reserva');
+        })
+        .eliminarReserva(this.state.deleteId);
+    },
+
+    exportCsv() {
+      if (typeof showSpinner === 'function') showSpinner();
+      google.script.run
+        .withSuccessHandler(csv => {
+          if (typeof hideSpinner === 'function') hideSpinner();
+          downloadText(csv, 'todas-reservas.csv', 'text/csv');
+        })
+        .withFailureHandler(err => {
+          if(typeof hideSpinner==='function') hideSpinner();
+          console.error(err);
+          alert('Error exportando las reservas');
+        })
+        .exportTodasReservasCsv();
+    },
+
+    
+    // --------- Info modal ---------
+    showInfoModal(msg, header='Información') {
+      id('infoHeaderAll').textContent = header;
+      id('infoMsgAll').textContent = msg;
+      id('infoOverlayAll').style.display = 'flex';
+    },
+    hideInfoModal() {
+      id('infoOverlayAll').style.display = 'none';
+    },
+
+    // --------- Utils ---------
+    toInput(str) {
+      // '05/07/2025 14:00' → '2025-07-05T14:00'
+      const [fecha, hora] = str.split(' ');
+      const [d, m, y] = fecha.split('/');
+      return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}T${hora}`;
+    }
+  };
+
+  // Helpers cortos
+  function id(sel){ return document.getElementById(sel); }
+  function qs(sel){ return document.querySelector(sel); }
+
+  // Exponer para onclicks
+  w.AdminApp = AdminApp;
+
+  document.addEventListener('DOMContentLoaded', () => {
+    // solo si el enlace de menú es visible (rol admin)
+    const link = document.querySelector('.tab[data-id="reservas"]');
+    if (link) {
+      // Cargar al entrar por primera vez
+      AdminApp.init();
+      // Si quieres recargar cada vez que abres la pestaña, descomenta:
+      // link.addEventListener('click', () => AdminApp.recargarReservas());
+    }
+  });
+
+})(window);
+</script>
