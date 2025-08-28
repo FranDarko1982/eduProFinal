@@ -1,0 +1,155 @@
+/**
+ * Funciones para obtener datos estadísticos de reservas
+ */
+
+/**
+ * Devuelve el número de reservas por usuario (correo electrónico)
+ * en formato de lista [{ email, count }]
+ */
+function getReservasPorUsuario() {
+  const { headers, rows } = fetchReservasData();
+  const counts = {};
+  rows.forEach(row => {
+    const r = mapRowToReserva(headers, row);
+    const email = String(r.usuario || '').trim();
+    if (email) counts[email] = (counts[email] || 0) + 1;
+  });
+  return Object.keys(counts)
+    .map(email => ({ email, count: counts[email] }))
+    .sort((a, b) => b.count - a.count);
+}
+
+/**
+ * Devuelve el número de reservas por sala
+ * en formato de lista [{ nombre, count }]
+ */
+function getReservasPorSala() {
+  const { headers, rows } = fetchReservasData();
+  const counts = {};
+  rows.forEach(row => {
+    const r = mapRowToReserva(headers, row);
+    const nombre = String(r.nombre || '').trim();
+    if (nombre) counts[nombre] = (counts[nombre] || 0) + 1;
+  });
+  return Object.keys(counts)
+    .map(nombre => ({ nombre, count: counts[nombre] }))
+    .sort((a, b) => b.count - a.count);
+}
+
+/**
+ * Devuelve el número de reservas por ciudad
+ * en formato de lista [{ ciudad, count }]
+ */
+function getReservasPorCiudad() {
+  const { headers, rows } = fetchReservasData();
+  const counts = {};
+  rows.forEach(row => {
+    const r = mapRowToReserva(headers, row);
+    const ciudad = String(r.ciudad || '').trim();
+    if (ciudad) counts[ciudad] = (counts[ciudad] || 0) + 1;
+  });
+  return Object.keys(counts)
+    .map(ciudad => ({ ciudad, count: counts[ciudad] }))
+    .sort((a, b) => b.count - a.count);
+}
+
+/**
+ * Devuelve el % de ocupación de cada centro
+ * en formato [{ centro, ocupacion }]
+ * Calcula sobre los últimos 30 días
+ */
+function getPorcentajeOcupacionPorCentro() {
+  const { headers, rows } = fetchReservasData();
+
+  // Map: centro -> { horasReservadas, horasDisponibles, salas }
+  const centrosInfo = {};
+  // 1. Saca el listado de centros y salas (y su horario)
+  const salas = getAllSalas(); // [{Centro, Horario, Nombre, ...}]
+  const salasPorCentro = {};
+  salas.forEach(sala => {
+    if (!salasPorCentro[sala.Centro]) salasPorCentro[sala.Centro] = [];
+    salasPorCentro[sala.Centro].push(sala);
+  });
+  // 2. Inicializa centrosInfo
+  Object.keys(salasPorCentro).forEach(centro => {
+    centrosInfo[centro] = { horasReservadas: 0, horasDisponibles: 0, salas: salasPorCentro[centro] };
+  });
+
+  // 3. Filtra reservas solo de los últimos 30 días
+  const ahora = new Date();
+  const hace30 = new Date(ahora.getTime() - 30*24*60*60*1000);
+
+  rows.forEach(row => {
+    const r = mapRowToReserva(headers, row);
+    const centro = String(r.centro || '').trim();
+    if (!centro || !centrosInfo[centro]) return;
+    // Calcula la duración de la reserva en horas
+    const inicio = parseFechaFlexible(r.inicio || r.fechaInicio || '');
+    const fin = parseFechaFlexible(r.fin || r.fechaFin || '');
+    if (!inicio || !fin || fin <= inicio) return;
+    if (fin < hace30) return; // solo reservas en los últimos 30 días
+    // Si la reserva empieza antes de hace30 pero termina después, solo cuenta la parte tras el corte
+    const realInicio = inicio < hace30 ? hace30 : inicio;
+    const horas = (fin - realInicio) / (1000 * 60 * 60); // milisegundos a horas
+    centrosInfo[centro].horasReservadas += horas;
+  });
+
+  // 4. Calcula horas disponibles por centro (todas las salas, según su horario)
+  // Solo para los últimos 30 días
+  const diasPeriodo = 30;
+  Object.keys(centrosInfo).forEach(centro => {
+    const salas = centrosInfo[centro].salas;
+    salas.forEach(sala => {
+      // Suponemos que el horario es tipo "08:00-20:00"
+      const horarios = String(sala.Horario || '08:00-20:00').split('-');
+      if (horarios.length !== 2) return;
+      const [hIni, mIni] = horarios[0].split(':').map(Number);
+      const [hFin, mFin] = horarios[1].split(':').map(Number);
+      const horasSala = ((hFin*60 + (mFin||0)) - (hIni*60 + (mIni||0))) / 60;
+      centrosInfo[centro].horasDisponibles += horasSala * diasPeriodo;
+    });
+  });
+
+  // 5. Monta resultado final
+  return Object.keys(centrosInfo).map(centro => {
+    const info = centrosInfo[centro];
+    const ocupacion = info.horasDisponibles > 0
+      ? Math.round((info.horasReservadas / info.horasDisponibles) * 1000) / 10
+      : 0; // 1 decimal
+    return {
+      centro,
+      ocupacion // porcentaje
+    };
+  }).sort((a, b) => b.ocupacion - a.ocupacion);
+}
+
+/**
+ * Parsea fechas tipo '07/09/2025 10:00', '2025-09-07 10:00', 
+ * '07/09/2025', '2025-09-07', o incluso objetos Date.
+ * Devuelve objeto Date o null.
+ */
+function parseFechaFlexible(fecha) {
+  if (!fecha) return null;
+  if (fecha instanceof Date && !isNaN(fecha)) return fecha;
+  if (typeof fecha !== 'string') fecha = String(fecha);
+  let partes = fecha.trim().split(' ');
+  let datePart = partes[0];
+  let timePart = partes[1] || '00:00';
+  let d, m, y, h=0, min=0;
+  if (/^\d{2}\/\d{2}\/\d{4}/.test(datePart)) {
+    [d, m, y] = datePart.split('/');
+  } else if (/^\d{4}-\d{2}-\d{2}/.test(datePart)) {
+    [y, m, d] = datePart.split('-');
+  } else {
+    return null;
+  }
+  [h, min] = timePart.split(':');
+  return new Date(Number(y), Number(m)-1, Number(d), Number(h)||0, Number(min)||0);
+}
+
+/**
+ * ¡Necesitas tener estas helpers en tu proyecto!
+ * - fetchReservasData()
+ * - mapRowToReserva(headers, row)
+ * - getAllSalas()
+ */
