@@ -1,0 +1,164 @@
+<!-- salas.html -->
+
+<!-- Filtros al estilo general -->
+<div class="filter-style">
+  <div class="filter">
+    <label for="salas-filter-city">Ciudad:</label>
+    <select id="salas-filter-city">
+      <option value="">— Elige Ciudad —</option>
+    </select>
+  </div>
+  <div class="filter">
+    <label for="salas-filter-center">Centro:</label>
+    <select id="salas-filter-center">
+      <option value="">— Elige Centro —</option>
+    </select>
+  </div>
+  <div class="filter">
+    <label for="salas-filter-room">Sala:</label>
+    <select id="salas-filter-room">
+      <option value="">— Elige Sala —</option>
+    </select>
+  </div>
+  <button type="button" id="salas-clear-filters" class="btn-filters-clear">Quitar filtros</button>
+</div>
+
+<!-- Contenedor para la tabla de salas -->
+<div class="salas-table-container">
+  <table id="salasTable" class="table-style">
+    <thead>
+      <!-- Se genera dinámicamente -->
+    </thead>
+    <tbody>
+      <!-- Se inyectarán aquí las filas de datos -->
+    </tbody>
+  </table>
+</div>
+
+<script>
+  let salasOriginales = [];
+
+  document.addEventListener('DOMContentLoaded', () => {
+    if (typeof showSpinner === 'function') showSpinner();
+
+    // Cargar todas las salas y montar selects de filtros
+    google.script
+      .run
+      .withSuccessHandler(salas => {
+        salasOriginales = Array.isArray(salas) ? salas : [];
+        cargarCiudades();
+        renderTabla();
+        if (typeof hideSpinner === 'function') hideSpinner();
+      })
+      .withFailureHandler(err => {
+        if (typeof hideSpinner === 'function') hideSpinner();
+        console.error(err);
+        alert('Error al cargar las salas.');
+      })
+      .getAllSalas();
+
+    document.getElementById('salas-filter-city').addEventListener('change', () => {
+      cargarCentros(); cargarSalas(); renderTabla();
+    });
+    document.getElementById('salas-filter-center').addEventListener('change', () => {
+      cargarSalas(); renderTabla();
+    });
+    document.getElementById('salas-filter-room').addEventListener('change', renderTabla);
+    document.getElementById('salas-clear-filters').addEventListener('click', limpiarFiltros);
+  });
+
+  function cargarCiudades() {
+    const sel = document.getElementById('salas-filter-city');
+    sel.innerHTML = '<option value="">— Elige Ciudad —</option>';
+    const ciudades = [...new Set(
+      salasOriginales.map(r => String(r.Ciudad || '').trim()).filter(v => v)
+    )].sort();
+    ciudades.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c;
+      opt.textContent = c;
+      sel.appendChild(opt);
+    });
+  }
+
+  function cargarCentros() {
+    const ciudad = document.getElementById('salas-filter-city').value;
+    const sel = document.getElementById('salas-filter-center');
+    sel.innerHTML = '<option value="">— Elige Centro —</option>';
+    let datos = salasOriginales;
+    if (ciudad) datos = datos.filter(r => String(r.Ciudad).trim() === ciudad);
+    const centros = [...new Set(
+      datos.map(r => String(r.Centro || '').trim()).filter(v => v)
+    )].sort();
+    centros.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c;
+      opt.textContent = c;
+      sel.appendChild(opt);
+    });
+  }
+
+  function cargarSalas() {
+    const ciudad = document.getElementById('salas-filter-city').value;
+    const centro = document.getElementById('salas-filter-center').value;
+    const sel = document.getElementById('salas-filter-room');
+    sel.innerHTML = '<option value="">— Elige Sala —</option>';
+    let datos = salasOriginales;
+    if (ciudad) datos = datos.filter(r => String(r.Ciudad).trim() === ciudad);
+    if (centro) datos = datos.filter(r => String(r.Centro).trim() === centro);
+    const salas = [...new Set(
+      datos.map(r => String(r.Nombre || '').trim()).filter(v => v)
+    )].sort();
+    salas.forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s;
+      opt.textContent = s;
+      sel.appendChild(opt);
+    });
+  }
+
+  function limpiarFiltros() {
+    document.getElementById('salas-filter-city').value = '';
+    cargarCentros();
+    document.getElementById('salas-filter-center').value = '';
+    cargarSalas();
+    document.getElementById('salas-filter-room').value = '';
+    renderTabla();
+  }
+
+  function renderTabla() {
+    const ciudad = document.getElementById('salas-filter-city').value;
+    const centro = document.getElementById('salas-filter-center').value;
+    const sala   = document.getElementById('salas-filter-room').value;
+    const thead  = document.querySelector('#salasTable thead');
+    const tbody  = document.querySelector('#salasTable tbody');
+
+    let datos = salasOriginales;
+    if (ciudad) datos = datos.filter(r => String(r.Ciudad).trim() === ciudad);
+    if (centro) datos = datos.filter(r => String(r.Centro).trim() === centro);
+    if (sala)   datos = datos.filter(r => String(r.Nombre).trim() === sala);
+
+    if (!datos.length) {
+      const cols = Object.keys(salasOriginales[0] || {}).length || 5;
+      tbody.innerHTML = `<tr><td colspan="${cols}" style="text-align:center;color:#bc348b;">No hay salas</td></tr>`;
+      thead.innerHTML = '';
+      return;
+    }
+
+    // Generar cabecera dinámica
+    const keys = Object.keys(datos[0]);
+    thead.innerHTML = '<tr>' + keys.map(k => `<th>${k}</th>`).join('') + '</tr>';
+
+    // Rellenar filas
+    tbody.innerHTML = '';
+    datos.forEach(item => {
+      const tr = document.createElement('tr');
+      keys.forEach(k => {
+        const td = document.createElement('td');
+        td.textContent = item[k] || '';
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+  }
+</script>
