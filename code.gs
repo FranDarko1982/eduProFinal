@@ -95,23 +95,38 @@ function doGet() {
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
-/**
- * Lee y normaliza toda la hoja de Salas.
- */
+/** Lee y normaliza toda la hoja de Salas, ignorando filas vacías y cabeceras “raras”. */
 function getAllSalas() {
-  const ss    = SpreadsheetApp.openById(SPREADSHEET_ID);
-  const sheet = getSheetByNameIC(ss, SHEET_NAME);
-  if (!sheet) throw new Error(`Hoja '${SHEET_NAME}' no encontrada`);
-  const values = sheet.getDataRange().getValues();
-  if (values.length < 2) return [];
-  const headers = values.shift().map(h => String(h).trim());
-  return values.map(row => {
-    const obj = {};
-    headers.forEach((h, i) => obj[h] = row[i]);
-    return obj;
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const name = (typeof SHEET_NAME === 'string' && SHEET_NAME) ? SHEET_NAME : 'Salas';
+  const sh = ss.getSheetByName(name);
+  if (!sh) throw new Error("Hoja '"+ name +"' no encontrada.");
+
+  const lastRow = sh.getLastRow();
+  const lastCol = sh.getLastColumn();
+  if (lastRow < 2 || lastCol < 1) return [];
+
+  // Cogemos todo lo “realmente usado”
+  const values = sh.getRange(1, 1, lastRow, lastCol).getValues();
+
+  // 1) Localiza la primera fila que tenga algo => cabecera
+  const headerIdx = values.findIndex(row => row.some(c => String(c).trim() !== ''));
+  if (headerIdx === -1 || headerIdx >= values.length - 1) return [];
+
+  const headers = values[headerIdx].map(h => String(h).trim());
+
+  // 2) Filtra filas totalmente vacías
+  const dataRows = values
+    .slice(headerIdx + 1)
+    .filter(row => row.some(c => String(c).trim() !== ''));
+
+  // 3) Mapea a objetos {Header: Valor}
+  return dataRows.map(row => {
+    const o = {};
+    headers.forEach((h, i) => { o[h] = row[i]; });
+    return o;
   });
 }
-
 
 
 /**
@@ -994,3 +1009,116 @@ function enviarSolicitudUso(datos) {
   ]);
 }
 
+/** ========= CRUD SALAS (por 'ID Sala') ========= **/
+
+function _getSalasSheet_() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = getSheetByNameIC(ss, SHEET_NAME); // SHEET_NAME = 'Salas'
+  if (!sheet) throw new Error(`Hoja '${SHEET_NAME}' no encontrada`);
+  return sheet;
+}
+
+function _readSalasTable_() {
+  const sheet = _getSalasSheet_();
+  const values = sheet.getDataRange().getValues();
+  if (values.length < 2) return { headers: [], rows: [], sheet };
+  const headers = values.shift().map(h => String(h).trim());
+  return { headers, rows: values, sheet };
+}
+
+function _indexOfHeader_(headers, name) {
+  return headers.indexOf(String(name).trim());
+}
+
+/** Crea una nueva sala. Si no envías idSala, genero 'S' + timestamp. */
+function crearSala(sala) {
+  const { headers, sheet } = _readSalasTable_();
+  const h = (n) => _indexOfHeader_(headers, n);
+
+  const idxId           = h('ID Sala');
+  const idxCentro       = h('Centro');
+  const idxCiudad       = h('Ciudad');
+  const idxNombre       = h('Nombre');
+  const idxCapacidad    = h('Capacidad');
+  const idxEquipamiento = h('Equipamiento');
+  const idxObs          = h('Observaciones');
+  const idxHorario      = h('Horario');
+
+  // ID (si viene vacío, generamos uno)
+  const idSala = sala.idSala && String(sala.idSala).trim() ? String(sala.idSala).trim() : 'S' + Date.now();
+
+  // Evitar duplicado por ID
+  const { rows } = _readSalasTable_();
+  for (let i = 0; i < rows.length; i++) {
+    if (idxId !== -1 && String(rows[i][idxId]).trim() === idSala) {
+      throw new Error('Ya existe una sala con ese ID.');
+    }
+  }
+
+  // Construir fila según el orden de headers
+  const row = headers.map(() => '');
+  if (idxId           !== -1) row[idxId]           = idSala;
+  if (idxCentro       !== -1) row[idxCentro]       = sala.Centro || '';
+  if (idxCiudad       !== -1) row[idxCiudad]       = sala.Ciudad || '';
+  if (idxNombre       !== -1) row[idxNombre]       = sala.Nombre || '';
+  if (idxCapacidad    !== -1) row[idxCapacidad]    = sala.Capacidad || '';
+  if (idxEquipamiento !== -1) row[idxEquipamiento] = sala.Equipamiento || '';
+  if (idxObs          !== -1) row[idxObs]          = sala.Observaciones || '';
+  if (idxHorario      !== -1) row[idxHorario]      = sala.Horario || '';
+
+  sheet.appendRow(row);
+  return idSala;
+}
+
+/** Actualiza una sala existente por ID Sala */
+function actualizarSala(sala) {
+  const { headers, rows, sheet } = _readSalasTable_();
+  const h = (n) => _indexOfHeader_(headers, n);
+
+  const idxId           = h('ID Sala');
+  const idxCentro       = h('Centro');
+  const idxCiudad       = h('Ciudad');
+  const idxNombre       = h('Nombre');
+  const idxCapacidad    = h('Capacidad');
+  const idxEquipamiento = h('Equipamiento');
+  const idxObs          = h('Observaciones');
+  const idxHorario      = h('Horario');
+
+  if (idxId === -1) throw new Error("No se encuentra la columna 'ID Sala'.");
+
+  const targetId = String(sala.idSala || sala['ID Sala'] || '').trim();
+  if (!targetId) throw new Error('ID Sala no especificado.');
+
+  for (let i = 0; i < rows.length; i++) {
+    if (String(rows[i][idxId]).trim() === targetId) {
+      const rowNumber = i + 2; // +1 por cabecera y +1 para 1-based
+      if (idxCentro       !== -1) sheet.getRange(rowNumber, idxCentro + 1).setValue(sala.Centro || '');
+      if (idxCiudad       !== -1) sheet.getRange(rowNumber, idxCiudad + 1).setValue(sala.Ciudad || '');
+      if (idxNombre       !== -1) sheet.getRange(rowNumber, idxNombre + 1).setValue(sala.Nombre || '');
+      if (idxCapacidad    !== -1) sheet.getRange(rowNumber, idxCapacidad + 1).setValue(sala.Capacidad || '');
+      if (idxEquipamiento !== -1) sheet.getRange(rowNumber, idxEquipamiento + 1).setValue(sala.Equipamiento || '');
+      if (idxObs          !== -1) sheet.getRange(rowNumber, idxObs + 1).setValue(sala.Observaciones || '');
+      if (idxHorario      !== -1) sheet.getRange(rowNumber, idxHorario + 1).setValue(sala.Horario || '');
+      return true;
+    }
+  }
+  throw new Error('Sala no encontrada.');
+}
+
+/** Elimina una sala por ID Sala */
+function eliminarSala(idSala) {
+  const { headers, rows, sheet } = _readSalasTable_();
+  const idxId = _indexOfHeader_(headers, 'ID Sala');
+  if (idxId === -1) throw new Error("No se encuentra la columna 'ID Sala'.");
+
+  const targetId = String(idSala || '').trim();
+  if (!targetId) throw new Error('ID Sala no especificado.');
+
+  for (let i = 0; i < rows.length; i++) {
+    if (String(rows[i][idxId]).trim() === targetId) {
+      sheet.deleteRow(i + 2); // +1 cabecera +1 base-1
+      return true;
+    }
+  }
+  return false;
+}
