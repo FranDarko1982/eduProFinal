@@ -1,3 +1,6 @@
+<!-- =========================
+     PANEL DE CONTROL
+     ========================= -->
 <div class="panel-admin-container">
   <h1 class="panel-admin-title">Panel de control</h1>
   <p class="panel-admin-desc">
@@ -6,25 +9,28 @@
 
   <!-- Tabs -->
   <div class="panel-admin-tabs">
-    <button id="tab-salas" class="panel-admin-tab active" onclick="showPanelAdminTab('salas')">
+    <button id="tab-salas" class="panel-admin-tab active" onclick="PanelAdmin.showTab('salas')">
       Editar salas
     </button>
-    <button id="tab-usuarios" class="panel-admin-tab" onclick="showPanelAdminTab('usuarios')">
+    <button id="tab-usuarios" class="panel-admin-tab" onclick="PanelAdmin.showTab('usuarios')">
       Editar usuarios
     </button>
   </div>
 
-  <!-- Panel Salas -->
+  <!-- ======= Panel Salas ======= -->
   <div id="panel-salas" class="panel-admin-panel active">
     <div id="salasEmpty" class="panel-admin-center">
- 
       <div>
         <div class="panel-admin-title2">No hay salas</div>
         <div class="panel-admin-desc2">Añade una sala para empezar a gestionar las reservas</div>
       </div>
-      <button class="panel-admin-btn">Añadir sala</button>
+      <button id="btnEmptyAddSala" class="panel-admin-btn">Añadir sala</button>
     </div>
+
     <div id="salasTableContainer" class="salas-table-container hidden">
+      <div style="display:flex;justify-content:flex-end;margin-bottom:0.5rem;">
+        <button id="btnAddSala" class="panel-admin-btn" title="Añadir sala">+</button>
+      </div>
       <table id="panelSalasTable" class="table-style">
         <thead>
           <tr>
@@ -36,6 +42,7 @@
             <th>Equipamiento</th>
             <th>Observaciones</th>
             <th>Horario</th>
+            <th>Acciones</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -43,18 +50,20 @@
     </div>
   </div>
 
-  <!-- Panel Usuarios -->
+  <!-- ======= Panel Usuarios ======= -->
   <div id="panel-usuarios" class="panel-admin-panel">
     <div id="usuariosEmpty" class="panel-admin-center">
-
       <div>
         <div class="panel-admin-title2">No hay usuarios</div>
         <div class="panel-admin-desc2">Añade un usuario para empezar a gestionar permisos y reservas</div>
       </div>
       <button id="btnEmptyAddUser" class="panel-admin-btn">Añadir usuario</button>
     </div>
+
     <div id="usuariosTableContainer" class="salas-table-container hidden">
-      <button id="btnAddUser" class="panel-admin-btn" style="margin-bottom:0.5rem;">+</button>
+      <div style="display:flex;justify-content:flex-end;margin-bottom:0.5rem;">
+        <button id="btnAddUser" class="panel-admin-btn" title="Añadir usuario">+</button>
+      </div>
       <table id="usuariosTable" class="table-style">
         <thead>
           <tr>
@@ -71,7 +80,7 @@
   </div>
 </div>
 
-<!-- Modal editar usuario -->
+<!-- ======= Modal editar/crear Usuario ======= -->
 <div id="editUserModal" class="modal-reserva-bg">
   <div class="modal-reserva">
     <h2 class="modal-reserva-titulo">Editar Usuario</h2>
@@ -88,7 +97,7 @@
   </div>
 </div>
 
-<!-- Modal eliminar usuario -->
+<!-- ======= Modal eliminar Usuario ======= -->
 <div id="deleteUserOverlay" class="modal-overlay" style="display:none;">
   <div class="modal flex-col">
     <div class="modal-header mb-2">Eliminar Usuario</div>
@@ -102,7 +111,42 @@
   </div>
 </div>
 
-<!-- Modal información -->
+<!-- ======= Modal editar/crear Sala ======= -->
+<div id="editSalaModal" class="modal-reserva-bg">
+  <div class="modal-reserva">
+    <h2 class="modal-reserva-titulo">Editar Sala</h2>
+    <form id="formEditSala" autocomplete="off">
+      <input id="salaId" type="text" class="modal-reserva-input" placeholder="ID Sala (opcional al crear)"/>
+      <input id="salaCentro" type="text" class="modal-reserva-input" placeholder="Centro" required />
+      <input id="salaCiudad" type="text" class="modal-reserva-input" placeholder="Ciudad" required />
+      <input id="salaNombre" type="text" class="modal-reserva-input" placeholder="Nombre" required />
+      <input id="salaCapacidad" type="number" class="modal-reserva-input" placeholder="Capacidad" />
+      <input id="salaEquipamiento" type="text" class="modal-reserva-input" placeholder="Equipamiento" />
+      <input id="salaObs" type="text" class="modal-reserva-input" placeholder="Observaciones" />
+      <input id="salaHorario" type="text" class="modal-reserva-input" placeholder="Horario" />
+      <div class="modal-reserva-botones">
+        <button type="button" id="btnSalaCancel" class="modal-reserva-btn-cancelar">Cancelar</button>
+        <button type="submit" id="btnSalaSave" class="modal-reserva-btn-guardar">Guardar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ======= Modal eliminar Sala ======= -->
+<div id="deleteSalaOverlay" class="modal-overlay" style="display:none;">
+  <div class="modal flex-col">
+    <div class="modal-header mb-2">Eliminar Sala</div>
+    <div class="modal-body flex flex-col gap-3">
+      <p id="deleteSalaMsg" class="text-[#0d151b]"></p>
+    </div>
+    <div class="modal-footer" style="display:flex;gap:1rem;">
+      <button id="btnDeleteSalaCancel" class="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300">Cancelar</button>
+      <button id="btnDeleteSalaOk" class="px-4 py-2 rounded bg-[#bc348b] text-white hover:bg-[#a1226d]">Eliminar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ======= Modal información reutilizable ======= -->
 <div id="infoOverlay" class="modal-overlay" style="display:none;">
   <div class="modal flex-col">
     <div id="infoHeader" class="modal-header mb-2">Información</div>
@@ -116,85 +160,62 @@
 </div>
 
 <script>
- // Tabs funcionales (cambia entre Salas y Usuarios)
-  function showPanelAdminTab(tab) {
-    document.getElementById('tab-salas').classList.toggle('active', tab === 'salas');
-    document.getElementById('tab-usuarios').classList.toggle('active', tab === 'usuarios');
-    document.getElementById('panel-salas').classList.toggle('active', tab === 'salas');
-    document.getElementById('panel-usuarios').classList.toggle('active', tab === 'usuarios');
+/* Encapsulamos todo en un namespace para evitar “already been declared” */
+const PanelAdmin = (() => {
+  // ------- Estado interno -------
+  let salasOriginales = [];
+  let usuariosOriginales = [];
+  let roles = [];
+  let currentSalaId = null;   // null => creando
+  let currentEmail = null;    // null => creando
+  let deleteSalaId = null;
+  let deleteEmail = null;
+
+  // ------- Helpers -------
+  const show = (el) => el.style.display = 'flex';
+  const hide = (el) => el.style.display = 'none';
+  const qs  = (s) => document.querySelector(s);
+  const qsa = (s) => Array.from(document.querySelectorAll(s));
+  const safe = (v) => (v == null ? '' : v);
+
+  function showInfoModal(msg, header='Información') {
+    qs('#infoHeader').textContent = header;
+    qs('#infoMsg').textContent = msg;
+    show(qs('#infoOverlay'));
   }
-  // Por defecto, muestra "salas"
-  showPanelAdminTab('salas');
+  function hideInfoModal() { hide(qs('#infoOverlay')); }
 
-  document.addEventListener('DOMContentLoaded', () => {
-    cargarSalas();
-    cargarUsuarios();
-    cargarRoles();
-  });
+  // ------- Tabs -------
+  function showTab(tab) {
+    qs('#tab-salas').classList.toggle('active', tab === 'salas');
+    qs('#tab-usuarios').classList.toggle('active', tab === 'usuarios');
+    qs('#panel-salas').classList.toggle('active', tab === 'salas');
+    qs('#panel-usuarios').classList.toggle('active', tab === 'usuarios');
+  }
 
+  // ------- Cargar Salas -------
   function cargarSalas() {
     if (typeof showSpinner === 'function') showSpinner();
     google.script.run
       .withSuccessHandler(d => {
-        console.log('🟢 Salas crudas recibidas del servidor:', d);
-        renderSalas(Array.isArray(d) ? d : []);
+        console.log('getAllSalas ->', Array.isArray(d) ? d.length : d); // debug
+        salasOriginales = Array.isArray(d) ? d : [];
+        renderSalas(salasOriginales);
         if (typeof hideSpinner === 'function') hideSpinner();
       })
       .withFailureHandler(err => {
         if (typeof hideSpinner === 'function') hideSpinner();
-        console.error(err);
-        alert('Error al cargar las salas');
+        console.error(err); alert('Error al cargar las salas');
       })
       .getAllSalas();
   }
 
   function renderSalas(salas) {
-  const empty  = document.getElementById('salasEmpty');
-  const tableC = document.getElementById('salasTableContainer');
-  const tbody  = document.querySelector('#panelSalasTable tbody');
+    const empty  = qs('#salasEmpty');
+    const tableC = qs('#salasTableContainer');
+    const tbody  = qs('#panelSalasTable tbody');
 
-  if (!Array.isArray(salas) || !salas.length) {
-    empty.classList.remove('hidden');
-    tableC.classList.add('hidden');
-    return;
-  }
-  empty.classList.add('hidden');
-  tableC.classList.remove('hidden');
-  tbody.innerHTML = '';
-
-  const cols = ['ID Sala','Centro','Ciudad','Nombre','Capacidad','Equipamiento','Observaciones','Horario'];
-
-  salas.forEach(r => {
-    // <<-- Añade este log para ver la fila y el array de valores
-    const values = cols.map(k => r[k]);
-    console.log('🖨️ Fila objeto:', r);
-    console.log('➡️ Valores a renderizar:', values);
-
-    const tr = document.createElement('tr');
-    values.forEach((val, idx) => {
-      const td = document.createElement('td');
-      td.textContent = val != null ? val : '';
-      tr.appendChild(td);
-    });
-    tbody.appendChild(tr);
-  });
-}
-
-
-  function cargarUsuarios() {
-    if (typeof showSpinner === 'function') showSpinner();
-    google.script.run
-      .withSuccessHandler(d => { renderUsuarios(Array.isArray(d) ? d : []); if (typeof hideSpinner === 'function') hideSpinner(); })
-      .withFailureHandler(err => { if (typeof hideSpinner === 'function') hideSpinner(); console.error(err); alert('Error al cargar los usuarios'); })
-      .getAllUsuarios();
-  }
-
-  function renderUsuarios(users) {
-    usuariosOriginales = users;
-    const empty  = document.getElementById('usuariosEmpty');
-    const tableC = document.getElementById('usuariosTableContainer');
-    const tbody  = document.querySelector('#usuariosTable tbody');
-    if (!users.length) {
+    if (!salas || !salas.length) {
       empty.classList.remove('hidden');
       tableC.classList.add('hidden');
       return;
@@ -202,38 +223,147 @@
     empty.classList.add('hidden');
     tableC.classList.remove('hidden');
     tbody.innerHTML = '';
+
+    const cols = ['ID Sala','Centro','Ciudad','Nombre','Capacidad','Equipamiento','Observaciones','Horario'];
+
+    salas.forEach(r => {
+      const tr = document.createElement('tr');
+      cols.forEach(k => {
+        const td = document.createElement('td');
+        td.textContent = safe(r[k]);
+        tr.appendChild(td);
+      });
+      const tdAct = document.createElement('td');
+      tdAct.className = 'actions';
+      const id = safe(r['ID Sala']).toString().replace(/"/g,'&quot;');
+      tdAct.innerHTML = `
+        <button onclick="PanelAdmin.openSalaEditModal('${id}')" title="Editar">✏️</button>
+        <button onclick="PanelAdmin.openSalaDeleteModal('${id}')" title="Eliminar">🗑️</button>
+      `;
+      tr.appendChild(tdAct);
+      tbody.appendChild(tr);
+    });
+  }
+
+  // ------- Modales Sala -------
+  function openSalaAddModal() {
+    currentSalaId = null;
+    qs('#editSalaModal h2').textContent = 'Añadir Sala';
+    qs('#salaId').value = '';
+    qs('#salaCentro').value = '';
+    qs('#salaCiudad').value = '';
+    qs('#salaNombre').value = '';
+    qs('#salaCapacidad').value = '';
+    qs('#salaEquipamiento').value = '';
+    qs('#salaObs').value = '';
+    qs('#salaHorario').value = '';
+    qs('#editSalaModal').classList.add('activo');
+  }
+  function openSalaEditModal(idSala) {
+    const s = salasOriginales.find(x => String(x['ID Sala']) === String(idSala));
+    if (!s) return;
+    currentSalaId = String(idSala);
+    qs('#editSalaModal h2').textContent = 'Editar Sala';
+    qs('#salaId').value = safe(s['ID Sala']);
+    qs('#salaCentro').value = safe(s['Centro']);
+    qs('#salaCiudad').value = safe(s['Ciudad']);
+    qs('#salaNombre').value = safe(s['Nombre']);
+    qs('#salaCapacidad').value = safe(s['Capacidad']);
+    qs('#salaEquipamiento').value = safe(s['Equipamiento']);
+    qs('#salaObs').value = safe(s['Observaciones']);
+    qs('#salaHorario').value = safe(s['Horario']);
+    qs('#editSalaModal').classList.add('activo');
+  }
+  function closeSalaEditModal() { qs('#editSalaModal').classList.remove('activo'); }
+
+  function submitSala(e) {
+    e.preventDefault();
+    const payload = {
+      idSala:        qs('#salaId').value.trim(),
+      Centro:        qs('#salaCentro').value.trim(),
+      Ciudad:        qs('#salaCiudad').value.trim(),
+      Nombre:        qs('#salaNombre').value.trim(),
+      Capacidad:     qs('#salaCapacidad').value.trim(),
+      Equipamiento:  qs('#salaEquipamiento').value.trim(),
+      Observaciones: qs('#salaObs').value.trim(),
+      Horario:       qs('#salaHorario').value.trim()
+    };
+    closeSalaEditModal();
+    if (typeof showSpinner === 'function') showSpinner();
+
+    const fn     = currentSalaId ? 'actualizarSala' : 'crearSala';
+    const okHead = currentSalaId ? '¡Sala Actualizada!' : '¡Sala Creada!';
+    const okMsg  = currentSalaId ? 'Sala actualizada correctamente.' : 'Sala creada correctamente.';
+    const errMsg = currentSalaId ? 'Error actualizando la sala' : 'Error creando la sala';
+
+    google.script.run
+      .withSuccessHandler(() => { cargarSalas(); showInfoModal(okMsg, okHead); })
+      .withFailureHandler(err => { if (typeof hideSpinner === 'function') hideSpinner(); console.error(err); alert(errMsg); })
+      [fn](payload);
+  }
+
+  // Borrado Sala
+  function openSalaDeleteModal(idSala) {
+    deleteSalaId = idSala;
+    qs('#deleteSalaMsg').textContent = '¿Eliminar la sala ' + idSala + '?';
+    show(qs('#deleteSalaOverlay'));
+  }
+  function closeSalaDeleteModal() { hide(qs('#deleteSalaOverlay')); }
+  function confirmDeleteSala() {
+    closeSalaDeleteModal();
+    if (typeof showSpinner === 'function') showSpinner();
+    google.script.run
+      .withSuccessHandler(() => { cargarSalas(); showInfoModal('Sala eliminada correctamente.','¡Sala Eliminada!'); })
+      .withFailureHandler(err => { if (typeof hideSpinner === 'function') hideSpinner(); console.error(err); alert('Error eliminando la sala'); })
+      .eliminarSala(deleteSalaId);
+  }
+
+  // ------- Usuarios -------
+  function cargarUsuarios() {
+    if (typeof showSpinner === 'function') showSpinner();
+    google.script.run
+      .withSuccessHandler(d => {
+        usuariosOriginales = Array.isArray(d) ? d : [];
+        renderUsuarios(usuariosOriginales);
+        if (typeof hideSpinner === 'function') hideSpinner();
+      })
+      .withFailureHandler(err => {
+        if (typeof hideSpinner === 'function') hideSpinner();
+        console.error(err); alert('Error al cargar los usuarios');
+      })
+      .getAllUsuarios();
+  }
+
+  function renderUsuarios(users) {
+    const empty  = qs('#usuariosEmpty');
+    const tableC = qs('#usuariosTableContainer');
+    const tbody  = qs('#usuariosTable tbody');
+
+    if (!users || !users.length) {
+      empty.classList.remove('hidden');
+      tableC.classList.add('hidden');
+      return;
+    }
+    empty.classList.add('hidden');
+    tableC.classList.remove('hidden');
+    tbody.innerHTML = '';
+
     users.forEach(u => {
       const tr = document.createElement('tr');
       ['email','nombre','rol','Campaña'].forEach(k => {
         const td = document.createElement('td');
-        td.textContent = u[k] || '';
+        td.textContent = safe(u[k]);
         tr.appendChild(td);
       });
       const tdAct = document.createElement('td');
       tdAct.className = 'actions';
       tdAct.innerHTML = `
-        <button onclick="openUserEditModal('${u.email}')" title="Editar">✏️</button>
-        <button onclick="openUserDeleteModal('${u.email}')" title="Eliminar">🗑️</button>`;
+        <button onclick="PanelAdmin.openUserEditModal('${u.email}')" title="Editar">✏️</button>
+        <button onclick="PanelAdmin.openUserDeleteModal('${u.email}')" title="Eliminar">🗑️</button>
+      `;
       tr.appendChild(tdAct);
       tbody.appendChild(tr);
     });
-    
-  }
-
-  let usuariosOriginales = [];
-  let roles = [];
-  let currentEmail = null;
-
-  function openUserAddModal() {
-    currentEmail = null;
-    document.querySelector('#editUserModal h2').textContent = 'Añadir Usuario';
-    document.getElementById('userEmail').value = '';
-    document.getElementById('userNombre').value = '';
-    document.getElementById('userCampania').value = '';
-    const sel = document.getElementById('userRol');
-    sel.innerHTML = roles.map(r => `<option value="${r}">${r}</option>`).join('');
-    sel.value = roles[0] || '';
-    document.getElementById('editUserModal').classList.add('activo');
   }
 
   function cargarRoles() {
@@ -242,78 +372,116 @@
     }).getRoles();
   }
 
+  // Modales Usuario
+  function openUserAddModal() {
+    currentEmail = null;
+    qs('#editUserModal h2').textContent = 'Añadir Usuario';
+    qs('#userEmail').value = '';
+    qs('#userNombre').value = '';
+    qs('#userCampania').value = '';
+    const sel = qs('#userRol');
+    sel.innerHTML = roles.map(r => `<option value="${r}">${r}</option>`).join('');
+    sel.value = roles[0] || '';
+    qs('#editUserModal').classList.add('activo');
+  }
   function openUserEditModal(email) {
     const u = usuariosOriginales.find(x => x.email === email);
     if (!u) return;
     currentEmail = email;
-    document.querySelector('#editUserModal h2').textContent = 'Editar Usuario';
-    document.getElementById('userEmail').value = u.email || '';
-    document.getElementById('userNombre').value = u.nombre || '';
-    document.getElementById('userCampania').value = u['Campaña'] || '';
-    const sel = document.getElementById('userRol');
+    qs('#editUserModal h2').textContent = 'Editar Usuario';
+    qs('#userEmail').value = safe(u.email);
+    qs('#userNombre').value = safe(u.nombre);
+    qs('#userCampania').value = safe(u['Campaña']);
+    const sel = qs('#userRol');
     sel.innerHTML = roles.map(r => `<option value="${r}">${r}</option>`).join('');
-    sel.value = u.rol || '';
-    document.getElementById('editUserModal').classList.add('activo');
+    sel.value = safe(u.rol);
+    qs('#editUserModal').classList.add('activo');
   }
+  function closeUserEditModal() { qs('#editUserModal').classList.remove('activo'); }
 
-  function closeUserEditModal() {
-    document.getElementById('editUserModal').classList.remove('activo');
-  }
-  document.getElementById('btnUserCancel').onclick = closeUserEditModal;
-  document.getElementById('editUserModal').onclick = e => { if(e.target===e.currentTarget) closeUserEditModal(); };
-  document.getElementById('formEditUser').onsubmit = e => {
+  function submitUser(e) {
     e.preventDefault();
     const data = {
       originalEmail: currentEmail,
-      email:   document.getElementById('userEmail').value.trim(),
-      nombre:  document.getElementById('userNombre').value.trim(),
-      rol:     document.getElementById('userRol').value,
-      'Campaña': document.getElementById('userCampania').value.trim()
+      email:   qs('#userEmail').value.trim(),
+      nombre:  qs('#userNombre').value.trim(),
+      rol:     qs('#userRol').value,
+      'Campaña': qs('#userCampania').value.trim()
     };
     closeUserEditModal();
     if (typeof showSpinner === 'function') showSpinner();
-    const fn = currentEmail ? 'actualizarUsuario' : 'crearUsuario';
-    const okMsg = currentEmail ? 'Usuario actualizado correctamente.' : 'Usuario creado correctamente.';
-    const okHead = currentEmail ? '\u00a1Usuario Actualizado!' : '\u00a1Usuario Creado!';
+
+    const fn     = currentEmail ? 'actualizarUsuario' : 'crearUsuario';
+    const okHead = currentEmail ? '¡Usuario Actualizado!' : '¡Usuario Creado!';
+    const okMsg  = currentEmail ? 'Usuario actualizado correctamente.' : 'Usuario creado correctamente.';
     const errMsg = currentEmail ? 'Error actualizando el usuario' : 'Error creando el usuario';
+
     google.script.run
       .withSuccessHandler(() => { cargarUsuarios(); showInfoModal(okMsg, okHead); })
-      .withFailureHandler(err => { if(typeof hideSpinner==='function') hideSpinner(); console.error(err); alert(errMsg); })
+      .withFailureHandler(err => { if (typeof hideSpinner === 'function') hideSpinner(); console.error(err); alert(errMsg); })
       [fn](data);
-  };
+  }
 
-  let deleteEmail = null;
+  // Borrado Usuario
   function openUserDeleteModal(email) {
     deleteEmail = email;
-    document.getElementById('deleteUserMsg').textContent = '¿Eliminar el usuario ' + email + '?';
-    document.getElementById('deleteUserOverlay').style.display = 'flex';
+    qs('#deleteUserMsg').textContent = '¿Eliminar el usuario ' + email + '?';
+    show(qs('#deleteUserOverlay'));
   }
-  function closeUserDeleteModal() {
-    document.getElementById('deleteUserOverlay').style.display = 'none';
-  }
-  document.getElementById('btnDeleteUserCancel').onclick = closeUserDeleteModal;
-  document.getElementById('deleteUserOverlay').onclick = e => { if(e.target===e.currentTarget) closeUserDeleteModal(); };
-  document.getElementById('btnDeleteUserOk').onclick = () => {
+  function closeUserDeleteModal() { hide(qs('#deleteUserOverlay')); }
+  function confirmDeleteUser() {
     closeUserDeleteModal();
     if (typeof showSpinner === 'function') showSpinner();
     google.script.run
-      .withSuccessHandler(() => { cargarUsuarios(); showInfoModal('Usuario eliminado correctamente.','\u00a1Usuario Eliminado!'); })
-      .withFailureHandler(err => { if(typeof hideSpinner==='function') hideSpinner(); console.error(err); alert('Error eliminando el usuario'); })
+      .withSuccessHandler(() => { cargarUsuarios(); showInfoModal('Usuario eliminado correctamente.','¡Usuario Eliminado!'); })
+      .withFailureHandler(err => { if (typeof hideSpinner === 'function') hideSpinner(); console.error(err); alert('Error eliminando el usuario'); })
       .eliminarUsuario(deleteEmail);
+  }
+
+  // ------- Init & Listeners -------
+  function init() {
+    // Eventos generales
+    qs('#btnInfoOk').addEventListener('click', hideInfoModal);
+    qs('#infoOverlay').addEventListener('click', e => { if (e.target === e.currentTarget) hideInfoModal(); });
+
+    // Salas: botones
+    qs('#btnAddSala').addEventListener('click', openSalaAddModal);
+    qs('#btnEmptyAddSala').addEventListener('click', openSalaAddModal);
+    qs('#btnSalaCancel').addEventListener('click', closeSalaEditModal);
+    qs('#editSalaModal').addEventListener('click', e => { if (e.target === e.currentTarget) closeSalaEditModal(); });
+    qs('#formEditSala').addEventListener('submit', submitSala);
+    qs('#btnDeleteSalaCancel').addEventListener('click', closeSalaDeleteModal);
+    qs('#deleteSalaOverlay').addEventListener('click', e => { if (e.target === e.currentTarget) closeSalaDeleteModal(); });
+    qs('#btnDeleteSalaOk').addEventListener('click', confirmDeleteSala);
+
+    // Usuarios: botones
+    qs('#btnAddUser').addEventListener('click', openUserAddModal);
+    qs('#btnEmptyAddUser').addEventListener('click', openUserAddModal);
+    qs('#btnUserCancel').addEventListener('click', closeUserEditModal);
+    qs('#editUserModal').addEventListener('click', e => { if (e.target === e.currentTarget) closeUserEditModal(); });
+    qs('#formEditUser').addEventListener('submit', submitUser);
+    qs('#btnDeleteUserCancel').addEventListener('click', closeUserDeleteModal);
+    qs('#deleteUserOverlay').addEventListener('click', e => { if (e.target === e.currentTarget) closeUserDeleteModal(); });
+    qs('#btnDeleteUserOk').addEventListener('click', confirmDeleteUser);
+
+    // Datos
+    showTab('salas');
+    cargarRoles();
+    cargarSalas();
+    cargarUsuarios();
+  }
+
+  // API pública (solo lo necesario desde HTML)
+  return {
+    init,
+    showTab,
+    openSalaEditModal,
+    openSalaDeleteModal,
+    openUserEditModal,
+    openUserDeleteModal
   };
+})();
 
-  function showInfoModal(msg, header='Información') {
-    document.getElementById('infoHeader').textContent = header;
-    document.getElementById('infoMsg').textContent = msg;
-    document.getElementById('infoOverlay').style.display = 'flex';
-  }
-  function hideInfoModal() {
-    document.getElementById('infoOverlay').style.display = 'none';
-  }
-  document.getElementById('btnInfoOk').onclick = hideInfoModal;
-  document.getElementById('infoOverlay').onclick = e => { if (e.target===e.currentTarget) hideInfoModal(); };
-
-  document.getElementById('btnAddUser').onclick = openUserAddModal;
-  document.getElementById('btnEmptyAddUser').onclick = openUserAddModal;
-  
+// Arranque
+document.addEventListener('DOMContentLoaded', () => PanelAdmin.init());
 </script>
