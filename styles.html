@@ -786,6 +786,27 @@
   #panelSalasTable td:nth-child(7) { width: 220px; }  /* Observaciones */
   #panelSalasTable th:nth-child(8),
   #panelSalasTable td:nth-child(8) { width: 150px; }  /* Horario */
+  /* Columna 9: Acciones (Salas) */
+  #panelSalasTable th:nth-child(9),
+  #panelSalasTable td:nth-child(9) {
+    width: 96px;
+    text-align: center;
+  }
+
+  /* Botones de acción de la tabla */
+  .table-style td.actions button {
+    background: none !important;
+    border: none !important;
+    cursor: pointer;
+    font-size: 1.1rem;
+    margin: 0 6px;
+    box-shadow: none !important;
+    padding: 0;
+  }
+  .table-style td.actions button:hover {
+    transform: scale(1.05);
+  }
+
 
   /* 5) Anchos recomendados por columna — USUARIOS */
   #usuariosTable th:nth-child(1),
