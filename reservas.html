@@ -3,6 +3,9 @@
   .reservas-container .salas-table-container { margin-top:0 !important; }
   /* Modal activo (por si tu CSS original lo usaba) */
   .modal-reserva-bg.activo { display:flex !important; }
+
+  /* Indicadores y cursor para columnas ordenables */
+  .table-style th[data-sort]{ cursor:pointer; user-select:none; }
 </style>
 
 <div class="reservas-container" id="reservas-admin-root">
@@ -49,14 +52,14 @@
     <table id="allReservasTable" class="table-style">
       <thead>
         <tr>
-          <th>ID Reserva</th>
-          <th>Sala</th>
-          <th>Ciudad</th>
-          <th>Centro</th>
-          <th>Usuario</th>
-          <th>Motivo</th>
-          <th>Inicio</th>
-          <th>Fin</th>
+          <th data-sort="ID">ID Reserva</th>
+          <th data-sort="Sala">Sala</th>
+          <th data-sort="Ciudad">Ciudad</th>
+          <th data-sort="Centro">Centro</th>
+          <th data-sort="Usuario">Usuario</th>
+          <th data-sort="Motivo">Motivo</th>
+          <th data-sort="Inicio">Inicio</th>
+          <th data-sort="Fin">Fin</th>
           <th>Acciones</th>
         </tr>
       </thead>
@@ -124,7 +127,9 @@
     state: {
       reservas: [],
       currentEditId: null,
-      deleteId: null
+      deleteId: null,
+      sortBy: 'Inicio',   // campo por defecto
+      sortDir: 'asc'      // 'asc' | 'desc'
     },
 
     init() {
@@ -153,6 +158,9 @@
       id('btnDeleteCancelAll').addEventListener('click', () => this.closeDeleteModal());
       id('deleteOverlayAll').addEventListener('click', e => { if (e.target === e.currentTarget) this.closeDeleteModal(); });
       id('btnDeleteOkAll').addEventListener('click', () => this.confirmDelete());
+
+      // Ordenación
+      this.setupSorting();
     },
 
     recargarReservas() {
@@ -219,6 +227,73 @@
       this.renderTabla();
     },
 
+    /* ================= ORDENACIÓN ================= */
+    setupSorting() {
+      const ths = document.querySelectorAll('#allReservasTable thead th[data-sort]');
+      ths.forEach(th => {
+        th.dataset.label = th.textContent.trim();
+        th.addEventListener('click', () => {
+          const key = th.dataset.sort;
+          if (this.state.sortBy === key) {
+            this.state.sortDir = this.state.sortDir === 'asc' ? 'desc' : 'asc';
+          } else {
+            this.state.sortBy = key;
+            this.state.sortDir = 'asc';
+          }
+          this.renderTabla();
+        });
+      });
+      this.updateSortIndicators();
+    },
+
+    updateSortIndicators() {
+      const ths = document.querySelectorAll('#allReservasTable thead th[data-sort]');
+      ths.forEach(th => {
+        th.classList.remove('sort-asc','sort-desc');
+        if (th.dataset.sort === this.state.sortBy) {
+          th.classList.add(this.state.sortDir === 'asc' ? 'sort-asc' : 'sort-desc');
+        }
+      });
+    },
+
+
+    parseFechaDMY(str) {
+      // '05/07/2025 14:00' -> Date
+      if (!str) return null;
+      const [fecha, hora] = String(str).split(' ');
+      if (!fecha || !hora) return null;
+      const [d,m,y] = fecha.split('/').map(x => x.padStart(2,'0'));
+      const iso = `${y}-${m}-${d}T${hora}`;
+      const dte = new Date(iso);
+      return isNaN(dte) ? null : dte;
+    },
+
+    _sortValue(row, key) {
+      switch (key) {
+        case 'Inicio': return this.parseFechaDMY(row.Inicio);
+        case 'Fin':    return this.parseFechaDMY(row.Fin);
+        default:
+          return (row[key] ?? '').toString().toLowerCase().trim();
+      }
+    },
+
+    sortCompare(a, b) {
+      const key = this.state.sortBy;
+      const dir = this.state.sortDir === 'asc' ? 1 : -1;
+      const av = this._sortValue(a, key);
+      const bv = this._sortValue(b, key);
+
+      if (av == null && bv == null) return 0;
+      if (av == null) return 1;
+      if (bv == null) return -1;
+
+      if (av instanceof Date && bv instanceof Date) return (av - bv) * dir;
+      if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * dir;
+
+      return av.localeCompare(bv, undefined, { numeric:true, sensitivity:'base' }) * dir;
+    },
+    /* =============== FIN ORDENACIÓN =============== */
+
     renderTabla() {
       const ciudad = id('filterCiudadAll').value;
       const centro = id('filterCentroAll').value;
@@ -231,6 +306,10 @@
       if (centro) datos = datos.filter(r => r.Centro?.trim() === centro);
       if (sala)   datos = datos.filter(r => r.Sala?.trim() === sala);
       if (term)   datos = datos.filter(r => (r.ID || '').toLowerCase().includes(term));
+
+      // Ordenar según estado
+      datos = [...datos].sort((a,b) => this.sortCompare(a,b));
+      this.updateSortIndicators();
 
       if (!datos.length) {
         tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#bc348b;">No hay reservas</td></tr>';
@@ -301,7 +380,7 @@
           id: this.state.currentEditId,
           motivo,
           fechaInicio: inicio,
-          fechaFin: fin,
+          fechaFin: fin,     // <-- coma fija el error de sintaxis
           motivoCambio
         });
     },
@@ -346,7 +425,6 @@
         .exportTodasReservasCsv();
     },
 
-    
     // --------- Info modal ---------
     showInfoModal(msg, header='Información') {
       id('infoHeaderAll').textContent = header;
@@ -360,7 +438,7 @@
     // --------- Utils ---------
     toInput(str) {
       // '05/07/2025 14:00' → '2025-07-05T14:00'
-      const [fecha, hora] = str.split(' ');
+      const [fecha, hora] = String(str).split(' ');
       const [d, m, y] = fecha.split('/');
       return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}T${hora}`;
     }
