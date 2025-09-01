@@ -33,6 +33,7 @@
       <h2 class="modal-reserva-titulo">Editar Reserva</h2>
       <form id="formEditReserva" autocomplete="off">
         <input id="editMotivo" type="text" class="modal-reserva-input" placeholder="Motivo de la reserva" required />
+        <input id="editMotivoMod" type="text" class="modal-reserva-input" placeholder="Motivo de la modificación" required />
         <div class="modal-reserva-fechas">
           <div>
             <label for="editInicio" class="modal-reserva-label">Fecha inicio</label><br />
@@ -213,6 +214,7 @@
       if (!r) return;
       this.state.currentEditId = id;
       document.getElementById('editMotivo').value = r.Motivo || '';
+      document.getElementById('editMotivoMod').value = '';
 
       [['Inicio','editInicio'], ['Fin','editFin']].forEach(([field, el]) => {
         const val = r[field] || '';
@@ -232,8 +234,13 @@
 
     handleEditSubmit(e) {
       e.preventDefault();
+      const motivoCambio = document.getElementById('editMotivoMod').value.trim();
       const inicio = document.getElementById('editInicio').value;
       const fin    = document.getElementById('editFin').value;
+      if (!motivoCambio) {
+        alert('Debes indicar el motivo de la modificación.');
+        return;
+      }
       if (new Date(fin) <= new Date(inicio)) {
         alert('La fecha fin no puede ser anterior a la fecha inicio.');
         return;
@@ -254,7 +261,8 @@
           id: this.state.currentEditId,
           motivo: document.getElementById('editMotivo').value.trim(),
           fechaInicio: inicio,
-          fechaFin: fin
+          fechaFin: fin,
+          motivoCambio
         });
     },
 
