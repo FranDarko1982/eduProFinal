@@ -2,6 +2,7 @@ const SPREADSHEET_ID    = '1r7RcpcjfFqFVPvEsHhZX21mNDDDOoZ1LPhWmW8csvnE';
 const USUARIOS_SHEET    = 'Usuarios';
 const SHEET_NAME        = 'Salas';
 const RESERVAS_SHEET    = 'Reservas';
+const CAMBIOS_RESERVAS_SHEET = 'Cambios reservas';
 // Dirección que recibirá copia de cada reserva
 const RESPONSABLE_EMAIL = 'francisco.benavente.salgado@intelcia.com';
 // URL de la webapp para incluir enlaces en los correos
@@ -708,6 +709,9 @@ function actualizarReserva(reserva) {
   if (end <= start) {
     throw new Error('La fecha fin no puede ser anterior a la fecha inicio.');
   }
+  if (!reserva.motivoCambio) {
+    throw new Error('Debe indicar motivo de la modificación');
+  }
   
   const data = sheet.getDataRange().getValues();
   const headers = data[0].map(h => String(h).trim());
@@ -752,6 +756,33 @@ function actualizarReserva(reserva) {
       sheet.getRange(row, idxInicio + 1).setValue(reserva.fechaInicio);
       sheet.getRange(row, idxFin + 1).setValue(reserva.fechaFin);
 
+      const cambios = [];
+      const tz = Session.getScriptTimeZone();
+      if (String(actual.motivo) !== String(reserva.motivo)) {
+        cambios.push(`Motivo: ${actual.motivo} -> ${reserva.motivo}`);
+      }
+      if (new Date(actual.inicio).getTime() !== start.getTime()) {
+        cambios.push(`Inicio: ${Utilities.formatDate(new Date(actual.inicio), tz, 'dd/MM/yyyy HH:mm')} -> ${Utilities.formatDate(start, tz, 'dd/MM/yyyy HH:mm')}`);
+      }
+      if (new Date(actual.fin).getTime() !== end.getTime()) {
+        cambios.push(`Fin: ${Utilities.formatDate(new Date(actual.fin), tz, 'dd/MM/yyyy HH:mm')} -> ${Utilities.formatDate(end, tz, 'dd/MM/yyyy HH:mm')}`);
+      }
+
+      let logSheet = ss.getSheetByName(CAMBIOS_RESERVAS_SHEET);
+      if (!logSheet) {
+        logSheet = ss.insertSheet(CAMBIOS_RESERVAS_SHEET);
+      }
+      if (logSheet.getLastRow() === 0) {
+        logSheet.appendRow(['Fecha modificación', 'ID Reserva', 'Cambios', 'Motivo modificación', 'Usuario']);
+      }
+      logSheet.appendRow([
+        new Date(),
+        reserva.id,
+        cambios.join('; '),
+        reserva.motivoCambio,
+        Session.getActiveUser().getEmail()
+      ]);
+      
       const reservaCompleta = {
         id:        reserva.id,
         nombre:    data[i][idxNombre],
