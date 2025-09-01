@@ -19,8 +19,14 @@
     <table id="misReservasTable" class="table-style" style="margin-top: 1rem;">
       <thead>
         <tr>
-          <th>ID Reserva</th><th>Sala</th><th>Ciudad</th><th>Centro</th>
-          <th>Motivo</th><th>Inicio</th><th>Fin</th><th>Acciones</th>
+          <th data-sort="ID">ID Reserva</th>
+          <th data-sort="Sala">Sala</th>
+          <th data-sort="Ciudad">Ciudad</th>
+          <th data-sort="Centro">Centro</th>
+          <th data-sort="Motivo">Motivo</th>
+          <th data-sort="Inicio">Inicio</th>
+          <th data-sort="Fin">Fin</th>
+          <th>Acciones</th>
         </tr>
       </thead>
       <tbody></tbody>
@@ -108,21 +114,28 @@
       allowInput: true,
       onChange: function(selectedDates, dateStr) {
         selectedRange = dateStr ? dateStr.split(' a ') : [];
-        App.filterMis();
+        App.applyFiltersAndRender();
       }
     });
   });
 
   const App = {
-    state: { misReservas: [], currentEditId: null, deleteId: null },
+    state: {
+      misReservas: [],
+      currentEditId: null,
+      deleteId: null,
+      sortBy: 'Inicio',
+      sortDir: 'asc'
+    },
 
+    /* ===================== DATA ===================== */
     loadMisReservas() {
       if (typeof showSpinner === 'function') showSpinner();
       google.script.run
         .withSuccessHandler(reservas => {
           if (typeof hideSpinner === 'function') hideSpinner();
           this.state.misReservas = Array.isArray(reservas) ? reservas : [];
-          this.renderTable(this.state.misReservas, '#misReservasTable tbody', 'No tienes reservas');
+          this.applyFiltersAndRender();
         })
         .withFailureHandler(err => {
           if (typeof hideSpinner === 'function') hideSpinner();
@@ -132,46 +145,106 @@
         .getMisReservas();
     },
 
-    filterMis() {
-      const term = document.getElementById('searchIdMis').value.toLowerCase();
-      const tbody = document.querySelector('#misReservasTable tbody');
-      let visibleCount = 0;
-      const old = document.getElementById('noMatchRow');
-      if (old) old.remove();
+    getFilters() {
+      const term = document.getElementById('searchIdMis').value.toLowerCase().trim();
+      const [start, end] = (selectedRange && selectedRange.length === 2) ? selectedRange : [null, null];
+      return { term, start, end };
+    },
 
-      Array.from(tbody.querySelectorAll('tr')).forEach(tr => {
-        let matchId = tr.dataset.id.toLowerCase().includes(term);
-        let matchFecha = true;
-        if (selectedRange && selectedRange.length === 2 && selectedRange[0] && selectedRange[1]) {
-          const tdInicio = tr.children[5].textContent.trim();
-          let parsed = null;
-          if (/^\d{4}-\d{2}-\d{2}/.test(tdInicio)) {
-            parsed = tdInicio.substr(0,10);
-          } else if (/^\d{2}\/\d{2}\/\d{4}/.test(tdInicio)) {
-            const [d,m,y] = tdInicio.split(/[ \/]/);
-            parsed = `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
+    applyFiltersAndRender() {
+      const { term, start, end } = this.getFilters();
+      let data = this.state.misReservas;
+
+      if (term) {
+        data = data.filter(r => String(r.ID || '').toLowerCase().includes(term));
+      }
+      if (start && end) {
+        data = data.filter(r => {
+          // r.Inicio es 'dd/MM/yyyy HH:mm'
+          const d = this.parseFechaDMY(r.Inicio);
+          if (!d) return false;
+          const y = d.getFullYear();
+          const m = String(d.getMonth()+1).padStart(2,'0');
+          const day = String(d.getDate()).padStart(2,'0');
+          const iso = `${y}-${m}-${day}`;
+          return iso >= start && iso <= end;
+        });
+      }
+
+      // Ordenación
+      data = [...data].sort((a,b) => this.sortCompare(a,b));
+      this.updateSortIndicators();
+
+      // Render
+      this.renderTable(data, '#misReservasTable tbody', 'No tienes reservas');
+    },
+
+    /* ================= ORDENACIÓN ================= */
+    setupSorting() {
+      const ths = document.querySelectorAll('#misReservasTable thead th[data-sort]');
+      ths.forEach(th => {
+        th.dataset.label = th.textContent.trim();
+        th.addEventListener('click', () => {
+          const key = th.dataset.sort;
+          if (this.state.sortBy === key) {
+            this.state.sortDir = this.state.sortDir === 'asc' ? 'desc' : 'asc';
+          } else {
+            this.state.sortBy = key;
+            this.state.sortDir = 'asc';
           }
-          matchFecha = (parsed >= selectedRange[0] && parsed <= selectedRange[1]);
-        }
-        const match = matchId && matchFecha;
-        tr.style.display = match ? '' : 'none';
-        if (match) visibleCount++;
+          this.applyFiltersAndRender();
+        });
       });
+      this.updateSortIndicators();
+    },
 
-      if (((term || (selectedRange && selectedRange[0])) && visibleCount === 0)) {
-        const tr = document.createElement('tr');
-        tr.id = 'noMatchRow';
-        const td = document.createElement('td');
-        td.colSpan = 8; td.style.textAlign = 'center';
-        td.style.color = '#bc348b';
-        td.textContent = 'No hay reservas que coincidan';
-        tr.appendChild(td);
-        tbody.appendChild(tr);
-      } else if (!term && (!selectedRange || !selectedRange[0])) {
-        this.renderTable(this.state.misReservas, '#misReservasTable tbody', 'No tienes reservas');
+    updateSortIndicators() {
+      const ths = document.querySelectorAll('#misReservasTable thead th[data-sort]');
+      ths.forEach(th => {
+        th.classList.remove('sort-asc','sort-desc');
+        if (th.dataset.sort === this.state.sortBy) {
+          th.classList.add(this.state.sortDir === 'asc' ? 'sort-asc' : 'sort-desc');
+        }
+      });
+    },
+
+    parseFechaDMY(str) {
+      // '05/07/2025 14:00' -> Date
+      if (!str) return null;
+      const [fecha, hora] = String(str).split(' ');
+      if (!fecha || !hora) return null;
+      const [d,m,y] = fecha.split('/').map(x => x.padStart(2,'0'));
+      const iso = `${y}-${m}-${d}T${hora}`;
+      const dte = new Date(iso);
+      return isNaN(dte) ? null : dte;
+    },
+
+    _sortValue(row, key) {
+      switch (key) {
+        case 'Inicio': return this.parseFechaDMY(row.Inicio);
+        case 'Fin':    return this.parseFechaDMY(row.Fin);
+        default:       return (row[key] ?? '').toString().toLowerCase().trim();
       }
     },
 
+    sortCompare(a, b) {
+      const key = this.state.sortBy;
+      const dir = this.state.sortDir === 'asc' ? 1 : -1;
+      const av = this._sortValue(a, key);
+      const bv = this._sortValue(b, key);
+
+      if (av == null && bv == null) return 0;
+      if (av == null) return 1;
+      if (bv == null) return -1;
+
+      if (av instanceof Date && bv instanceof Date) return (av - bv) * dir;
+      if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * dir;
+
+      return av.localeCompare(bv, undefined, { numeric:true, sensitivity:'base' }) * dir;
+    },
+    /* =============== FIN ORDENACIÓN =============== */
+
+    /* ================== RENDER ================== */
     renderTable(data, selector, emptyMessage) {
       const tbody = document.querySelector(selector);
       tbody.innerHTML = '';
@@ -209,6 +282,7 @@
       });
     },
 
+    /* ================== EDITAR ================== */
     openEditModal(id) {
       const r = this.state.misReservas.find(x => String(x.ID) === id);
       if (!r) return;
@@ -266,6 +340,7 @@
         });
     },
 
+    /* ================== ELIMINAR ================== */
     openDeleteModal(id) {
       this.state.deleteId = id;
       document.getElementById('misDeleteMsg').textContent = `¿Eliminar la reserva ${id}?`;
@@ -290,6 +365,7 @@
         .eliminarReserva(this.state.deleteId);
     },
 
+    /* ================== EXPORT ================== */
     exportCsv() {
       if (typeof showSpinner === 'function') showSpinner();
       google.script.run
@@ -305,6 +381,7 @@
         .exportMisReservasCsv();
     },
    
+    /* ================== INFO ================== */
     showInfoModal(msg, header='Información') {
       document.getElementById('infoHeader').textContent = header;
       document.getElementById('infoMsg').textContent = msg;
@@ -312,19 +389,20 @@
     },
     hideInfoModal() { document.getElementById('infoOverlay').style.display = 'none'; },
 
+    /* ================== INIT ================== */
     init() {
       // Filtro por ID y por fecha
       document.getElementById('searchIdMis')
-        .addEventListener('input', this.filterMis.bind(this));
+        .addEventListener('input', this.applyFiltersAndRender.bind(this));
       document.getElementById('searchDateMis')
-        .addEventListener('input', this.filterMis.bind(this)); // por si escribe a mano
+        .addEventListener('input', this.applyFiltersAndRender.bind(this)); // por si escribe a mano
 
       document.getElementById('mis-clear-filters')
         .addEventListener('click', () => {
           document.getElementById('searchIdMis').value = '';
           if (window.searchDateMisFlatpickr) window.searchDateMisFlatpickr.clear();
           selectedRange = [];
-          App.filterMis();
+          this.applyFiltersAndRender();
         });
 
       document.getElementById('mis-reservas-reload')
@@ -360,13 +438,16 @@
           if (e.target === e.currentTarget) this.hideInfoModal();
         });
 
-      // menú lateral
+      // menú lateral (si navega a la pestaña)
       const menuLink = document.querySelector('.navbar-menu a[href="#mybookings"]');
       if (menuLink) {
         menuLink.addEventListener('click', () =>
           setTimeout(() => this.loadMisReservas(), 0)
         );
       }
+
+      // Ordenación
+      this.setupSorting();
 
       // primer fetch
       this.loadMisReservas();
