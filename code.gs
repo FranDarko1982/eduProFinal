@@ -537,6 +537,7 @@ Tu reserva ha sido modificada correctamente:
 • Inicio:     ${reserva.fechaInicio}
 • Fin:        ${reserva.fechaFin}
 • Motivo:     ${reserva.motivo}
+• Motivo de cambio: ${reserva.motivoCambio}
 
 Gracias por usar el sistema de reservas.
 `;
@@ -782,7 +783,7 @@ function actualizarReserva(reserva) {
         reserva.motivoCambio,
         Session.getActiveUser().getEmail()
       ]);
-      
+
       const reservaCompleta = {
         id:        reserva.id,
         nombre:    data[i][idxNombre],
@@ -791,7 +792,8 @@ function actualizarReserva(reserva) {
         usuario:   data[i][idxUsuario],
         motivo:    reserva.motivo,
         fechaInicio: reserva.fechaInicio,
-        fechaFin:    reserva.fechaFin
+        fechaFin:    reserva.fechaFin,
+        motivoCambio: reserva.motivoCambio
       };
       enviarMailActualizacion(reservaCompleta);
       return true;
