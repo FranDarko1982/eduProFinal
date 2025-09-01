@@ -12,6 +12,7 @@ const WEBAPP_URL       = (ScriptApp.getService && ScriptApp.getService().getUrl)
  * Normaliza un valor (trim + toLowerCase) para comparaciones uniformes.
  */
 function normalize(val) {
+  // Devuelve el valor normalizado (trim + minúsculas) para comparaciones.
   return String(val || '').trim().toLowerCase();
 }
 
@@ -19,6 +20,7 @@ function normalize(val) {
  * Devuelve la hoja por nombre ignorando mayúsculas/minúsculas y espacios.
  */
 function getSheetByNameIC(ss, name) {
+  // Obtiene una hoja por nombre ignorando mayúsculas/minúsculas y espacios.
   let sheet = ss.getSheetByName(name);
   if (sheet) return sheet;
   const target = String(name).trim().toLowerCase();
@@ -30,6 +32,7 @@ function getSheetByNameIC(ss, name) {
  * Devuelve null si no existe, o un objeto con sus datos (email, nombre, rol, etc).
  */
 function getUserData() {
+  // Busca el usuario activo en la hoja 'Usuarios' y devuelve sus datos o null.
   const email = Session.getActiveUser().getEmail();
   if (!email) return null;
 
@@ -54,6 +57,7 @@ function getUserData() {
  * Incluye un fragmento HTML por nombre de archivo.
  */
 function include(filename) {
+  // Incluye un fragmento HTML (HtmlService) por nombre de archivo.
   return HtmlService.createHtmlOutputFromFile(filename).getContent();
 }
 
@@ -61,6 +65,7 @@ function include(filename) {
  * Genera la URL de Gravatar para el usuario activo.
  */
 function getUserAvatarUrl() {
+  // Calcula el hash MD5 del email y construye la URL de Gravatar (64px).
   const email = Session.getActiveUser().getEmail() || '';
   const hash = Utilities.computeDigest(
     Utilities.DigestAlgorithm.MD5,
@@ -75,6 +80,7 @@ function getUserAvatarUrl() {
  * Devuelve el correo del usuario activo.
  */
 function getActiveUserEmail() {
+  // Devuelve el correo del usuario activo (o cadena vacía).
   return Session.getActiveUser().getEmail() || '';
 }
 
@@ -82,6 +88,7 @@ function getActiveUserEmail() {
  * Punto de entrada web: comprueba acceso y pasa el objeto usuario a la plantilla.
  */
 function doGet() {
+  // Punto de entrada de la webapp: valida acceso y renderiza la plantilla con el rol.
   const user = getUserData();
   if (!user) { /* …acceso denegado… */ }
 
@@ -97,6 +104,7 @@ function doGet() {
 
 /** Lee y normaliza toda la hoja de Salas, ignorando filas vacías y cabeceras “raras”. */
 function getAllSalas() {
+  // Lee la hoja 'Salas', detecta cabecera válida, omite filas vacías y devuelve objetos.
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   const name = (typeof SHEET_NAME === 'string' && SHEET_NAME) ? SHEET_NAME : 'Salas';
   const sh = ss.getSheetByName(name);
@@ -133,6 +141,7 @@ function getAllSalas() {
  * Devuelve todos los usuarios de la hoja de Usuarios.
  */
 function getAllUsuarios() {
+  // Lee toda la hoja 'Usuarios' y devuelve una lista de objetos por fila.
   const ss    = SpreadsheetApp.openById(SPREADSHEET_ID);
   const sheet = ss.getSheetByName(USUARIOS_SHEET);
   if (!sheet) throw new Error(`Hoja '${USUARIOS_SHEET}' no encontrada`);
@@ -148,6 +157,7 @@ function getAllUsuarios() {
 
 /** Devuelve la lista de roles (columna A de la hoja 'Roles') */
 function getRoles() {
+  // Lee la hoja 'Roles' (columna A) y devuelve la lista única de roles.
   const ss    = SpreadsheetApp.openById(SPREADSHEET_ID);
   const sheet = getSheetByNameIC(ss, 'Roles');
   if (!sheet) return [];
@@ -163,6 +173,7 @@ function getRoles() {
 
 /** Actualiza un usuario identificado por email */
 function actualizarUsuario(usuario) {
+  // Actualiza los campos del usuario identificado por email en la hoja 'Usuarios'.
   const ss    = SpreadsheetApp.openById(SPREADSHEET_ID);
   const sheet = ss.getSheetByName(USUARIOS_SHEET);
   if (!sheet) throw new Error(`Hoja '${USUARIOS_SHEET}' no encontrada`);
@@ -189,6 +200,7 @@ function actualizarUsuario(usuario) {
 
 /** Crea un nuevo usuario */
 function crearUsuario(usuario) {
+  // Crea un nuevo registro en 'Usuarios' si el email no existe aún.
   const ss    = SpreadsheetApp.openById(SPREADSHEET_ID);
   const sheet = ss.getSheetByName(USUARIOS_SHEET);
   if (!sheet) throw new Error(`Hoja '${USUARIOS_SHEET}' no encontrada`);
@@ -219,6 +231,7 @@ function crearUsuario(usuario) {
 
 /** Elimina un usuario por email */
 function eliminarUsuario(email) {
+  // Elimina el usuario cuyo email coincida; devuelve true/false.
   const ss    = SpreadsheetApp.openById(SPREADSHEET_ID);
   const sheet = ss.getSheetByName(USUARIOS_SHEET);
   if (!sheet) throw new Error(`Hoja '${USUARIOS_SHEET}' no encontrada`);
@@ -239,6 +252,7 @@ function eliminarUsuario(email) {
 
 /** Devuelve lista única de ciudades */
 function getCiudades() {
+  // Devuelve la lista única de ciudades definidas en 'Salas'.
   return [...new Set(
     getAllSalas()
       .map(r => String(r.Ciudad || '').trim())
@@ -248,6 +262,7 @@ function getCiudades() {
 
 /** Devuelve lista única de centros (opcionalmente filtrada por ciudad) */
 function getCentros(ciudad) {
+  // Devuelve centros únicos, opcionalmente filtrados por ciudad.
   ciudad = normalize(ciudad);
   const all = getAllSalas();
   return [...new Set(
@@ -260,6 +275,7 @@ function getCentros(ciudad) {
 
 /** Devuelve lista única de salas (filtrada por ciudad y centro) */
 function getSalas(ciudad, centro) {
+  // Devuelve nombres de salas únicos filtrando por ciudad/centro.
   ciudad = normalize(ciudad);
   centro = normalize(centro);
   const all = getAllSalas();
@@ -276,6 +292,7 @@ function getSalas(ciudad, centro) {
  * 1) Capa común: lectura de Spreadsheet y mapeo a objetos “crudos”
  */
 function fetchReservasData() {
+  // Lee la hoja 'Reservas' y devuelve {headers, rows} ya separados.
   const ss    = SpreadsheetApp.openById(SPREADSHEET_ID);
   const sheet = ss.getSheetByName(RESERVAS_SHEET);
   if (!sheet) return { headers: [], rows: [] };
@@ -287,6 +304,7 @@ function fetchReservasData() {
 }
 
 function mapRowToReserva(headers, row) {
+  // Proyecta una fila de 'Reservas' a un objeto con campos tipados.
   const idx = name => headers.indexOf(name);
   return {
     id:      row[idx('ID Reserva')],
@@ -304,6 +322,7 @@ function mapRowToReserva(headers, row) {
  * Función genérica: recibe filtros y formateadores
  */
 function getReservasGeneric({ filterFn, formatFn }) {
+  // Aplica mapeo, filtro y formateo genérico sobre todas las reservas.
   const { headers, rows } = fetchReservasData();
   return rows
     .map(row => mapRowToReserva(headers, row))
@@ -315,6 +334,7 @@ function getReservasGeneric({ filterFn, formatFn }) {
  * Para el calendario: filtro por ciudad/centro/sala y formateo FullCalendar
  */
 function getReservas(ciudad, centro, nombre) {
+  // Devuelve eventos troceados por día (FullCalendar) para una sala concreta.
   ciudad = normalize(ciudad);
   centro = normalize(centro);
   nombre = normalize(nombre);
@@ -353,6 +373,7 @@ function getReservas(ciudad, centro, nombre) {
  * exactamente igual que getMisReservas() pero sin filtrar por usuario.
  */
 function getTodasReservas() {
+  // Devuelve todas las reservas formateadas para tabla y ordenadas por inicio.
   return getReservasGeneric({
     // no filtramos nada, devolvemos todo
     filterFn: () => true,
@@ -381,6 +402,7 @@ function getTodasReservas() {
  * Para la tabla de “mis reservas”: filtro por usuario y formateo plano
  */
 function getMisReservas() {
+  // Devuelve las reservas del usuario actual formateadas para tabla.
   const me = normalize(getActiveUserEmail());
   return getReservasGeneric({
     filterFn: r => normalize(r.usuario) === me,
@@ -404,6 +426,7 @@ function getMisReservas() {
  * Crea una reserva: valida solapamientos, la guarda, envía mail y crea evento en Calendar
  */
 function crearReserva(reserva) {
+  // Valida solapamientos, inserta la reserva, notifica por email y crea evento.
   const ss    = SpreadsheetApp.openById(SPREADSHEET_ID);
   let sheet   = ss.getSheetByName(RESERVAS_SHEET);
   if (!sheet) {
@@ -470,6 +493,7 @@ function crearReserva(reserva) {
  * Envía email de confirmación
  */
 function enviarMail(reserva, idReserva) {
+  // Envía un correo de confirmación de reserva al usuario y en copia al responsable.
   const subject = `Reserva ${idReserva} confirmada: ${reserva.nombre}`;
   const body    = `
 Hola,
@@ -498,6 +522,7 @@ Gracias por usar el sistema de reservas.
  * Envía email de notificación por actualización de reserva
  */
 function enviarMailActualizacion(reserva) {
+  // Envía correo informando de la modificación de una reserva existente.
   const subject = `Reserva ${reserva.id} modificada: ${reserva.nombre}`;
   const body    = `
 Hola,
@@ -526,6 +551,7 @@ Gracias por usar el sistema de reservas.
  * Envía un único correo con varias franjas reservadas
  */
 function sendBulkReservationEmail(params) {
+  // Envía un único email con varias franjas de reserva en formato HTML.
   const emailUsuario = params && params.emailUsuario;
   const motivo       = params && params.motivo;
   const reservas     = Array.isArray(params && params.reservas) ? params.reservas : [];
@@ -560,6 +586,7 @@ function sendBulkReservationEmail(params) {
  * Crea el evento en Google Calendar
  */
 function crearEventoCalendar(reserva, idReserva) {
+  // Crea un evento en el calendario por defecto con el resumen y los invitados.
   const calendar = CalendarApp.getDefaultCalendar();
   const start    = new Date(reserva.fechaInicio);
   const end      = new Date(reserva.fechaFin);
@@ -580,6 +607,7 @@ function crearEventoCalendar(reserva, idReserva) {
  * Devuelve un array de objetos {start:Date, end:Date}.
  */
 function splitRangeByDay(start, end) {
+  // Divide un rango en franjas diarias manteniendo horas/minutos; valida fechas.
   try {
     start = start instanceof Date ? new Date(start) : new Date(start);
     end   = end instanceof Date ? new Date(end)   : new Date(end);
@@ -614,6 +642,7 @@ function splitRangeByDay(start, end) {
  * Convierte fecha a ISO string para FullCalendar
  */
 function toIso(fecha) {
+  // Convierte fechas a ISO local para FullCalendar admitiendo varios formatos.
   if (!fecha) return null;
   if (fecha instanceof Date) {
     return Utilities.formatDate(
@@ -643,6 +672,7 @@ function toIso(fecha) {
  * Formatea para la tabla: '2025-07-05 14:00' → '05/07/2025 14:00'
  */
 function formatFecha(fecha) {
+  // Formatea una fecha a 'dd/MM/yyyy HH:mm' para listados.
   if (!fecha) return '';
   try {
     const d = fecha instanceof Date
@@ -660,6 +690,7 @@ function formatFecha(fecha) {
 
 /** Helper: devuelve el correo del usuario activo */
 function getCorreoUsuario() {
+  // Alias de utilidad para obtener el email del usuario activo.
   return Session.getActiveUser().getEmail() || '';
 }
 
@@ -667,6 +698,7 @@ function getCorreoUsuario() {
  * Actualiza una reserva existente a partir de su ID
  */
 function actualizarReserva(reserva) {
+  // Revalida solapamientos y actualiza motivo/fechas de una reserva por ID.
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   const sheet = ss.getSheetByName(RESERVAS_SHEET);
   if (!sheet) throw new Error('Hoja de reservas no encontrada');
@@ -741,6 +773,7 @@ function actualizarReserva(reserva) {
  * Elimina una reserva por ID
  */
 function eliminarReserva(id) {
+  // Elimina una reserva por su ID; devuelve true/false.
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   const sheet = ss.getSheetByName(RESERVAS_SHEET);
   if (!sheet) throw new Error('Hoja de reservas no encontrada');
@@ -760,6 +793,7 @@ function eliminarReserva(id) {
 
 /** Devuelve los datos completos de una reserva por ID */
 function getReservaPorId(id) {
+  // Recupera un objeto-reserva completo a partir de su ID o null.
   const { headers, rows } = fetchReservasData();
   const res = rows.map(r => mapRowToReserva(headers, r))
     .find(r => String(r.id) === String(id));
@@ -770,6 +804,7 @@ function getReservaPorId(id) {
  * Convierte lista de reservas a CSV
  */
 function _reservasToCsv(list) {
+  // Serializa una lista de objetos reserva a CSV con cabeceras.
   if (!Array.isArray(list) || !list.length) return '';
   const headers = Object.keys(list[0]);
   const esc = v => '"' + String(v == null ? '' : v).replace(/"/g,'""') + '"';
@@ -784,6 +819,7 @@ function _reservasToCsv(list) {
  * Exporta todas las reservas en formato CSV
  */
 function exportTodasReservasCsv() {
+  // Exporta todas las reservas en CSV (usa _reservasToCsv).
   return _reservasToCsv(getTodasReservas());
 }
 
@@ -791,10 +827,12 @@ function exportTodasReservasCsv() {
  * Exporta las reservas del usuario actual en formato CSV
  */
 function exportMisReservasCsv() {
+  // Exporta solo las reservas del usuario actual en CSV.
   return _reservasToCsv(getMisReservas());
 }
 
 function _parseFecha(str) {
+  // Parsea 'dd/MM/yyyy HH:mm' o deja que Date interprete la cadena.
   if (!str) return null;
   const m = str.match(/(\d{1,2})\/(\d{1,2})\/(\d{4}) (\d{2}):(\d{2})/);
   if (m) {
@@ -805,10 +843,12 @@ function _parseFecha(str) {
 }
 
 function _formatIcsDate(d) {
+  // Formatea una Date a formato UTC iCalendar (DTSTAMP/DTSTART/DTEND).
   return Utilities.formatDate(d, 'UTC', "yyyyMMdd'T'HHmmss'Z'");
 }
 
 function _reservasToIcs(list) {
+  // Convierte una lista de reservas a un texto .ics (VCALENDAR/VEVENT).
   if (!Array.isArray(list) || !list.length) return '';
   const lines = ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//ReservaSalas//EN'];
   list.forEach(r => {
@@ -827,15 +867,18 @@ function _reservasToIcs(list) {
 }
 
 function exportTodasReservasIcs() {
+  // Exporta todas las reservas a iCalendar (.ics).
   return _reservasToIcs(getTodasReservas());
 }
 
 function exportMisReservasIcs() {
+  // Exporta las reservas del usuario actual a iCalendar (.ics).
   return _reservasToIcs(getMisReservas());
 }
 
 /** Devuelve las salas libres para un rango y filtros opcionales */
 function buscarSalasDisponibles(filtro) {
+  // Devuelve las salas que no presentan solapamiento en el rango solicitado.
   const start = new Date(filtro && filtro.fechaInicio);
   const end   = new Date(filtro && filtro.fechaFin);
   if (isNaN(start) || isNaN(end) || end <= start) {
@@ -878,6 +921,7 @@ function buscarSalasDisponibles(filtro) {
  * Formato: [{Nombre, Ciudad, Centro, Capacidad, estado}]
  */
 function buscarTodasSalasConEstado(filtro) {
+  // Lista todas las salas (con filtros) marcando 'ocupada' o 'disponible'.
   const start = new Date(filtro && filtro.fechaInicio);
   const end   = new Date(filtro && filtro.fechaFin);
   if (isNaN(start) || isNaN(end) || end <= start) {
@@ -924,6 +968,7 @@ function buscarTodasSalasConEstado(filtro) {
  * Recibe: { sala, centro, ciudad, horario, motivo }
  */
 function enviarSolicitudUso(datos) {
+  // Envía email al responsable para solicitar uso de una sala ocupada y registra log.
   // 1. Obtener email del responsable (ajusta a tu lógica real)
   var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   var sheet = ss.getSheetByName(USUARIOS_SHEET);
@@ -1012,6 +1057,7 @@ function enviarSolicitudUso(datos) {
 /** ========= CRUD SALAS (por 'ID Sala') ========= **/
 
 function _getSalasSheet_() {
+  // Devuelve el objeto Sheet de 'Salas' validando su existencia.
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   const sheet = getSheetByNameIC(ss, SHEET_NAME); // SHEET_NAME = 'Salas'
   if (!sheet) throw new Error(`Hoja '${SHEET_NAME}' no encontrada`);
@@ -1019,6 +1065,7 @@ function _getSalasSheet_() {
 }
 
 function _readSalasTable_() {
+  // Lee la tabla completa de 'Salas' y separa cabecera/filas.
   const sheet = _getSalasSheet_();
   const values = sheet.getDataRange().getValues();
   if (values.length < 2) return { headers: [], rows: [], sheet };
@@ -1027,11 +1074,13 @@ function _readSalasTable_() {
 }
 
 function _indexOfHeader_(headers, name) {
+  // Devuelve el índice de una cabecera (nombre exacto).
   return headers.indexOf(String(name).trim());
 }
 
 /** Crea una nueva sala. Si no envías idSala, genero 'S' + timestamp. */
 function crearSala(sala) {
+  // Inserta una nueva sala (genera ID si falta) respetando el orden de cabeceras.
   const { headers, sheet } = _readSalasTable_();
   const h = (n) => _indexOfHeader_(headers, n);
 
@@ -1072,6 +1121,7 @@ function crearSala(sala) {
 
 /** Actualiza una sala existente por ID Sala */
 function actualizarSala(sala) {
+  // Actualiza los campos de una sala existente identificada por 'ID Sala'.
   const { headers, rows, sheet } = _readSalasTable_();
   const h = (n) => _indexOfHeader_(headers, n);
 
@@ -1107,6 +1157,7 @@ function actualizarSala(sala) {
 
 /** Elimina una sala por ID Sala */
 function eliminarSala(idSala) {
+  // Elimina una sala por su 'ID Sala'; devuelve true/false.
   const { headers, rows, sheet } = _readSalasTable_();
   const idxId = _indexOfHeader_(headers, 'ID Sala');
   if (idxId === -1) throw new Error("No se encuentra la columna 'ID Sala'.");
@@ -1122,3 +1173,5 @@ function eliminarSala(idSala) {
   }
   return false;
 }
+
+
