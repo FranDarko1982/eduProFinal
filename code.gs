@@ -1208,3 +1208,134 @@ function eliminarSala(idSala) {
 }
 
 
+/**
+ * Devuelve el perfil del usuario por email.
+ */
+function getUserProfile(email) {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sh = ss.getSheetByName(USUARIOS_SHEET);
+  if (!sh) return null;
+  const data = sh.getDataRange().getValues();
+  if (data.length < 2) return null;
+  const headers = data[0].map(h => String(h).trim().toLowerCase());
+  const idxEmail = headers.indexOf('email');
+  const idxNombre = headers.indexOf('nombre');
+  const idxRol = headers.indexOf('rol');
+  const idxCamp = headers.indexOf('campaña');
+  const idxPrefs = headers.indexOf('prefs_json');
+  const idxFav = headers.indexOf('favoritos_json');
+  const idxLast = headers.indexOf('last_login');
+  for (let i = 1; i < data.length; i++) {
+    if (normalize(data[i][idxEmail]) === normalize(email)) {
+      return {
+        email: data[i][idxEmail],
+        nombre: data[i][idxNombre],
+        rol: data[i][idxRol],
+        campaña: data[i][idxCamp],
+        prefs: idxPrefs > -1 && data[i][idxPrefs] ? JSON.parse(data[i][idxPrefs]) : {},
+        favoritos: idxFav > -1 && data[i][idxFav] ? JSON.parse(data[i][idxFav]) : [],
+        last_login: idxLast > -1 ? data[i][idxLast] : '',
+        avatar: getUserAvatarUrl()
+      };
+    }
+  }
+  return null;
+}
+
+/**
+ * Actualiza nombre, campaña y preferencias del usuario actual.
+ */
+function updateUserProfile(data) {
+  const email = Session.getActiveUser().getEmail();
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sh = ss.getSheetByName(USUARIOS_SHEET);
+  const values = sh.getDataRange().getValues();
+  const headers = values[0].map(h => String(h).trim().toLowerCase());
+  const idxEmail = headers.indexOf('email');
+  const idxNombre = headers.indexOf('nombre');
+  const idxCamp = headers.indexOf('campaña');
+  const idxPrefs = headers.indexOf('prefs_json');
+  for (let i = 1; i < values.length; i++) {
+    if (normalize(values[i][idxEmail]) === normalize(email)) {
+      const row = i + 1;
+      if (idxNombre > -1) sh.getRange(row, idxNombre + 1).setValue(data.nombre);
+      if (idxCamp > -1) sh.getRange(row, idxCamp + 1).setValue(data.campaña);
+      if (idxPrefs > -1) sh.getRange(row, idxPrefs + 1).setValue(JSON.stringify(data.prefs || {}));
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Devuelve las últimas acciones del usuario.
+ */
+function getUserActivity(email) {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sh = ss.getSheetByName(CAMBIOS_RESERVAS_SHEET);
+  if (!sh) return [];
+  const values = sh.getDataRange().getValues();
+  if (values.length < 2) return [];
+  const headers = values[0].map(h => String(h).trim().toLowerCase());
+  const idxEmail = headers.indexOf('email');
+  const idxAccion = headers.indexOf('accion');
+  const idxFecha = headers.indexOf('fecha');
+  const rows = values.slice(1).filter(r => normalize(r[idxEmail]) === normalize(email));
+  return rows.slice(-10).map(r => ({ accion: r[idxAccion], fecha: r[idxFecha] }));
+}
+
+/**
+ * Devuelve métricas personales del usuario.
+ */
+function getUserMetrics(email) {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sh = ss.getSheetByName(RESERVAS_SHEET);
+  if (!sh) return {};
+  const values = sh.getDataRange().getValues();
+  if (values.length < 2) return {};
+  const headers = values[0].map(h => String(h).trim().toLowerCase());
+  const idxEmail = headers.indexOf('email');
+  const idxInicio = headers.indexOf('inicio');
+  const idxFin = headers.indexOf('fin');
+  const now = new Date();
+  let res30 = 0, res90 = 0, horas = 0;
+  values.slice(1).forEach(r => {
+    if (normalize(r[idxEmail]) === normalize(email)) {
+      const inicio = new Date(r[idxInicio]);
+      const fin = new Date(r[idxFin]);
+      const diff = (fin - inicio) / 36e5;
+      if (!isNaN(diff)) horas += diff;
+      if (now - inicio <= 30 * 24 * 60 * 60 * 1000) res30++;
+      if (now - inicio <= 90 * 24 * 60 * 60 * 1000) res90++;
+    }
+  });
+  return { res30, res90, horas: Math.round(horas) };
+}
+
+/** Obtiene favoritos guardados del usuario */
+function getFavoritos(email) {
+  const prof = getUserProfile(email);
+  return prof && prof.favoritos ? prof.favoritos : [];
+}
+
+/** Añade o elimina un favorito */
+function setFavoritos(email, favorito) {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sh = ss.getSheetByName(USUARIOS_SHEET);
+  const values = sh.getDataRange().getValues();
+  const headers = values[0].map(h => String(h).trim().toLowerCase());
+  const idxEmail = headers.indexOf('email');
+  const idxFav = headers.indexOf('favoritos_json');
+  if (idxFav === -1) return [];
+  for (let i = 1; i < values.length; i++) {
+    if (normalize(values[i][idxEmail]) === normalize(email)) {
+      const row = i + 1;
+      const current = values[i][idxFav] ? JSON.parse(values[i][idxFav]) : [];
+      const pos = current.indexOf(favorito);
+      if (pos > -1) current.splice(pos, 1); else current.push(favorito);
+      sh.getRange(row, idxFav + 1).setValue(JSON.stringify(current));
+      return current;
+    }
+  }
+  return [];
+}
