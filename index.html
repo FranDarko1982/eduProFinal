@@ -10,6 +10,7 @@
     <?!= include('styles'); ?>
     <script>
       window.USER_ROLE = '<?= usuario.rol ?>'.toLowerCase();
+      window.USER_EMAIL = '<?= getActiveUserEmail() ?>';
     </script>
     <?!= include('calendar-styles'); ?>
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
@@ -62,6 +63,7 @@
       <section id="reportes"   class="section"><?!= include('Reportes'); ?></section>
       <section id="ayuda"      class="section"><?!= include('ayuda'); ?></section>
       <section id="panel"      class="section"><?!= include('panelcontrol'); ?></section>
+      <section id="profile"    class="section"><?!= include('usuario'); ?></section>
     </main>
 
     <!-- SPINNER GLOBAL -->
@@ -144,8 +146,28 @@
         // --- Función para mostrar la sección correspondiente ---
         function showSection(tabBtn) {
           const target = tabBtn.getAttribute('data-id');
+          showSectionById(target);
+        }
+
+        function showSectionById(id) {
           document.querySelectorAll('.section').forEach(sec => {
-            sec.style.display = sec.id === target ? 'block' : 'none';
+            sec.style.display = sec.id === id ? 'block' : 'none';
+          });
+        }
+
+        // Perfil de usuario desde el avatar
+        const iconUser = document.querySelector('.icon-user');
+        if (iconUser) {
+          iconUser.addEventListener('click', e => {
+            e.preventDefault();
+            document.querySelectorAll('.tab').forEach(l => l.classList.remove('active'));
+            showSectionById('profile');
+            if (typeof UserApp !== 'undefined') {
+              UserApp.loadProfile();
+              UserApp.loadActivity();
+              UserApp.loadMetrics();
+              UserApp.loadFavoritos();
+            }
           });
         }
 
