@@ -841,5 +841,81 @@
     #panelSalasTable td:nth-child(6) { display: none; }
   }
 
+  /* ====== Reservas: cabeceras ordenables ====== */
+  .table-style th[data-sort]{
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+    padding-right: 18px; /* hueco para el indicador ▲▼ */
+  }
+  /* Indicador neutro */
+  .table-style th[data-sort]::after{
+    content: "▲▼";
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: .72em;
+    opacity: .35;
+  }
+  /* Columna activa */
+  .table-style th[data-sort].sort-asc::after{
+    content: "▲";
+    opacity: 1;
+  }
+  .table-style th[data-sort].sort-desc::after{
+    content: "▼";
+    opacity: 1;
+  }
+
+  /* Opcional: acciones centradas y sin salto */
+  #allReservasTable td.actions{
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  /* ====== Botón del modal de información (id con sufijo All) ====== */
+  #btnConfirmOk,
+  #btnErrorOk,
+  #btnInfoOk,
+  #btnInfoOkAll {
+    font-size: 1.16em;
+    font-weight: bold;
+    padding: 0.9em 2.3em;
+    border-radius: 12px;
+    background: #bc348b;
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    transition: background 0.18s, box-shadow 0.18s;
+    box-shadow: 0 2px 10px #bc348b28;
+  }
+  #btnConfirmOk:hover,
+  #btnErrorOk:hover,
+  #btnInfoOk:hover,
+  #btnInfoOkAll:hover {
+    background: #a1226d;
+  }
+
+  /* =================== PERFIL DE USUARIO =================== */
+  .profile-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+  .profile-grid .card {
+    background: #fff;
+    padding: 1rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px #bc348b22;
+  }
+  .profile-info { display:flex; gap:1rem; align-items:center; }
+  .profile-info .avatar { width:72px; height:72px; border-radius:50%; }
+  .chip { background:#4c759a; color:#fff; padding:0.2rem 0.6rem; border-radius:9999px; font-size:0.8rem; display:inline-block; }
+  .chips .chip { background:#bc348b; margin:0.2rem; cursor:pointer; }
+  .metric-card { background:#f2f3f6; padding:0.4rem 0.8rem; border-radius:6px; margin:0.2rem; display:inline-block; }
+  .toggle { display:block; margin:0.4rem 0; }
+  .toggle input { margin-right:0.3rem; }
+  @media (max-width: 768px) { .profile-grid { grid-template-columns:1fr; } }
   
 </style>
