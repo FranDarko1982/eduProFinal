@@ -1,0 +1,164 @@
+<!-- usuario.html -->
+<div class="profile-grid">
+  <div class="profile-card card">
+    <div class="profile-info">
+      <img id="profileAvatar" src="" alt="avatar" class="avatar" />
+      <div class="profile-data">
+        <input id="profileName" type="text" placeholder="Nombre" />
+        <input id="profileEmail" type="email" disabled />
+        <div id="profileRole" class="chip"></div>
+        <input id="profileCamp" type="text" placeholder="Campaña" />
+      </div>
+    </div>
+    <button id="saveProfile" class="mt-2">Guardar perfil</button>
+  </div>
+
+  <div class="preferences-card card">
+    <h3>Preferencias</h3>
+    <label>Vista por defecto
+      <select id="prefVista">
+        <option value="calendar">Calendario</option>
+        <option value="misreservas">Mis reservas</option>
+        <option value="disponibilidad">Disponibilidad</option>
+      </select>
+    </label>
+    <label>Zona horaria
+      <input id="prefZona" type="text" placeholder="Europe/Madrid" />
+    </label>
+    <label>Formato hora
+      <select id="prefFormato">
+        <option value="24">24h</option>
+        <option value="12">12h</option>
+      </select>
+    </label>
+    <label class="toggle"><input type="checkbox" id="prefNotif" /> Notificaciones</label>
+    <label class="toggle"><input type="checkbox" id="prefSync" /> Sincronizar con Google Calendar</label>
+  </div>
+
+  <div class="favoritos-card card">
+    <h3>Favoritos</h3>
+    <div id="favoritosList" class="chips"></div>
+    <button id="addFavorito">Añadir favorito</button>
+  </div>
+
+  <div class="activity-card card">
+    <h3>Actividad reciente</h3>
+    <table id="actividadTabla" class="table-style">
+      <thead><tr><th>Acción</th><th>Fecha</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div class="metrics-card card">
+    <h3>Métricas personales</h3>
+    <div id="metrics"></div>
+  </div>
+
+  <div class="security-card card">
+    <h3>Seguridad &amp; privacidad</h3>
+    <p>Último acceso: <span id="lastLogin"></span></p>
+    <button id="closeSessions">Cerrar otras sesiones</button>
+    <button id="exportData">Exportar datos (CSV)</button>
+  </div>
+
+  <div id="adminBlock" class="admin-card card" style="display:none;">
+    <h3>Admin</h3>
+    <p>Rol: <span id="adminRole"></span></p>
+    <p>Campaña: <span id="adminCamp"></span></p>
+    <a href="#reservas" class="button-destacado">Reservas (admin)</a>
+    <a href="#panel" class="button-destacado">Panel de control</a>
+  </div>
+</div>
+
+<script>
+const UserApp = {
+  loadProfile(){
+    const email = window.USER_EMAIL;
+    google.script.run.withSuccessHandler(data => {
+      if(!data) return;
+      qs('#profileAvatar').src = data.avatar || '';
+      qs('#profileName').value = data.nombre || '';
+      qs('#profileEmail').value = data.email || '';
+      qs('#profileRole').textContent = data.rol || '';
+      qs('#profileCamp').value = data.campaña || '';
+      qs('#adminRole').textContent = data.rol || '';
+      qs('#adminCamp').textContent = data.campaña || '';
+      qs('#lastLogin').textContent = data.last_login || '';
+      if(data.prefs){
+        qs('#prefVista').value = data.prefs.vista || 'calendar';
+        qs('#prefZona').value = data.prefs.zona || '';
+        qs('#prefFormato').value = data.prefs.formato || '24';
+        qs('#prefNotif').checked = !!data.prefs.notif;
+        qs('#prefSync').checked = !!data.prefs.sync;
+      }
+    }).getUserProfile(email);
+  },
+  saveProfile(){
+    const data = {
+      nombre: qs('#profileName').value,
+      campaña: qs('#profileCamp').value,
+      prefs: {
+        vista: qs('#prefVista').value,
+        zona: qs('#prefZona').value,
+        formato: qs('#prefFormato').value,
+        notif: qs('#prefNotif').checked,
+        sync: qs('#prefSync').checked
+      }
+    };
+    google.script.run.withSuccessHandler(()=>toast('Perfil actualizado')).updateUserProfile(data);
+  },
+  loadActivity(){
+    const email = window.USER_EMAIL;
+    google.script.run.withSuccessHandler(rows=>{
+      const tb = qs('#actividadTabla tbody');
+      tb.innerHTML='';
+      (rows||[]).forEach(r=>{
+        const tr=document.createElement('tr');
+        tr.innerHTML=`<td>${r.accion}</td><td>${r.fecha}</td>`;
+        tb.appendChild(tr);
+      });
+    }).getUserActivity(email);
+  },
+  loadMetrics(){
+    const email = window.USER_EMAIL;
+    google.script.run.withSuccessHandler(data=>{
+      const cont = qs('#metrics');
+      cont.innerHTML='';
+      if(!data) return;
+      cont.innerHTML = `
+        <div class="metric-card">30 días: ${data.res30 || 0}</div>
+        <div class="metric-card">90 días: ${data.res90 || 0}</div>
+        <div class="metric-card">Horas reservadas: ${data.horas || 0}</div>
+      `;
+    }).getUserMetrics(email);
+  },
+  loadFavoritos(){
+    const email = window.USER_EMAIL;
+    google.script.run.withSuccessHandler(list=>{
+      const box = qs('#favoritosList');
+      box.innerHTML='';
+      (list||[]).forEach(f=>{
+        const span=document.createElement('span');
+        span.className='chip';
+        span.textContent=f;
+        span.addEventListener('click',()=>UserApp.toggleFavorito(f));
+        box.appendChild(span);
+      });
+    }).getFavoritos(email);
+  },
+  toggleFavorito(fav){
+    const email = window.USER_EMAIL;
+    google.script.run.withSuccessHandler(()=>UserApp.loadFavoritos()).setFavoritos(email, fav);
+  }
+};
+
+function qs(sel){return document.querySelector(sel);}
+function toast(msg){alert(msg);}
+
+document.addEventListener('DOMContentLoaded',()=>{
+  qs('#saveProfile').addEventListener('click',e=>{e.preventDefault();UserApp.saveProfile();});
+  if(['admin','manager'].includes(window.USER_ROLE)){
+    qs('#adminBlock').style.display='block';
+  }
+});
+</script>
