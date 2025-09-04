@@ -1143,19 +1143,130 @@ function generarIdNotificacion(sheet) {
   return 'NTF-' + String(next).padStart(6, '0');
 }
 
+/**
+ * Lee la hoja "Notificaciones" y devuelve las filas con fechas normalizadas a ISO.
+ * - Abre el spreadsheet por ID (evita ActiveSpreadsheet nulo o libros equivocados).
+ * - Convierte timestamp, fechaInicio y fechaFin a ISO 8601 seguro.
+ * - Ordena por timestamp descendente.
+ */
 function getAllNotifications() {
+  const SPREADSHEET_ID = '1r7RcpcjfFqFVPvEsHhZX21mNDDDOoZ1LPhWmW8csvnE';
+  const SHEET_NAME = 'Notificaciones';
+  const EXPECTED_HEADERS = [
+    'id','timestamp','type','actorEmail','reservaId','sala','centro','ciudad',
+    'fechaInicio','fechaFin','ownerEmail','message','link','status'
+  ];
+
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  const sheet = ss.getSheetByName('Notificaciones');
-  if (!sheet) return [];
-  const values = sheet.getDataRange().getValues();
-  if (values.length < 2) return [];
-  const headers = values.shift();
-  return values.map(row => {
-    const o = {};
-    headers.forEach((h,i) => o[h] = row[i]);
-    return o;
+  const sh = ss.getSheetByName(SHEET_NAME);
+  if (!sh) return [];
+
+  const range = sh.getDataRange();
+  const values = range.getValues();
+  if (values.length < 2) return []; // solo cabeceras o vacío
+
+  // 1) Cabeceras reales en la hoja
+  const headers = values[0].map(h => String(h).trim());
+  // 2) Crea un índice cabecera->col
+  const idx = {};
+  headers.forEach((h, i) => (idx[h] = i));
+
+  // 3) Mapeo de filas a objetos con claves esperadas
+  const rows = values.slice(1).filter(r => r.some(c => c !== '' && c !== null));
+
+  const data = rows.map(r => {
+    // Helper para coger un campo por nombre de cabecera; si no existe, devuelve ''
+    const get = (name) => {
+      const i = idx[name];
+      return (i == null) ? '' : r[i];
+    };
+
+    // Normaliza fechas a ISO seguro
+    const tsISO   = toISO(get('timestamp'));    // puede venir como Date, ISO, o texto
+    const iniISO  = toISO(get('fechaInicio'));
+    const finISO  = toISO(get('fechaFin'));
+
+    return {
+      id:          String(get('id') || '').trim(),
+      timestamp:   tsISO,
+      type:        String(get('type') || '').trim(),
+      actorEmail:  String(get('actorEmail') || '').trim(),
+      reservaId:   String(get('reservaId') || '').trim(),
+      sala:        String(get('sala') || '').trim(),
+      centro:      String(get('centro') || '').trim(),
+      ciudad:      String(get('ciudad') || '').trim(),
+      fechaInicio: iniISO,
+      fechaFin:    finISO,
+      ownerEmail:  String(get('ownerEmail') || '').trim(),
+      message:     String(get('message') || '').trim(),
+      link:        String(get('link') || '').trim(),
+      status:      String(get('status') || '').trim(),
+    };
   });
+
+  // 4) Ordenar por timestamp descendente (lo más reciente primero)
+  data.sort((a, b) => {
+    const ta = Date.parse(a.timestamp || '') || 0;
+    const tb = Date.parse(b.timestamp || '') || 0;
+    return tb - ta;
+  });
+
+  // Log opcional para debug (ver en Ejecuciones)
+  // Logger.log(JSON.stringify(data, null, 2));
+
+  return data;
+
+  /**
+   * Convierte un valor (Date, string ISO, "YYYY-MM-DD HH:mm", número de Sheets) a ISO 8601.
+   * Si no puede parsearse, devuelve cadena vacía.
+   */
+  function toISO(val) {
+    if (val == null || val === '') return '';
+
+    // Si ya es un objeto Date (Google Sheets entrega Date cuando la celda tiene formato fecha)
+    if (val instanceof Date) {
+      const d = val;
+      // Asegura milisegundos para consistencia
+      return new Date(d.getTime()).toISOString();
+    }
+
+    // Si es número (serial de Sheets convertido a número)
+    if (typeof val === 'number') {
+      // En Apps Script los valores de fecha ya llegan como Date, pero por si acaso…
+      const millis = Math.round((val - 25569) * 86400 * 1000); // Excel epoch → ms
+      return new Date(millis).toISOString();
+    }
+
+    // Si es string
+    let s = String(val).trim();
+
+    // Caso: ya es ISO válido
+    // Date.parse reconoce bien 'YYYY-MM-DDTHH:mm:ss.sssZ'
+    if (/^\d{4}-\d{2}-\d{2}T/.test(s)) {
+      const t = Date.parse(s);
+      return isNaN(t) ? '' : new Date(t).toISOString();
+    }
+
+    // Caso: 'YYYY-MM-DD HH:mm' o 'YYYY-MM-DD HH:mm:ss'
+    // → convierto a 'YYYY-MM-DDTHH:mm(:ss)' y dejo que el motor lo trate como local
+    if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}(:\d{2})?$/.test(s)) {
+      s = s.replace(' ', 'T');
+      const t = Date.parse(s);
+      return isNaN(t) ? '' : new Date(t).toISOString();
+    }
+
+    // Caso: solo fecha 'YYYY-MM-DD'
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+      const t = Date.parse(s + 'T00:00:00');
+      return isNaN(t) ? '' : new Date(t).toISOString();
+    }
+
+    // Último intento: Date.parse genérico
+    const t = Date.parse(s);
+    return isNaN(t) ? '' : new Date(t).toISOString();
+  }
 }
+
 
 /** ========= CRUD SALAS (por 'ID Sala') ========= **/
 
