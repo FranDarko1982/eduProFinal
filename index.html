@@ -39,7 +39,7 @@
       <button class="tab"          data-id="ayuda"           data-visible="admin,usuario">Ayuda</button>
       <button class="tab"          data-id="panel"           data-visible="admin" style="color:#007bff;">Panel de control</button>
       <div class="tabs-icons">
-        <a href="#notifications" class="icon-button" aria-label="Notificaciones" title="Notificaciones">
+         <a href="#notificaciones" class="icon-button" aria-label="Notificaciones" title="Notificaciones">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
             <path d="M12 22c1.1 0 2-.9 2-2h-4a2 2 0 0 0 2 2zm6-6V11c0-3.07-1.63-5.64-4.5-6.32V4a1.5 1.5 0 0 0-3 0v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z" stroke="#111" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
@@ -63,6 +63,7 @@
       <section id="reportes"   class="section"><?!= include('Reportes'); ?></section>
       <section id="ayuda"      class="section"><?!= include('ayuda'); ?></section>
       <section id="panel"      class="section"><?!= include('panelcontrol'); ?></section>
+      <section id="notificaciones" class="section"><?!= include('notificaciones'); ?></section>
       <section id="profile"    class="section"><?!= include('usuario'); ?></section>
     </main>
 
@@ -171,10 +172,26 @@
           });
         }
 
-        // Estado notificaciones (lógica tuya)
+        // Estado notificaciones y acceso sólo para admins
         const btnNotif = document.querySelector('.icon-button[aria-label="Notificaciones"]');
+        if (userRole === 'admin') {
+          if (btnNotif) {
+            btnNotif.addEventListener('click', e => {
+              e.preventDefault();
+              document.querySelectorAll('.tab').forEach(l => l.classList.remove('active'));
+              showSectionById('notificaciones');
+              if (typeof NotificationsApp !== 'undefined') {
+                NotificationsApp.init();
+              }
+            });
+          }
+        } else {
+          if (btnNotif) btnNotif.style.display = 'none';
+          const secNotif = document.getElementById('notificaciones');
+          if (secNotif) secNotif.remove();
+        }
         const tienesNotificaciones = false;
-        if (tienesNotificaciones) {
+        if (tienesNotificaciones && btnNotif) {
           btnNotif.classList.add('has-notifications');
         }
       });
