@@ -1,0 +1,68 @@
+<!-- notificaciones.html -->
+<div class="reservas-container" id="notificaciones-root">
+  <div class="reservas-header" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem;">
+    <h2 style="margin:0;">Notificaciones</h2>
+    <button type="button" id="notifReload" class="btn-filters-clear">Recargar</button>
+  </div>
+  <div class="salas-table-container">
+    <table id="notificationsTable" class="table-style">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Fecha</th>
+          <th>Tipo</th>
+          <th>Actor</th>
+          <th>Sala</th>
+          <th>Centro</th>
+          <th>Ciudad</th>
+          <th>Mensaje</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <div id="noNotifications" style="display:none; margin-top:1rem;">No hay notificaciones</div>
+  </div>
+</div>
+
+<script>
+  const NotificationsApp = {
+    initialized: false,
+    init() {
+      if (this.initialized) return this.recargar();
+      this.initialized = true;
+      this.tbody = document.querySelector('#notificationsTable tbody');
+      this.noMsg = document.getElementById('noNotifications');
+      const btn = document.getElementById('notifReload');
+      if (btn) btn.addEventListener('click', () => this.recargar());
+      this.recargar();
+    },
+    recargar() {
+      if (typeof showSpinner === 'function') showSpinner();
+      google.script.run
+        .withSuccessHandler(data => {
+          if (typeof hideSpinner === 'function') hideSpinner();
+          this.renderTable(Array.isArray(data) ? data : []);
+        })
+        .withFailureHandler(err => {
+          if (typeof hideSpinner === 'function') hideSpinner();
+          console.error(err);
+          this.renderTable([]);
+        })
+        .getAllNotifications();
+    },
+    renderTable(data) {
+      if (!this.tbody) return;
+      this.tbody.innerHTML = '';
+      if (!data.length) {
+        if (this.noMsg) this.noMsg.style.display = 'block';
+        return;
+      }
+      if (this.noMsg) this.noMsg.style.display = 'none';
+      data.forEach(n => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${n.id || ''}</td><td>${n.timestamp || ''}</td><td>${n.type || ''}</td><td>${n.actorEmail || ''}</td><td>${n.sala || ''}</td><td>${n.centro || ''}</td><td>${n.ciudad || ''}</td><td>${n.message || ''}</td>`;
+        this.tbody.appendChild(tr);
+      });
+    }
+  };
+</script>
