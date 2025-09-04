@@ -1024,16 +1024,25 @@ function enviarSolicitudUso(datos) {
     }
   }
 
+  // Emails de administradores
+  const adminEmails = data
+    .slice(1)
+    .filter(r => normalize(r[idxRol]) === 'admin')
+    .map(r => r[idxEmail])
+    .filter(e => e);
+    
   // 2. Buscar la reserva existente que solapa con las fechas indicadas
   const { headers: reservaHeaders, rows } = fetchReservasData();
   const reservas = rows.map(r => mapRowToReserva(reservaHeaders, r));
-  const idSolapada = reservas.find(r =>
+  const reservaSolapada = reservas.find(r =>
     normalize(r.ciudad) === normalize(datos.ciudad) &&
     normalize(r.centro) === normalize(datos.centro) &&
     normalize(r.nombre) === normalize(datos.sala) &&
     new Date(r.inicio) < new Date(datos.fechaFin) &&
     new Date(datos.fechaInicio) < new Date(r.fin)
-  )?.id || '';
+  );
+  const idSolapada = reservaSolapada ? reservaSolapada.id : '';
+  const ownerEmail = reservaSolapada ? reservaSolapada.usuario : responsableEmail;
 
   // 3. Componer email HTML con botón para liberar la reserva
   const solicitante = Session.getActiveUser().getEmail() || '-';
@@ -1064,11 +1073,20 @@ function enviarSolicitudUso(datos) {
     "Solicitante: " + solicitante;
 
   MailApp.sendEmail({
-    to: responsableEmail,
+    to: ownerEmail,
     subject: 'Solicitud de uso de sala ocupada (' + datos.sala + ')',
     body: mensaje,
     htmlBody: cuerpoHtml
   });
+
+  if (adminEmails.length) {
+    MailApp.sendEmail({
+      to: adminEmails.join(','),
+      subject: 'Solicitud de uso de sala ocupada (' + datos.sala + ')',
+      body: mensaje,
+      htmlBody: cuerpoHtml
+    });
+  }
 
   // 3. (Opcional) Guarda la solicitud en una hoja de registro
   var sheetLog = ss.getSheetByName('SolicitudesUso');
@@ -1085,6 +1103,58 @@ function enviarSolicitudUso(datos) {
     datos.horario, datos.motivo, responsableEmail,
     datos.fechaInicio || '', datos.fechaFin || '', solicitante
   ]);
+
+  // Registrar notificación
+  let notifSheet = ss.getSheetByName('Notificaciones');
+  if (!notifSheet) {
+    notifSheet = ss.insertSheet('Notificaciones');
+    notifSheet.appendRow(['id','timestamp','type','actorEmail','reservaId','sala','centro','ciudad','fechaInicio','fechaFin','ownerEmail','message','link','status']);
+  }
+  const notifId = generarIdNotificacion(notifSheet);
+  const fmt = d => d ? Utilities.formatDate(new Date(d), Session.getScriptTimeZone(), 'dd/MM HH:mm') : '';
+  const msgNotif = `Solicitud de uso para ${datos.sala} el ${fmt(datos.fechaInicio)}–${fmt(datos.fechaFin)}`;
+  const link = WEBAPP_URL ? `${WEBAPP_URL}#reservas?id=${idSolapada}` : `#reservas?id=${idSolapada}`;
+  notifSheet.appendRow([
+    notifId,
+    new Date().toISOString(),
+    'solicitud_uso',
+    solicitante,
+    idSolapada,
+    datos.sala,
+    datos.centro,
+    datos.ciudad,
+    datos.fechaInicio || '',
+    datos.fechaFin || '',
+    ownerEmail,
+    msgNotif,
+    link,
+    'open'
+  ]);
+}
+
+function generarIdNotificacion(sheet) {
+  const lastRow = sheet.getLastRow();
+  let next = 1;
+  if (lastRow >= 2) {
+    const lastId = String(sheet.getRange(lastRow, 1).getValue() || '');
+    const match = /NTF-(\d+)/.exec(lastId);
+    if (match) next = Number(match[1]) + 1;
+  }
+  return 'NTF-' + String(next).padStart(6, '0');
+}
+
+function getAllNotifications() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.getSheetByName('Notificaciones');
+  if (!sheet) return [];
+  const values = sheet.getDataRange().getValues();
+  if (values.length < 2) return [];
+  const headers = values.shift();
+  return values.map(row => {
+    const o = {};
+    headers.forEach((h,i) => o[h] = row[i]);
+    return o;
+  });
 }
 
 /** ========= CRUD SALAS (por 'ID Sala') ========= **/
