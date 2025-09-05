@@ -42,12 +42,22 @@
         <input id="editMotivoMod" type="text" class="modal-reserva-input" placeholder="Motivo de la modificación" required />
         <div class="modal-reserva-fechas">
           <div>
-            <label for="editInicio" class="modal-reserva-label">Fecha inicio</label><br />
-            <input id="editInicio" type="datetime-local" class="modal-reserva-datetime" required />
+            <label for="editFechaInicio" class="modal-reserva-label">Fecha inicio</label><br />
+            <input id="editFechaInicio" type="text" class="modal-reserva-datetime" autocomplete="off" required />
           </div>
           <div>
-            <label for="editFin" class="modal-reserva-label">Fecha fin</label><br />
-            <input id="editFin" type="datetime-local" class="modal-reserva-datetime" required />
+            <label for="editFechaFin" class="modal-reserva-label">Fecha fin</label><br />
+            <input id="editFechaFin" type="text" class="modal-reserva-datetime" autocomplete="off" required />
+          </div>
+        </div>
+        <div class="modal-reserva-fechas">
+          <div>
+            <label for="editHoraInicio" class="modal-reserva-label">Hora inicio</label><br />
+            <input id="editHoraInicio" type="text" class="modal-reserva-datetime" autocomplete="off" required />
+          </div>
+          <div>
+            <label for="editHoraFin" class="modal-reserva-label">Hora fin</label><br />
+            <input id="editHoraFin" type="text" class="modal-reserva-datetime" autocomplete="off" required />
           </div>
         </div>
         <div class="modal-reserva-botones">
@@ -106,6 +116,10 @@
   // ---- Flatpickr para filtrar por rango de fechas ----
   let selectedRange = [];
   window.searchDateMisFlatpickr = null;
+  window.fp_editFechaInicio = null;
+  window.fp_editFechaFin = null;
+  window.fp_editHoraInicio = null;
+  window.fp_editHoraFin = null;
   document.addEventListener('DOMContentLoaded', function() {
     window.searchDateMisFlatpickr = flatpickr('#searchDateMis', {
       mode: 'range',
@@ -116,6 +130,32 @@
         selectedRange = dateStr ? dateStr.split(' a ') : [];
         App.applyFiltersAndRender();
       }
+    });
+    window.fp_editFechaInicio = flatpickr('#editFechaInicio', {
+      enableTime: false,
+      dateFormat: 'Y-m-d',
+      locale: 'es'
+    });
+    window.fp_editFechaFin = flatpickr('#editFechaFin', {
+      enableTime: false,
+      dateFormat: 'Y-m-d',
+      locale: 'es'
+    });
+    window.fp_editHoraInicio = flatpickr('#editHoraInicio', {
+      enableTime: true,
+      noCalendar: true,
+      time_24hr: true,
+      dateFormat: 'H:i',
+      locale: 'es',
+      minuteIncrement: 5
+    });
+    window.fp_editHoraFin = flatpickr('#editHoraFin', {
+      enableTime: true,
+      noCalendar: true,
+      time_24hr: true,
+      dateFormat: 'H:i',
+      locale: 'es',
+      minuteIncrement: 5
     });
   });
 
@@ -290,14 +330,19 @@
       document.getElementById('editMotivo').value = r.Motivo || '';
       document.getElementById('editMotivoMod').value = '';
 
-      [['Inicio','editInicio'], ['Fin','editFin']].forEach(([field, el]) => {
+      [['Inicio','editFechaInicio','editHoraInicio'], ['Fin','editFechaFin','editHoraFin']].forEach(([field, dateEl, timeEl]) => {
         const val = r[field] || '';
         const parsed = /^([0-3]?\d)\/([0-1]?\d)\/(\d{4}) (\d{2}:\d{2})$/.exec(val);
         if (parsed) {
           const [, d, m, y, time] = parsed;
-          document.getElementById(el).value = `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}T${time}`;
+          const fechaISO = `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
+          document.getElementById(dateEl).value = fechaISO;
+          document.getElementById(timeEl).value = time;
+          if (window[`fp_${dateEl}`]) window[`fp_${dateEl}`].setDate(fechaISO, false, 'Y-m-d');
+          if (window[`fp_${timeEl}`]) window[`fp_${timeEl}`].setDate(time, false, 'H:i');
         } else {
-          document.getElementById(el).value = '';
+          document.getElementById(dateEl).value = '';
+          document.getElementById(timeEl).value = '';
         }
       });
 
@@ -309,8 +354,12 @@
     handleEditSubmit(e) {
       e.preventDefault();
       const motivoCambio = document.getElementById('editMotivoMod').value.trim();
-      const inicio = document.getElementById('editInicio').value;
-      const fin    = document.getElementById('editFin').value;
+      const fechaInicio = document.getElementById('editFechaInicio').value;
+      const fechaFin    = document.getElementById('editFechaFin').value;
+      const horaInicio  = document.getElementById('editHoraInicio').value;
+      const horaFin     = document.getElementById('editHoraFin').value;
+      const inicio = `${fechaInicio}T${horaInicio}`;
+      const fin    = `${fechaFin}T${horaFin}`;
       if (!motivoCambio) {
         alert('Debes indicar el motivo de la modificación.');
         return;
