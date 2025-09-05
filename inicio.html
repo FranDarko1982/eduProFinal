@@ -40,10 +40,10 @@
       <div class="table-wrap">
         <table class="table-modern">
           <thead>
-            <tr><th>Sala</th><th>Fecha</th><th>Hora</th><th>Estado</th></tr>
+            <tr><th>Sala</th><th>Centro</th><th>Ciudad</th><th>Fecha inicio</th><th>Fecha fin</th><th>Horario</th></tr>
           </thead>
           <tbody id="upcomingTableBody">
-            <tr><td colspan="4" class="td-center"><span class="mini-spinner"></span></td></tr>
+            <tr><td colspan="6" class="td-center"><span class="mini-spinner"></span></td></tr>
           </tbody>
         </table>
       </div>
@@ -125,16 +125,20 @@
     tbody.innerHTML = '';
     if(!futuras.length){
       const tr = document.createElement('tr');
-      tr.innerHTML = `<td colspan="4" class="td-center">You have no upcoming bookings.</td>`;
+      tr.innerHTML = `<td colspan="6" class="td-center">You have no upcoming bookings.</td>`;
       tbody.appendChild(tr);
       return;
     }
     futuras.forEach(r => {
-      const d = parseFechaDMY(r.Inicio);
-      const fecha = d.toLocaleDateString();
-      const hora  = d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+      const dIni = parseFechaDMY(r.Inicio);
+      const dFin = parseFechaDMY(r.Fin);
+      const fechaIni = dIni.toLocaleDateString();
+      const fechaFin = dFin ? dFin.toLocaleDateString() : '';
+      const horaIni  = dIni.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+      const horaFin  = dFin ? dFin.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '';
+      const horario  = `${horaIni}-${horaFin}`;
       const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${r.Sala}</td><td>${fecha}</td><td>${hora}</td><td>${r.Estado||''}</td>`;
+      tr.innerHTML = `<td>${r.Sala}</td><td>${r.Centro||''}</td><td>${r.Ciudad||''}</td><td>${fechaIni}</td><td>${fechaFin}</td><td>${horario}</td>`;
       tbody.appendChild(tr);
     });
   }
