@@ -919,5 +919,80 @@
   .toggle { display:block; margin:0.4rem 0; }
   .toggle input { margin-right:0.3rem; }
   @media (max-width: 768px) { .profile-grid { grid-template-columns:1fr; } }
+
+  /* ===== Dashboard / Tarjetas ===== */
+  .dashboard { margin-top: .5rem; }
+  .dash-title{ margin:0; font-size:1.35rem; font-weight:800; color:#333; }
+  .dash-sub{ margin:.15rem 0 1rem; color:#6b7280; }
+
+  .grid{ display:grid; gap:1rem; }
+  .kpi-grid{ grid-template-columns: repeat(12,1fr); }
+  .content-grid{ grid-template-columns: repeat(12,1fr); margin-top:1rem; }
+
+  .card{
+    background: #fff;
+    border: 1px solid #f1e1ea;
+    border-radius: 16px;
+    padding: 1rem 1.25rem;
+    box-shadow: 0 6px 22px -12px rgba(188,52,139,.35);
+  }
+  .card-head{ display:flex; align-items:baseline; gap:.5rem; margin-bottom:.35rem; }
+  .card-head h3{ margin:0; }
+  .card-head small{ color:#6b7280; }
+
+  /* KPI cards */
+  .kpi{ position:relative; overflow:hidden; }
+  .kpi-title{ margin:0 0 .15rem; font-size:.95rem; color:#7a2c4a; font-weight:700; }
+  .kpi-value{ font-size:2.2rem; font-weight:900; line-height:1.1; color:#ba0e6a; }
+  .kpi-sub{ color:#6b7280; }
+
+  /* Responsive columns */
+  @media (max-width: 639px){
+    .kpi{ grid-column: span 12; }
+    .content-grid > .card{ grid-column: span 12; }
+  }
+  @media (min-width: 640px) and (max-width: 1023px){
+    .kpi{ grid-column: span 6; }
+    .content-grid > .card:first-child{ grid-column: span 12; }
+    .content-grid > .card:last-child{ grid-column: span 12; }
+  }
+  @media (min-width: 1024px){
+    .kpi{ grid-column: span 3; }
+    .content-grid > .card:first-child{ grid-column: span 6; }
+    .content-grid > .card:last-child{ grid-column: span 6; }
+  }
+
+  /* Tabla moderna */
+  .table-wrap{ overflow:auto; }
+  .table-modern{
+    width:100%;
+    border-collapse:separate;
+    border-spacing:0;
+    font-size:.95rem;
+  }
+  .table-modern thead th{
+    text-align:left;
+    padding:.6rem .7rem;
+    background:#fff1f7;
+    color:#7a2c4a;
+    border-bottom:1px solid #f1e1ea;
+    position:sticky; top:0; z-index:1;
+  }
+  .table-modern tbody td{ padding:.55rem .7rem; border-bottom:1px solid #f6e8f1; }
+  .table-modern tbody tr:hover{ background:#fff7fb; }
+  .td-center{ text-align:center; color:#6b7280; }
+
+  /* Chart area */
+  .chart-wrapper{ position:relative; min-height:300px; }
+  .abs-center{ position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); }
+
+  /* Mini spinner para KPIs/tabla */
+  .mini-spinner{
+    display:inline-block; width:18px; height:18px;
+    border:3px solid #f3f3f3; border-top-color:#bc348b; border-radius:50%;
+    animation: spin .9s linear infinite;
+  }
+  @keyframes spin{ to{ transform: rotate(360deg); } }
+
   
 </style>
