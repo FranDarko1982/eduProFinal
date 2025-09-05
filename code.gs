@@ -58,9 +58,14 @@ function getUserData() {
  * Incluye un fragmento HTML por nombre de archivo.
  */
 function include(filename) {
-  // Incluye un fragmento HTML (HtmlService) por nombre de archivo.
-  return HtmlService.createHtmlOutputFromFile(filename).getContent();
+  // Evalúa el parcial como plantilla y le pasa 'usuario' y 'role'
+  var t = HtmlService.createTemplateFromFile(filename);
+  var u = getUserData();                       // lee tu usuario de la hoja
+  t.usuario = u || {};                         // disponible en el parcial
+  t.role    = normalize((u && u.rol) || 'usuario');
+  return t.evaluate().getContent();            // <-- ahora sí se evalúan <?= ... ?>
 }
+
 
 /**
  * Genera la URL de Gravatar para el usuario activo.
@@ -402,9 +407,9 @@ function getTodasReservas() {
 /**
  * Para la tabla de “mis reservas”: filtro por usuario y formateo plano
  */
-function getMisReservas() {
-  // Devuelve las reservas del usuario actual formateadas para tabla.
-  const me = normalize(getActiveUserEmail());
+function getMisReservas(email) {
+  // Devuelve las reservas del usuario indicado (o el actual) formateadas para tabla.
+  const me = normalize(email || getActiveUserEmail());
   return getReservasGeneric({
     filterFn: r => normalize(r.usuario) === me,
     formatFn: r => ({
