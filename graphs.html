@@ -124,6 +124,54 @@ function getPorcentajeOcupacionPorCentro() {
 }
 
 /**
+* Número de reservas creadas en los últimos 30 días.
+ */
+function getReservasUltimos30Dias() {
+  const { headers, rows } = fetchReservasData();
+  const ahora = new Date();
+  const hace30 = new Date(ahora.getTime() - 30 * 24 * 60 * 60 * 1000);
+  let count = 0;
+  rows.forEach(row => {
+    const r = mapRowToReserva(headers, row);
+    const inicio = parseFechaFlexible(r.inicio);
+    if (inicio && inicio >= hace30 && inicio <= ahora) count++;
+  });
+  return count;
+}
+
+/**
+ * Devuelve el número de reservas agrupadas por mes para los últimos N meses.
+ * Retorna [{ mes: 'Jan', total: 12 }, ...]
+ */
+function getReservasPorMes(opts) {
+  const months = (opts && opts.months) ? opts.months : 6;
+  const { headers, rows } = fetchReservasData();
+  const ahora = new Date();
+  const mapa = {};
+  for (let i = 0; i < months; i++) {
+    const d = new Date(ahora.getFullYear(), ahora.getMonth() - i, 1);
+    const key = d.getFullYear() + '-' + (d.getMonth() + 1);
+    mapa[key] = 0;
+  }
+  rows.forEach(row => {
+    const r = mapRowToReserva(headers, row);
+    const inicio = parseFechaFlexible(r.inicio);
+    if (!inicio) return;
+    const key = inicio.getFullYear() + '-' + (inicio.getMonth() + 1);
+    if (mapa.hasOwnProperty(key)) mapa[key]++;
+  });
+  return Object.keys(mapa)
+    .sort((a, b) => new Date(a + '-01') - new Date(b + '-01'))
+    .map(key => {
+      const [y, m] = key.split('-').map(Number);
+      const mes = new Date(y, m - 1).toLocaleString('en', { month: 'short' });
+      return { mes, total: mapa[key] };
+    });
+}
+
+/**
+
+/**
  * Parsea fechas tipo '07/09/2025 10:00', '2025-09-07 10:00', 
  * '07/09/2025', '2025-09-07', o incluso objetos Date.
  * Devuelve objeto Date o null.
