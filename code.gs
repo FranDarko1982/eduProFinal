@@ -442,13 +442,13 @@ function crearReserva(reserva) {
   const idxId = headers.indexOf('ID Reserva');
   let maxId = 0;
   rows.forEach(r => {
-    const match = String(r[idxId]).match(/^SF(\d+)$/);
+    const match = String(r[idxId]).match(/^RE(\d+)$/);
     if (match) {
       const num = parseInt(match[1], 10);
       if (num > maxId) maxId = num;
     }
   });
-  const newId = 'SF' + String(maxId + 1).padStart(3, '0');
+  const newId = 'RE' + String(maxId + 1).padStart(8, '0');
 
   const existing = rows
     .map(row => mapRowToReserva(headers, row))
