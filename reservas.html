@@ -76,12 +76,22 @@
         <input id="editMotivoModAll" type="text" class="modal-reserva-input" placeholder="Motivo de la modificación" required />
         <div class="modal-reserva-fechas">
           <div>
-            <label for="editInicioAll" class="modal-reserva-label">Fecha inicio</label><br />
-            <input id="editInicioAll" type="datetime-local" class="modal-reserva-datetime" required />
+            <label for="editFechaInicioAll" class="modal-reserva-label">Fecha inicio</label><br />
+            <input id="editFechaInicioAll" type="text" class="modal-reserva-datetime" autocomplete="off" required />
           </div>
           <div>
-            <label for="editFinAll" class="modal-reserva-label">Fecha fin</label><br />
-            <input id="editFinAll" type="datetime-local" class="modal-reserva-datetime" required />
+            <label for="editFechaFinAll" class="modal-reserva-label">Fecha fin</label><br />
+            <input id="editFechaFinAll" type="text" class="modal-reserva-datetime" autocomplete="off" required />
+          </div>
+        </div>
+        <div class="modal-reserva-fechas">
+          <div>
+            <label for="editHoraInicioAll" class="modal-reserva-label">Hora inicio</label><br />
+            <input id="editHoraInicioAll" type="text" class="modal-reserva-datetime" autocomplete="off" required />
+          </div>
+          <div>
+            <label for="editHoraFinAll" class="modal-reserva-label">Hora fin</label><br />
+            <input id="editHoraFinAll" type="text" class="modal-reserva-datetime" autocomplete="off" required />
           </div>
         </div>
         <div class="modal-reserva-botones">
@@ -120,6 +130,11 @@
   </div>
 </div>
 
+<!-- Flatpickr -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
+
 <script>
 (function (w) {
 
@@ -153,6 +168,34 @@
       id('btnEditCancelarAll').addEventListener('click', () => this.closeEditModal());
       id('editModalAll').addEventListener('click', e => { if (e.target === e.currentTarget) this.closeEditModal(); });
       id('formEditReservaAll').addEventListener('submit', e => this.submitEdit(e));
+
+      // Flatpickr para modal editar
+      this.fp_editFechaInicioAll = flatpickr('#editFechaInicioAll', {
+        enableTime: false,
+        dateFormat: 'Y-m-d',
+        locale: 'es'
+      });
+      this.fp_editFechaFinAll = flatpickr('#editFechaFinAll', {
+        enableTime: false,
+        dateFormat: 'Y-m-d',
+        locale: 'es'
+      });
+      this.fp_editHoraInicioAll = flatpickr('#editHoraInicioAll', {
+        enableTime: true,
+        noCalendar: true,
+        time_24hr: true,
+        dateFormat: 'H:i',
+        locale: 'es',
+        minuteIncrement: 5
+      });
+      this.fp_editHoraFinAll = flatpickr('#editHoraFinAll', {
+        enableTime: true,
+        noCalendar: true,
+        time_24hr: true,
+        dateFormat: 'H:i',
+        locale: 'es',
+        minuteIncrement: 5
+      });
 
       // Modal eliminar
       id('btnDeleteCancelAll').addEventListener('click', () => this.closeDeleteModal());
@@ -343,8 +386,16 @@
       this.state.currentEditId = idReserva;
       id('editMotivoAll').value = r.Motivo || '';
       id('editMotivoModAll').value = '';
-      id('editInicioAll').value = this.toInput(r.Inicio);
-      id('editFinAll').value    = this.toInput(r.Fin);
+      const ini = this.splitDateTime(r.Inicio);
+      id('editFechaInicioAll').value = ini.date;
+      id('editHoraInicioAll').value = ini.time;
+      if (this.fp_editFechaInicioAll) this.fp_editFechaInicioAll.setDate(ini.date, false, 'Y-m-d');
+      if (this.fp_editHoraInicioAll) this.fp_editHoraInicioAll.setDate(ini.time, false, 'H:i');
+      const fin = this.splitDateTime(r.Fin);
+      id('editFechaFinAll').value = fin.date;
+      id('editHoraFinAll').value = fin.time;
+      if (this.fp_editFechaFinAll) this.fp_editFechaFinAll.setDate(fin.date, false, 'Y-m-d');
+      if (this.fp_editHoraFinAll) this.fp_editHoraFinAll.setDate(fin.time, false, 'H:i');
       id('editModalAll').style.display = 'flex';
     },
     closeEditModal() {
@@ -354,8 +405,12 @@
       e.preventDefault();
       const motivo = id('editMotivoAll').value.trim();
       const motivoCambio = id('editMotivoModAll').value.trim();
-      const inicio = id('editInicioAll').value;
-      const fin    = id('editFinAll').value;
+      const fechaInicio = id('editFechaInicioAll').value;
+      const fechaFin    = id('editFechaFinAll').value;
+      const horaInicio  = id('editHoraInicioAll').value;
+      const horaFin     = id('editHoraFinAll').value;
+      const inicio = `${fechaInicio}T${horaInicio}`;
+      const fin    = `${fechaFin}T${horaFin}`;
       if (!motivoCambio) {
         alert('Debes indicar el motivo de la modificación.');
         return;
@@ -436,11 +491,14 @@
     },
 
     // --------- Utils ---------
-    toInput(str) {
-      // '05/07/2025 14:00' → '2025-07-05T14:00'
+    splitDateTime(str) {
+      // '05/07/2025 14:00' → {date:'2025-07-05', time:'14:00'}
       const [fecha, hora] = String(str).split(' ');
       const [d, m, y] = fecha.split('/');
-      return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}T${hora}`;
+      return {
+        date: `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`,
+        time: hora
+      };
     }
   };
 
