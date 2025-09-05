@@ -1,0 +1,173 @@
+<!-- inicio.html -->
+<div class="dashboard">
+  <h2>Welcome back, <?= usuario.nombre ?>!</h2>
+  <p class="subtitle">Here’s what’s happening today.</p>
+
+  <div class="grid kpi-grid">
+    <div class="card kpi" id="kpiSalasCard">
+      <h3>Total Salas</h3>
+      <div class="kpi-value" id="kpiTotalSalas"><span class="mini-spinner"></span></div>
+      <small>registradas</small>
+    </div>
+    <div class="card kpi" id="kpiReservasCard">
+      <h3>Total Reservas (30 días)</h3>
+      <div class="kpi-value" id="kpiReservas30"><span class="mini-spinner"></span></div>
+      <small>últimos 30 días</small>
+    </div>
+    <div class="card kpi" id="kpiUsuariosCard">
+      <h3>Total Usuarios</h3>
+      <div class="kpi-value" id="kpiTotalUsuarios"><span class="mini-spinner"></span></div>
+      <small>registrados</small>
+    </div>
+    <div class="card kpi" id="kpiProximasCard">
+      <h3>Mis próximas reservas</h3>
+      <div class="kpi-value" id="kpiMisReservas"><span class="mini-spinner"></span></div>
+      <small>futuras</small>
+    </div>
+  </div>
+
+  <div class="grid content-grid">
+    <div class="card">
+      <h3>My Upcoming Bookings</h3>
+      <table class="table-modern">
+        <thead>
+          <tr><th>Sala</th><th>Fecha</th><th>Hora</th><th>Estado</th></tr>
+        </thead>
+        <tbody id="upcomingTableBody">
+          <tr><td colspan="4" style="text-align:center;"><span class="mini-spinner"></span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="card">
+      <h3>Booking Trends</h3>
+      <div class="chart-wrapper" style="position:relative;min-height:300px;">
+        <canvas id="bookingTrendsChart" aria-label="Booking trends chart"></canvas>
+        <div id="chartSpinner" class="mini-spinner" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+const Dashboard = (() => {
+  function gsRun(fn, data) {
+    return new Promise((resolve, reject) => {
+      google.script.run
+        .withSuccessHandler(resolve)
+        .withFailureHandler(reject)[fn](data);
+    });
+  }
+
+  function parseFechaDMY(str){
+    if(!str) return null;
+    const [fecha, hora] = String(str).split(' ');
+    const [d,m,y] = fecha.split('/');
+    return new Date(`${y}-${m}-${d}T${hora}`);
+  }
+
+  async function loadKPIs(){
+    const now = new Date();
+    const promises = [
+      gsRun('getAllSalas'),
+      gsRun('getReservasUltimos30Dias'),
+      ['admin','manager'].includes(window.USER_ROLE) ? gsRun('getAllUsuarios') : Promise.resolve(null),
+      gsRun('getMisReservas', window.USER_EMAIL)
+    ];
+    const [salas,total30,usuarios,mis] = await Promise.all(promises);
+    const futuras = (mis||[]).filter(r => {
+      const d = parseFechaDMY(r.Inicio);
+      return d && d > now;
+    }).length;
+    const data = {
+      totalSalas: salas.length,
+      totalReservas30: total30,
+      totalUsuarios: usuarios ? usuarios.length : null,
+      misProximas: futuras
+    };
+    renderKPIs(data);
+  }
+
+  function renderKPIs(data){
+    document.getElementById('kpiTotalSalas').textContent = data.totalSalas;
+    document.getElementById('kpiReservas30').textContent = data.totalReservas30;
+    if(data.totalUsuarios !== null){
+      document.getElementById('kpiTotalUsuarios').textContent = data.totalUsuarios;
+    } else {
+      const card = document.getElementById('kpiUsuariosCard');
+      if(card) card.style.display = 'none';
+    }
+    document.getElementById('kpiMisReservas').textContent = data.misProximas;
+  }
+
+  async function loadUpcoming(){
+    const now = new Date();
+    const reservas = await gsRun('getMisReservas', window.USER_EMAIL);
+    const futuras = reservas.filter(r => {
+      const d = parseFechaDMY(r.Inicio);
+      return d && d >= now;
+    }).sort((a,b) => parseFechaDMY(a.Inicio) - parseFechaDMY(b.Inicio)).slice(0,5);
+    const tbody = document.getElementById('upcomingTableBody');
+    tbody.innerHTML = '';
+    if(!futuras.length){
+      const tr = document.createElement('tr');
+      const td = document.createElement('td');
+      td.colSpan = 4;
+      td.textContent = 'You have no upcoming bookings.';
+      tr.appendChild(td);
+      tbody.appendChild(tr);
+      return;
+    }
+    futuras.forEach(r => {
+      const d = parseFechaDMY(r.Inicio);
+      const fecha = d.toLocaleDateString();
+      const hora = d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${r.Sala}</td><td>${fecha}</td><td>${hora}</td><td>${r.Estado || ''}</td>`;
+      tbody.appendChild(tr);
+    });
+  }
+
+  async function loadTrends(){
+    const data = await gsRun('getReservasPorMes', { months:6 });
+    const labels = data.map(d => d.mes);
+    const values = data.map(d => d.total);
+    const ctx = document.getElementById('bookingTrendsChart').getContext('2d');
+    if(window.chartTrends) window.chartTrends.destroy();
+    window.chartTrends = new Chart(ctx, {
+      type:'bar',
+      data:{ labels, datasets:[{ data: values, backgroundColor:'#bc348b' }] },
+      options:{ responsive:true, plugins:{ legend:{display:false} }, scales:{ y:{ beginAtZero:true, ticks:{ precision:0 } } } }
+    });
+    document.getElementById('chartSpinner').style.display = 'none';
+  }
+
+  async function init(){
+    loadKPIs();
+    loadUpcoming();
+    loadTrends();
+  }
+
+  return { init, loadKPIs, renderKPIs, loadUpcoming, loadTrends };
+})();
+
+document.addEventListener('DOMContentLoaded', Dashboard.init);
+</script>
+
+<style>
+#inicio .kpi-grid{
+  display:grid;
+  gap:1rem;
+  grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+}
+#inicio .kpi-value{font-size:2rem;font-weight:bold;}
+#inicio .content-grid{
+  display:grid;
+  gap:1rem;
+  grid-template-columns:repeat(auto-fit,minmax(300px,1fr));
+  margin-top:1rem;
+}
+#inicio .mini-spinner{width:16px;height:16px;border:3px solid #f3f3f3;border-top:3px solid var(--rosa-principal);border-radius:50%;animation:spin 1s linear infinite;display:inline-block;}
+@media(max-width:600px){#inicio .content-grid{grid-template-columns:1fr;}}
+</style>
