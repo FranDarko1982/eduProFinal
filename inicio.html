@@ -24,7 +24,7 @@
     </article>
 
     <article class="card kpi" id="kpiProximasCard">
-      <h3 class="kpi-title">Mis próximas reservas</h3>
+      <h3 class="kpi-title" id="kpiProximasTitle">Mis próximas reservas</h3>
       <div class="kpi-value" id="kpiMisReservas"><span class="mini-spinner"></span></div>
       <small class="kpi-sub">futuras</small>
     </article>
@@ -34,7 +34,7 @@
   <section class="grid content-grid">
     <article class="card">
       <div class="card-head">
-        <h3>Mis próximas reservas</h3>
+        <h3 id="upcomingTitle">Mis próximas reservas</h3>
         <small>Las 5 próximas</small>
       </div>
       <div class="table-wrap">
@@ -69,6 +69,7 @@
 (function(){
   // Helpers
   const $ = (s, r=document) => r.querySelector(s);
+  const isAdmin = ['admin','manager'].includes(window.USER_ROLE);
 
   function gsRun(fn, data) {
     return new Promise((resolve, reject) => {
@@ -92,11 +93,11 @@
     const promises = [
       gsRun('getAllSalas'),                     // listado de salas
       gsRun('getReservasUltimos30Dias'),        // nº reservas 30d
-      ['admin','manager'].includes(window.USER_ROLE) ? gsRun('getAllUsuarios') : Promise.resolve(null),
-      gsRun('getMisReservas', window.USER_EMAIL) // reservas del usuario en tabla dd/MM/yyyy HH:mm
+      isAdmin ? gsRun('getAllUsuarios') : Promise.resolve(null),
+      isAdmin ? gsRun('getTodasReservas') : gsRun('getMisReservas', window.USER_EMAIL)
     ];
-    const [salas,total30,usuarios,mis] = await Promise.all(promises);
-    const futuras = (mis||[]).filter(r => {
+    const [salas,total30,usuarios,reservas] = await Promise.all(promises);
+    const futuras = (reservas||[]).filter(r => {
       const d = parseFechaDMY(r.Inicio);
       return d && d > now;
     }).length;
@@ -105,13 +106,16 @@
     $('#kpiReservas30').textContent    = total30 || 0;                           // getReservasUltimos30Dias() :contentReference[oaicite:3]{index=3}
     if(usuarios){ $('#kpiTotalUsuarios').textContent = (usuarios||[]).length; }  // getAllUsuarios() :contentReference[oaicite:4]{index=4}
     else { $('#kpiUsuariosCard').style.display = 'none'; }
-    $('#kpiMisReservas').textContent   = futuras;                                // getMisReservas() :contentReference[oaicite:5]{index=5}
+    $('#kpiMisReservas').textContent   = futuras;                                // getMisReservas()/getTodasReservas
+    $('#kpiProximasTitle').textContent = isAdmin ? 'Próximas reservas' : 'Mis próximas reservas';
+    $('#upcomingTitle').textContent    = isAdmin ? 'Próximas reservas' : 'Mis próximas reservas';
   }
 
   // Próximas reservas (tabla)
   async function loadUpcoming(){
     const now = new Date();
-    const reservas = await gsRun('getMisReservas', window.USER_EMAIL);           // dd/MM/yyyy HH:mm :contentReference[oaicite:6]{index=6}
+    const fn = isAdmin ? 'getTodasReservas' : 'getMisReservas';
+    const reservas = await gsRun(fn, isAdmin ? undefined : window.USER_EMAIL);   // dd/MM/yyyy HH:mm
     const futuras = (reservas||[])
       .filter(r => { const d = parseFechaDMY(r.Inicio); return d && d >= now; })
       .sort((a,b) => parseFechaDMY(a.Inicio) - parseFechaDMY(b.Inicio))
