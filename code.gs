@@ -439,6 +439,17 @@ function crearReserva(reserva) {
 
   // 1) Leer todas las reservas actuales
   const { headers, rows } = fetchReservasData();
+  const idxId = headers.indexOf('ID Reserva');
+  let maxId = 0;
+  rows.forEach(r => {
+    const match = String(r[idxId]).match(/^SF(\d+)$/);
+    if (match) {
+      const num = parseInt(match[1], 10);
+      if (num > maxId) maxId = num;
+    }
+  });
+  const newId = 'SF' + String(maxId + 1).padStart(3, '0');
+
   const existing = rows
     .map(row => mapRowToReserva(headers, row))
     .filter(r =>
@@ -468,7 +479,7 @@ function crearReserva(reserva) {
   }
 
   // 4) Si no hay solapamiento, seguimos con la creación
-  const idReserva = reserva.idReserva ? String(reserva.idReserva) : 'R' + Date.now();
+  const idReserva = reserva.idReserva ? String(reserva.idReserva) : newId;
   sheet.appendRow([
     idReserva,
     reserva.nombre,
