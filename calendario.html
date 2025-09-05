@@ -68,12 +68,24 @@
           <div>
             <label for="fechaInicio" class="modal-reserva-label">Fecha inicio</label><br>
             <input id="fechaInicio" type="text" required
-                   class="modal-reserva-datetime" autocomplete="off"/>
+                   class="modal-reserva-datetime" autocomplete="off" />
           </div>
           <div>
             <label for="fechaFin" class="modal-reserva-label">Fecha fin</label><br>
             <input id="fechaFin" type="text" required
-                   class="modal-reserva-datetime" autocomplete="off"/>
+                   class="modal-reserva-datetime" autocomplete="off" />
+          </div>
+        </div>
+        <div class="modal-reserva-fechas">
+          <div>
+            <label for="horaInicio" class="modal-reserva-label">Hora inicio</label><br>
+            <input id="horaInicio" type="text" required
+                   class="modal-reserva-datetime" autocomplete="off" />
+          </div>
+          <div>
+            <label for="horaFin" class="modal-reserva-label">Hora fin</label><br>
+            <input id="horaFin" type="text" required
+                   class="modal-reserva-datetime" autocomplete="off" />
           </div>
         </div>
         <div class="modal-reserva-botones">
@@ -172,7 +184,7 @@
   }
 
   /* ========= MODAL RESERVA ========= */
-  let fpInicio, fpFin;
+  let fpFechaInicio, fpFechaFin, fpHoraInicio, fpHoraFin;
   let selectedStart = null;
   let selectedEnd = null;
   let editReservaId = null;
@@ -181,8 +193,10 @@
   let activeEmail = '';
   function showModalReserva(start, end, motivo = '', id = null) {
     document.getElementById('modalReserva').classList.add('activo');
-    fpInicio.setDate(start, true, 'Y-m-d H:i');
-    fpFin.setDate(end, true, 'Y-m-d H:i');
+    fpFechaInicio.setDate(start, true, 'Y-m-d');
+    fpFechaFin.setDate(end, true, 'Y-m-d');
+    fpHoraInicio.setDate(start, true, 'H:i');
+    fpHoraFin.setDate(end, true, 'H:i');
     document.getElementById('motivoReserva').value = motivo;
     editReservaId = id;
     deleteId = id;
@@ -293,13 +307,31 @@
     }).getActiveUserEmail();
 
     /* --- Flatpickr --- */
-    fpInicio = flatpickr('#fechaInicio', {
-      enableTime:true, time_24hr:true, dateFormat:'Y-m-d H:i',
-      locale:'es', minuteIncrement:5
+    fpFechaInicio = flatpickr('#fechaInicio', {
+      enableTime: false,
+      dateFormat: 'Y-m-d',
+      locale: 'es'
     });
-    fpFin = flatpickr('#fechaFin',   {
-      enableTime:true, time_24hr:true, dateFormat:'Y-m-d H:i',
-      locale:'es', minuteIncrement:5
+    fpFechaFin = flatpickr('#fechaFin', {
+      enableTime: false,
+      dateFormat: 'Y-m-d',
+      locale: 'es'
+    });
+    fpHoraInicio = flatpickr('#horaInicio', {
+      enableTime: true,
+      noCalendar: true,
+      time_24hr: true,
+      dateFormat: 'H:i',
+      locale: 'es',
+      minuteIncrement: 5
+    });
+    fpHoraFin = flatpickr('#horaFin', {
+      enableTime: true,
+      noCalendar: true,
+      time_24hr: true,
+      dateFormat: 'H:i',
+      locale: 'es',
+      minuteIncrement: 5
     });
 
     /* --- Modal reserva: eventos --- */
@@ -309,69 +341,73 @@
     };
 
     document.getElementById('formReserva').onsubmit = function(e) {
-      e.preventDefault();
-      const motivo = document.getElementById('motivoReserva').value.trim();
-      const fechaInicio = document.getElementById('fechaInicio').value;
-      const fechaFin    = document.getElementById('fechaFin').value;
-      if (!motivo) { document.getElementById('motivoReserva').focus(); return; }
-      const startDate = new Date(fechaInicio.replace(' ', 'T'));
-      const endDate   = new Date(fechaFin.replace(' ', 'T'));
-      if (endDate <= startDate) {
-        showErrorModal('La fecha fin no puede ser anterior a la fecha inicio.');
-        return;
-      }
-      const idReserva = editReservaId; // guardar antes de cerrar
-      hideModalReserva();
-      showCalendarSpinner();
-            
-      if (idReserva) {     
-        google.script.run
-          .withSuccessHandler(function(){
-              hideCalendarSpinner();
-              calendar.refetchEvents();
-              showConfirmModal(idReserva, 'editar');
-          })
-          .withFailureHandler(function(err){
-              hideCalendarSpinner();
-              showErrorModal('Error al actualizar la reserva: ' + err.message);
-          })
-          .actualizarReserva({
-            id: idReserva,
-            motivo,
-            fechaInicio,
-            fechaFin
-          });
-      } else {
-        const ciudad = document.getElementById('filter-city').value;
-        const centro = document.getElementById('filter-center').value;
-        const sala   = document.getElementById('filter-room').value;
-          
-        google.script.run.withSuccessHandler(function(email){
+        e.preventDefault();
+        const motivo     = document.getElementById('motivoReserva').value.trim();
+        const fechaInicio = document.getElementById('fechaInicio').value;
+        const fechaFin    = document.getElementById('fechaFin').value;
+        const horaInicio  = document.getElementById('horaInicio').value;
+        const horaFin     = document.getElementById('horaFin').value;
+        if (!motivo) { document.getElementById('motivoReserva').focus(); return; }
+        const startDate = new Date(`${fechaInicio}T${horaInicio}`);
+        const endDate   = new Date(`${fechaFin}T${horaFin}`);
+        if (endDate <= startDate) {
+          showErrorModal('La fecha fin no puede ser anterior a la fecha inicio.');
+          return;
+        }
+        const startStr = formatDateTime(startDate);
+        const endStr   = formatDateTime(endDate);
+        const idReserva = editReservaId; // guardar antes de cerrar
+        hideModalReserva();
+        showCalendarSpinner();
+
+        if (idReserva) {
           google.script.run
-            .withSuccessHandler(function(id){
+            .withSuccessHandler(function(){
                 hideCalendarSpinner();
                 calendar.refetchEvents();
-                showConfirmModal(id);
+                showConfirmModal(idReserva, 'editar');
             })
             .withFailureHandler(function(err){
                 hideCalendarSpinner();
-                showErrorModal('Error al crear la reserva: ' + err.message);
+                showErrorModal('Error al actualizar la reserva: ' + err.message);
             })
-            .crearReserva({
-              ciudad,
-              centro,
-              nombre: sala,
-              usuario: email,
+            .actualizarReserva({
+              id: idReserva,
               motivo,
               fechaInicio: formatDateTime(startDate),
               fechaFin:    formatDateTime(endDate)
             });
-        }).withFailureHandler(function(err){
-            hideCalendarSpinner();
-            showErrorModal('Error obteniendo el correo del usuario: ' + err.message);
-        }).getActiveUserEmail();
-      }
-    };
+        } else {
+          const ciudad = document.getElementById('filter-city').value;
+          const centro = document.getElementById('filter-center').value;
+          const sala   = document.getElementById('filter-room').value;
+
+          google.script.run.withSuccessHandler(function(email){
+            google.script.run
+              .withSuccessHandler(function(id){
+                  hideCalendarSpinner();
+                  calendar.refetchEvents();
+                  showConfirmModal(id);
+              })
+              .withFailureHandler(function(err){
+                  hideCalendarSpinner();
+                  showErrorModal('Error al crear la reserva: ' + err.message);
+              })
+              .crearReserva({
+                ciudad,
+                centro,
+                nombre: sala,
+                usuario: email,
+                motivo,
+                fechaInicio: startStr,
+                fechaFin:    endStr
+              });
+          }).withFailureHandler(function(err){
+              hideCalendarSpinner();
+              showErrorModal('Error obteniendo el correo del usuario: ' + err.message);
+          }).getActiveUserEmail();
+        }
+      };
 
     /* --- Modal confirmación: eventos --- */
     document.getElementById('btnConfirmOk').onclick = hideConfirmModal;
