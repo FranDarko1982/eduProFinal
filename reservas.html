@@ -35,15 +35,22 @@
         </select>
       </div>
 
+      <div class="filter">
+        <label for="filterFechaAll">Fecha:</label>
+        <input id="filterFechaAll" type="text" placeholder="Selecciona fecha" />
+      </div>
+
       <button type="button" id="clearFiltersAll" class="btn-filters-clear">Quitar filtros</button>
       <button type="button" id="reloadDataAll"  class="btn-filters-clear" style="margin-left: .5rem;">Recargar datos</button>
     </div>
 
     <!-- Buscador de ID Reserva -->
-    <div style="display:flex; align-items:center; gap:.5rem;">
-      <label for="searchIdAll">Buscar por ID Reserva:</label>
-      <input id="searchIdAll" type="text" placeholder="Introduce ID Reserva…" />
-      <button type="button" id="exportAllCsv" class="btn-filters-clear" style="margin-left:.5rem;">Exportar CSV</button>   
+    <div class="filter-style" style="margin-bottom:0;">
+      <div class="filter">
+        <label for="searchIdAll">Buscar por ID Reserva:</label>
+        <input id="searchIdAll" type="text" placeholder="Introduce ID Reserva…" />
+      </div>
+      <button type="button" id="exportAllCsv" class="btn-filters-clear">Exportar CSV</button>   
     </div>
   </div>
 
@@ -155,6 +162,7 @@
       id('filterCiudadAll').addEventListener('change', () => { this.poblarCentros(); this.poblarSalas(); this.renderTabla(); });
       id('filterCentroAll').addEventListener('change', () => { this.poblarSalas(); this.renderTabla(); });
       id('filterSalaAll').addEventListener('change', () => this.renderTabla());
+      id('filterFechaAll').addEventListener('change', () => this.renderTabla());
       id('searchIdAll').addEventListener('input', () => this.renderTabla());
       id('clearFiltersAll').addEventListener('click', () => this.limpiarFiltros());
       id('reloadDataAll').addEventListener('click', () => this.recargarReservas());
@@ -168,6 +176,14 @@
       id('btnEditCancelarAll').addEventListener('click', () => this.closeEditModal());
       id('editModalAll').addEventListener('click', e => { if (e.target === e.currentTarget) this.closeEditModal(); });
       id('formEditReservaAll').addEventListener('submit', e => this.submitEdit(e));
+
+      // Flatpickr para filtro de fecha
+      this.fp_filterFechaAll = flatpickr('#filterFechaAll', {
+        enableTime: false,
+        dateFormat: 'Y-m-d',
+        locale: 'es',
+        onChange: () => this.renderTabla()
+      });
 
       // Flatpickr para modal editar
       this.fp_editFechaInicioAll = flatpickr('#editFechaInicioAll', {
@@ -266,6 +282,8 @@
       id('filterCentroAll').value = '';
       this.poblarSalas();
       id('filterSalaAll').value = '';
+      id('filterFechaAll').value = '';
+      if (this.fp_filterFechaAll) this.fp_filterFechaAll.clear();
       id('searchIdAll').value = '';
       this.renderTabla();
     },
@@ -341,6 +359,7 @@
       const ciudad = id('filterCiudadAll').value;
       const centro = id('filterCentroAll').value;
       const sala   = id('filterSalaAll').value;
+      const fecha  = id('filterFechaAll').value;
       const term   = id('searchIdAll').value.toLowerCase();
       const tbody  = qs('#allReservasTable tbody');
 
@@ -348,6 +367,7 @@
       if (ciudad) datos = datos.filter(r => r.Ciudad?.trim() === ciudad);
       if (centro) datos = datos.filter(r => r.Centro?.trim() === centro);
       if (sala)   datos = datos.filter(r => r.Sala?.trim() === sala);
+      if (fecha)  datos = datos.filter(r => this.splitDateTime(r.Inicio).date === fecha);
       if (term)   datos = datos.filter(r => (r.ID || '').toLowerCase().includes(term));
 
       // Ordenar según estado
