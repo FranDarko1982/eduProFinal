@@ -71,32 +71,39 @@
 </div>
 
 <script>
+function qs(sel){return document.querySelector(sel);}
+function toast(msg){alert(msg);}
+
 const UserApp = {
   loadProfile(){
     const email = window.USER_EMAIL;
-    google.script.run.withSuccessHandler(data => {
-      if(!data) return;
-      qs('#profileAvatar').src = data.avatar || '';
-      qs('#profileName').value = data.nombre || '';
-      qs('#profileEmail').value = data.email || '';
-      qs('#profileRole').textContent = data.rol || '';
-      qs('#profileCamp').value = data.campaña || '';
-      qs('#adminRole').textContent = data.rol || '';
-      qs('#adminCamp').textContent = data.campaña || '';
-      qs('#lastLogin').textContent = data.last_login || '';
-      if(data.prefs){
-        qs('#prefVista').value = data.prefs.vista || 'calendar';
-        qs('#prefZona').value = data.prefs.zona || '';
-        qs('#prefFormato').value = data.prefs.formato || '24';
-        qs('#prefNotif').checked = !!data.prefs.notif;
-        qs('#prefSync').checked = !!data.prefs.sync;
-      }
-    }).getUserProfile(email);
+    google.script.run
+      .withSuccessHandler(data => {
+        if(!data) return;
+        qs('#profileAvatar').src = data.avatar || '';
+        qs('#profileName').value = data.nombre || '';
+        qs('#profileEmail').value = data.email || '';
+        qs('#profileRole').textContent = data.rol || '';
+        qs('#profileCamp').value = (data.campaña ?? data.campana) || '';
+        qs('#adminRole').textContent = data.rol || '';
+        qs('#adminCamp').textContent = (data.campaña ?? data.campana) || '';
+        qs('#lastLogin').textContent = (data.last_login ?? data.lastLogin ?? '') || '';
+        if(data.prefs){
+          qs('#prefVista').value = data.prefs.vista || 'calendar';
+          qs('#prefZona').value = data.prefs.zona || '';
+          qs('#prefFormato').value = data.prefs.formato || '24';
+          qs('#prefNotif').checked = !!data.prefs.notif;
+          qs('#prefSync').checked = !!data.prefs.sync;
+        }
+      })
+      .withFailureHandler(err => console.error('getUserProfile ERROR:', err))
+      .getUserProfile(email);
   },
   saveProfile(){
     const data = {
       nombre: qs('#profileName').value,
       campaña: qs('#profileCamp').value,
+      campana: qs('#profileCamp').value,
       prefs: {
         vista: qs('#prefVista').value,
         zona: qs('#prefZona').value,
@@ -105,60 +112,77 @@ const UserApp = {
         sync: qs('#prefSync').checked
       }
     };
-    google.script.run.withSuccessHandler(()=>toast('Perfil actualizado')).updateUserProfile(data);
+    google.script.run
+      .withSuccessHandler(()=>toast('Perfil actualizado'))
+      .withFailureHandler(err => alert('Error al guardar: ' + err.message))
+      .updateUserProfile(data);
   },
   loadActivity(){
     const email = window.USER_EMAIL;
-    google.script.run.withSuccessHandler(rows=>{
-      const tb = qs('#actividadTabla tbody');
-      tb.innerHTML='';
-      (rows||[]).forEach(r=>{
-        const tr=document.createElement('tr');
-        tr.innerHTML=`<td>${r.accion}</td><td>${r.fecha}</td>`;
-        tb.appendChild(tr);
-      });
-    }).getUserActivity(email);
+    google.script.run
+      .withSuccessHandler(rows=>{
+        const tb = qs('#actividadTabla tbody');
+        tb.innerHTML='';
+        (rows||[]).forEach(r=>{
+          const tr=document.createElement('tr');
+          tr.innerHTML=`<td>${r.accion ?? r.action ?? ''}</td><td>${r.fecha ?? r.date ?? ''}</td>`;
+          tb.appendChild(tr);
+        });
+      })
+      .withFailureHandler(err => console.error('getUserActivity ERROR:', err))
+      .getUserActivity(email);
   },
   loadMetrics(){
     const email = window.USER_EMAIL;
-    google.script.run.withSuccessHandler(data=>{
-      const cont = qs('#metrics');
-      cont.innerHTML='';
-      if(!data) return;
-      cont.innerHTML = `
-        <div class="metric-card">30 días: ${data.res30 || 0}</div>
-        <div class="metric-card">90 días: ${data.res90 || 0}</div>
-        <div class="metric-card">Horas reservadas: ${data.horas || 0}</div>
-      `;
-    }).getUserMetrics(email);
+    google.script.run
+      .withSuccessHandler(data=>{
+        const cont = qs('#metrics');
+        cont.innerHTML='';
+        if(!data) return;
+        cont.innerHTML = `
+          <div class="metric-card">30 días: ${data.res30 ?? data.count30 ?? 0}</div>
+          <div class="metric-card">90 días: ${data.res90 ?? data.count90 ?? 0}</div>
+          <div class="metric-card">Horas reservadas: ${data.horas ?? data.hours ?? 0}</div>
+        `;
+      })
+      .withFailureHandler(err => console.error('getUserMetrics ERROR:', err))
+      .getUserMetrics(email);
   },
   loadFavoritos(){
     const email = window.USER_EMAIL;
-    google.script.run.withSuccessHandler(list=>{
-      const box = qs('#favoritosList');
-      box.innerHTML='';
-      (list||[]).forEach(f=>{
-        const span=document.createElement('span');
-        span.className='chip';
-        span.textContent=f;
-        span.addEventListener('click',()=>UserApp.toggleFavorito(f));
-        box.appendChild(span);
-      });
-    }).getFavoritos(email);
+    google.script.run
+      .withSuccessHandler(list=>{
+        const box = qs('#favoritosList');
+        box.innerHTML='';
+        (list||[]).forEach(f=>{
+          const span=document.createElement('span');
+          span.className='chip';
+          span.textContent=f;
+          span.addEventListener('click',()=>UserApp.toggleFavorito(f));
+          box.appendChild(span);
+        });
+      })
+      .withFailureHandler(err => console.error('getFavoritos ERROR:', err))
+      .getFavoritos(email);
   },
   toggleFavorito(fav){
     const email = window.USER_EMAIL;
-    google.script.run.withSuccessHandler(()=>UserApp.loadFavoritos()).setFavoritos(email, fav);
+    google.script.run
+      .withSuccessHandler(()=>UserApp.loadFavoritos())
+      .withFailureHandler(err => alert('No se pudo actualizar el favorito: ' + err.message))
+      .setFavoritos(email, fav);
   }
 };
 
-function qs(sel){return document.querySelector(sel);}
-function toast(msg){alert(msg);}
-
 document.addEventListener('DOMContentLoaded',()=>{
   qs('#saveProfile').addEventListener('click',e=>{e.preventDefault();UserApp.saveProfile();});
-  if(['admin','manager'].includes(window.USER_ROLE)){
+  if(['admin','manager'].includes((window.USER_ROLE||'').toLowerCase())){
     qs('#adminBlock').style.display='block';
   }
+  // llamadas para cargar datos al abrir la página
+  UserApp.loadProfile();
+  UserApp.loadActivity();
+  UserApp.loadMetrics();
+  UserApp.loadFavoritos();
 });
 </script>
