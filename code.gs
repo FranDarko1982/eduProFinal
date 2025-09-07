@@ -1471,15 +1471,26 @@ function getUserActivity(email) {
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   const sh = ss.getSheetByName(CAMBIOS_RESERVAS_SHEET);
   if (!sh) return [];
+
   const values = sh.getDataRange().getValues();
   if (values.length < 2) return [];
+
+  // Cabeceras reales en "Cambios reservas"
   const headers = values[0].map(h => String(h).trim().toLowerCase());
-  const idxEmail = headers.indexOf('email');
-  const idxAccion = headers.indexOf('accion');
-  const idxFecha = headers.indexOf('fecha');
-  const rows = values.slice(1).filter(r => normalize(r[idxEmail]) === normalize(email));
-  return rows.slice(-10).map(r => ({ accion: r[idxAccion], fecha: r[idxFecha] }));
+  const idxUsuario = headers.indexOf('usuario');               // existe en tu log
+  const idxCambios = headers.indexOf('cambios');               // lo mapeamos a 'accion'
+  const idxFechaMod = headers.indexOf('fecha modificación');   // lo mapeamos a 'fecha'
+  if (idxUsuario === -1 || idxCambios === -1 || idxFechaMod === -1) return [];
+
+  const rows = values
+    .slice(1)
+    .filter(r => normalize(r[idxUsuario]) === normalize(email))
+    .map(r => ({ accion: r[idxCambios] || '', fecha: r[idxFechaMod] || '' }))
+    .slice(-10);
+
+  return rows;
 }
+
 
 /**
  * Devuelve métricas personales del usuario.
@@ -1488,26 +1499,40 @@ function getUserMetrics(email) {
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   const sh = ss.getSheetByName(RESERVAS_SHEET);
   if (!sh) return {};
+
   const values = sh.getDataRange().getValues();
   if (values.length < 2) return {};
+
+  // Cabeceras reales en “Reservas”
   const headers = values[0].map(h => String(h).trim().toLowerCase());
-  const idxEmail = headers.indexOf('email');
-  const idxInicio = headers.indexOf('inicio');
-  const idxFin = headers.indexOf('fin');
+  const idxUsuario = headers.indexOf('usuario');          // << antes: 'email' (no existe)
+  const idxInicio  = headers.indexOf('fecha inicio');     // << antes: 'inicio' (no existe)
+  const idxFin     = headers.indexOf('fecha fin');        // << antes: 'fin' (no existe)
+  if (idxUsuario === -1 || idxInicio === -1 || idxFin === -1) return {};
+
+  // Si el activo es admin, no filtramos por email
+  const user = getUserData(); // lee de la hoja Usuarios
+  const isAdmin = user && normalize(user.rol) === 'admin';
+
   const now = new Date();
   let res30 = 0, res90 = 0, horas = 0;
+
   values.slice(1).forEach(r => {
-    if (normalize(r[idxEmail]) === normalize(email)) {
-      const inicio = new Date(r[idxInicio]);
-      const fin = new Date(r[idxFin]);
-      const diff = (fin - inicio) / 36e5;
-      if (!isNaN(diff)) horas += diff;
+    if (!isAdmin && normalize(r[idxUsuario]) !== normalize(email)) return;
+
+    const inicio = new Date(r[idxInicio]);
+    const fin    = new Date(r[idxFin]);
+    if (inicio instanceof Date && !isNaN(inicio) && fin instanceof Date && !isNaN(fin)) {
+      const diffH = (fin - inicio) / 36e5;
+      if (!isNaN(diffH)) horas += diffH;
       if (now - inicio <= 30 * 24 * 60 * 60 * 1000) res30++;
       if (now - inicio <= 90 * 24 * 60 * 60 * 1000) res90++;
     }
   });
+
   return { res30, res90, horas: Math.round(horas) };
 }
+
 
 /** Obtiene favoritos guardados del usuario */
 function getFavoritos(email) {
