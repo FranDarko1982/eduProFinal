@@ -283,7 +283,8 @@
     color: #444;
     font-size: 0.85rem;
   }
-  .filter-style .filter select {
+  .filter-style .filter select,
+  .filter-style .filter input[type="text"] {
     border: 1px solid #bc348b;
     border-radius: 6px;
     padding: 2px 6px;
@@ -292,10 +293,14 @@
     font-size: 0.85rem;
     width: 140px;
     height: 28px;
+    }
+  .filter-style .filter select {
     cursor: pointer;
   }
   .filter-style .filter select:hover,
-  .filter-style .filter select:focus {
+  .filter-style .filter select:focus,
+  .filter-style .filter input[type="text"]:hover,
+  .filter-style .filter input[type="text"]:focus {
     border-color: #a1226d;
     outline: none;
   }
