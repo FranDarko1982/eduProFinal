@@ -93,7 +93,9 @@ const UserApp = {
           qs('#prefZona').value = data.prefs.zona || '';
           qs('#prefFormato').value = data.prefs.formato || '24';
           qs('#prefNotif').checked = !!data.prefs.notif;
-          qs('#prefSync').checked = !!data.prefs.sync;
+          var syncPref = data.prefs.syncCalendar;
+          if (syncPref === undefined) syncPref = data.prefs.sync;
+          qs('#prefSync').checked = syncPref !== false;
         }
       })
       .withFailureHandler(err => console.error('getUserProfile ERROR:', err))
@@ -110,7 +112,7 @@ const UserApp = {
         zona: qs('#prefZona').value,
         formato: qs('#prefFormato').value,
         notif: qs('#prefNotif').checked,
-        sync: qs('#prefSync').checked
+        syncCalendar: qs('#prefSync').checked
       }
     };
     google.script.run
