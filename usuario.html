@@ -35,10 +35,9 @@
     <label class="toggle"><input type="checkbox" id="prefSync" /> Sincronizar con Google Calendar</label>
   </div>
 
-  <div class="favoritos-card card">
-    <h3>Favoritos</h3>
-    <div id="favoritosList" class="chips"></div>
-    <button id="addFavorito">Añadir favorito</button>
+  <div class="backup-card card">
+    <h3>Correo de backup</h3>
+    <input id="backupEmail" type="email" placeholder="Correo de backup" />
   </div>
 
   <div class="activity-card card">
@@ -88,6 +87,7 @@ const UserApp = {
         qs('#adminRole').textContent = data.rol || '';
         qs('#adminCamp').textContent = (data.campaña ?? data.campana) || '';
         qs('#lastLogin').textContent = (data.last_login ?? data.lastLogin ?? '') || '';
+        qs('#backupEmail').value = data.backup_email || '';
         if(data.prefs){
           qs('#prefVista').value = data.prefs.vista || 'calendar';
           qs('#prefZona').value = data.prefs.zona || '';
@@ -104,6 +104,7 @@ const UserApp = {
       nombre: qs('#profileName').value,
       campaña: qs('#profileCamp').value,
       campana: qs('#profileCamp').value,
+      backup_email: qs('#backupEmail').value,
       prefs: {
         vista: qs('#prefVista').value,
         zona: qs('#prefZona').value,
@@ -147,30 +148,6 @@ const UserApp = {
       })
       .withFailureHandler(err => console.error('getUserMetrics ERROR:', err))
       .getUserMetrics(email);
-  },
-  loadFavoritos(){
-    const email = window.USER_EMAIL;
-    google.script.run
-      .withSuccessHandler(list=>{
-        const box = qs('#favoritosList');
-        box.innerHTML='';
-        (list||[]).forEach(f=>{
-          const span=document.createElement('span');
-          span.className='chip';
-          span.textContent=f;
-          span.addEventListener('click',()=>UserApp.toggleFavorito(f));
-          box.appendChild(span);
-        });
-      })
-      .withFailureHandler(err => console.error('getFavoritos ERROR:', err))
-      .getFavoritos(email);
-  },
-  toggleFavorito(fav){
-    const email = window.USER_EMAIL;
-    google.script.run
-      .withSuccessHandler(()=>UserApp.loadFavoritos())
-      .withFailureHandler(err => alert('No se pudo actualizar el favorito: ' + err.message))
-      .setFavoritos(email, fav);
   }
 };
 
@@ -183,6 +160,5 @@ document.addEventListener('DOMContentLoaded',()=>{
   UserApp.loadProfile();
   UserApp.loadActivity();
   UserApp.loadMetrics();
-  UserApp.loadFavoritos();
 });
 </script>
