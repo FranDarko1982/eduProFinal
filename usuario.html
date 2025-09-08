@@ -69,9 +69,28 @@
   </div>
 </div>
 
+<!-- Modal información -->
+<div id="infoOverlayProfile" class="modal-overlay" style="display:none;">
+  <div class="modal flex-col">
+    <div id="infoHeaderProfile" class="modal-header mb-2">Información</div>
+    <div class="modal-body flex flex-col gap-3">
+      <p id="infoMsgProfile" class="text-[#0d151b]"></p>
+    </div>
+    <div class="modal-footer">
+      <button id="btnInfoOkProfile" class="px-4 py-2 rounded bg-[#bc348b] text-white hover:bg-[#a1226d]">Aceptar</button>
+    </div>
+  </div>
+</div>
+
 <script>
 function qs(sel){return document.querySelector(sel);}
-function toast(msg){alert(msg);}
+function showInfoModal(msg, header='Información'){
+  qs('#infoHeaderProfile').textContent = header;
+  qs('#infoMsgProfile').textContent = msg;
+  qs('#infoOverlayProfile').style.display = 'flex';
+}
+function hideInfoModal(){ qs('#infoOverlayProfile').style.display = 'none'; }
+function toast(msg){ showInfoModal(msg); }
 
 const UserApp = {
   loadProfile(){
@@ -117,7 +136,7 @@ const UserApp = {
     };
     google.script.run
       .withSuccessHandler(()=>toast('Perfil actualizado'))
-      .withFailureHandler(err => alert('Error al guardar: ' + err.message))
+      .withFailureHandler(err => showInfoModal('Error al guardar: ' + err.message, 'Error'))
       .updateUserProfile(data);
   },
   loadActivity(){
@@ -155,6 +174,8 @@ const UserApp = {
 
 document.addEventListener('DOMContentLoaded',()=>{
   qs('#saveProfile').addEventListener('click',e=>{e.preventDefault();UserApp.saveProfile();});
+  qs('#btnInfoOkProfile').addEventListener('click', hideInfoModal);
+  qs('#infoOverlayProfile').addEventListener('click', e=>{ if(e.target===e.currentTarget) hideInfoModal(); });
   if(['admin','manager'].includes((window.USER_ROLE||'').toLowerCase())){
     qs('#adminBlock').style.display='block';
   }
