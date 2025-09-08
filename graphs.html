@@ -170,6 +170,33 @@ function getReservasPorMes(opts) {
 }
 
 /**
+ * Devuelve una matriz [7][24] con el número de reservas
+ * por día de la semana (0=Domingo) y hora del día.
+ */
+function getDistribucionReservasPorHorario() {
+  const { headers, rows } = fetchReservasData();
+  // Inicializa matriz 7x24 en 0
+  const matriz = Array.from({ length: 7 }, () => Array(24).fill(0));
+
+  rows.forEach(row => {
+    const r = mapRowToReserva(headers, row);
+    const inicio = parseFechaFlexible(r.inicio);
+    const fin = parseFechaFlexible(r.fin);
+    if (!inicio || !fin || fin <= inicio) return;
+
+    const actual = new Date(inicio);
+    while (actual < fin) {
+      const day = actual.getDay(); // 0=Domingo
+      const hour = actual.getHours();
+      matriz[day][hour]++;
+      actual.setHours(actual.getHours() + 1);
+    }
+  });
+
+  return matriz; // [7][24]
+}
+
+/**
 
 /**
  * Parsea fechas tipo '07/09/2025 10:00', '2025-09-07 10:00', 
