@@ -608,13 +608,12 @@ function sendBulkReservationEmail(params) {
  */
 function crearEventoCalendar(reserva, idReserva) {
   // Crea un evento en el calendario por defecto con el resumen y los invitados.
+  const perfil = getUserProfile(reserva.usuario);
+  if (perfil && perfil.prefs && perfil.prefs.syncCalendar === false) return;
   const calendar = CalendarApp.getDefaultCalendar();
   const start    = new Date(reserva.fechaInicio);
   const end      = new Date(reserva.fechaFin);
   const backup   = getBackupEmail(reserva.usuario);
-
-  // 🔴 DESACTIVADO TEMPORALMENTE
-  /*
   calendar.createEvent(
     `Reserva ${idReserva} – ${reserva.nombre}`,
     start,
@@ -625,7 +624,6 @@ function crearEventoCalendar(reserva, idReserva) {
       sendInvites: true
     }
   );
-  */
 }
 
 /**
