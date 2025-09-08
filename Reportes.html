@@ -1,48 +1,59 @@
 <section class="reportes-container" style="max-width:1100px;margin:1.5rem auto;text-align:center;">
   <h1 style="margin-bottom:2rem;">Reportes</h1>
 
-  <div class="graficos-row">
-    <div class="grafico-col">
-      <h2 class="grafico-title azul">Por usuario</h2>
-      <canvas id="reservasChart" width="400" height="300"></canvas>
-    </div>
-    <div class="grafico-col">
-      <h2 class="grafico-title rosa">Por sala</h2>
-      <canvas id="salasChart" width="400" height="300"></canvas>
-    </div>
-  </div>
-  <div class="graficos-row">
-    <div class="grafico-col">
-      <h2 class="grafico-title rosa">Por ciudad</h2>
-      <canvas id="ciudadesChart" width="400" height="300"></canvas>
-    </div>
-    <div class="grafico-col" style="margin: 0 auto; min-width: 500px; max-width:650px;">
-      <h2 class="grafico-title azul">% Ocupación por centro (últimos 30 días)</h2>
-      <canvas id="ocupacionCentrosChart" width="600" height="350"></canvas>
-    </div>
+  <div class="graficos-grid">
+    <article class="card grafico-card">
+      <div class="card-head">
+        <h3 class="grafico-title azul">Por usuario</h3>
+      </div>
+      <div class="chart-wrapper">
+        <canvas id="reservasChart" aria-label="Reservas por usuario"></canvas>
+      </div>
+    </article>
+    <article class="card grafico-card">
+      <div class="card-head">
+        <h3 class="grafico-title rosa">Por sala</h3>
+      </div>
+      <div class="chart-wrapper">
+        <canvas id="salasChart" aria-label="Reservas por sala"></canvas>
+      </div>
+    </article>
+    <article class="card grafico-card">
+      <div class="card-head">
+        <h3 class="grafico-title rosa">Por ciudad</h3>
+      </div>
+      <div class="chart-wrapper">
+        <canvas id="ciudadesChart" aria-label="Reservas por ciudad"></canvas>
+      </div>
+    </article>
+    <article class="card grafico-card">
+      <div class="card-head">
+        <h3 class="grafico-title azul">% Ocupación por centro (últimos 30 días)</h3>
+      </div>
+      <div class="chart-wrapper">
+        <canvas id="ocupacionCentrosChart" aria-label="% Ocupación por centro (últimos 30 días)"></canvas>
+      </div>
+    </article>
   </div>
 </section>
 
 <style>
-  .graficos-row {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
+  .graficos-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
     gap: 2.5rem;
     margin-bottom: 2.5rem;
   }
-  .grafico-col {
-    flex: 1 1 370px;
-    min-width: 320px;
+  .grafico-card {
+    width: 100%;
     max-width: 450px;
-    background: none;
-    padding: 0 1vw;
+    margin: 0 auto;
   }
   .grafico-title.rosa  { color: #bc348b; margin-bottom: 0.7rem;}
   .grafico-title.azul  { color: #4c759a; margin-bottom: 0.7rem;}
   @media (max-width:1100px){
-    .graficos-row { flex-direction: column; align-items: center; gap:1.5rem;}
-    .grafico-col { min-width: 220px; max-width: 100vw;}
+    .graficos-grid { grid-template-columns: 1fr; gap: 1.5rem; }
+    .grafico-card { max-width: 100vw; }
   }
 </style>
 
