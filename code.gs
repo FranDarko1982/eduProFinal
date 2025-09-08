@@ -527,9 +527,10 @@ Tu reserva ha sido registrada con éxito:
 
 Gracias por usar el sistema de reservas.
 `;
+  const backup = getBackupEmail(reserva.usuario);
   MailApp.sendEmail({
     to:      reserva.usuario,
-    cc:      RESPONSABLE_EMAIL,
+    cc:      [RESPONSABLE_EMAIL, backup].filter(Boolean).join(','),
     subject: subject,
     body:    body
   });
@@ -557,9 +558,10 @@ Tu reserva ha sido modificada correctamente:
 
 Gracias por usar el sistema de reservas.
 `;
+  const backup = getBackupEmail(reserva.usuario);
   MailApp.sendEmail({
     to:      reserva.usuario,
-    cc:      RESPONSABLE_EMAIL,
+    cc:      [RESPONSABLE_EMAIL, backup].filter(Boolean).join(','),
     subject: subject,
     body:    body
   });
@@ -592,9 +594,10 @@ function sendBulkReservationEmail(params) {
     <p>Gracias por usar el sistema de reservas.</p>
   `;
 
+  const backup = getBackupEmail(emailUsuario);
   MailApp.sendEmail({
     to: emailUsuario,
-    cc: RESPONSABLE_EMAIL,
+    cc: [RESPONSABLE_EMAIL, backup].filter(Boolean).join(','),
     subject: 'Reservas confirmadas',
     htmlBody: htmlBody
   });
@@ -608,16 +611,21 @@ function crearEventoCalendar(reserva, idReserva) {
   const calendar = CalendarApp.getDefaultCalendar();
   const start    = new Date(reserva.fechaInicio);
   const end      = new Date(reserva.fechaFin);
+  const backup   = getBackupEmail(reserva.usuario);
+
+  // 🔴 DESACTIVADO TEMPORALMENTE
+  /*
   calendar.createEvent(
     `Reserva ${idReserva} – ${reserva.nombre}`,
     start,
     end,
     {
       description: `Usuario: ${reserva.usuario}\nMotivo: ${reserva.motivo}`,
-      guests:      `${reserva.usuario},${RESPONSABLE_EMAIL}`,
+      guests:      `${reserva.usuario},${RESPONSABLE_EMAIL}${backup ? ',' + backup : ''}`,
       sendInvites: true
     }
   );
+  */
 }
 
 /**
@@ -1062,6 +1070,7 @@ function enviarSolicitudUso(datos) {
 
   // 3. Componer email HTML con botón para liberar la reserva
   const solicitante = Session.getActiveUser().getEmail() || '-';
+  const backupSolicitante = getBackupEmail(solicitante);
   const cuerpoHtml = `
     <p>Nueva solicitud de uso de sala ocupada:</p>
     <ul>
@@ -1091,6 +1100,14 @@ function enviarSolicitudUso(datos) {
   MailApp.sendEmail({
     to: ownerEmail,
     subject: 'Solicitud de uso de sala ocupada (' + datos.sala + ')',
+    body: mensaje,
+    htmlBody: cuerpoHtml
+  });
+
+  MailApp.sendEmail({
+    to: solicitante,
+    cc: backupSolicitante || '',
+    subject: 'Copia de solicitud de uso (' + datos.sala + ')',
     body: mensaje,
     htmlBody: cuerpoHtml
   });
@@ -1420,7 +1437,7 @@ function getUserProfile(email) {
   const idxRol = headers.indexOf('rol');
   const idxCamp = headers.indexOf('campaña');
   const idxPrefs = headers.indexOf('prefs_json');
-  const idxFav = headers.indexOf('favoritos_json');
+  const idxBackup = headers.indexOf('backup_email');
   const idxLast = headers.indexOf('last_login');
   for (let i = 1; i < data.length; i++) {
     if (normalize(data[i][idxEmail]) === normalize(email)) {
@@ -1430,13 +1447,19 @@ function getUserProfile(email) {
         rol: data[i][idxRol],
         campaña: data[i][idxCamp],
         prefs: idxPrefs > -1 && data[i][idxPrefs] ? JSON.parse(data[i][idxPrefs]) : {},
-        favoritos: idxFav > -1 && data[i][idxFav] ? JSON.parse(data[i][idxFav]) : [],
+        backup_email: idxBackup > -1 ? data[i][idxBackup] : '',
         last_login: idxLast > -1 ? data[i][idxLast] : '',
         avatar: getUserAvatarUrl()
       };
     }
   }
   return null;
+}
+
+/** Obtiene el correo de backup de un usuario */
+function getBackupEmail(email) {
+  const prof = getUserProfile(email);
+  return prof && prof.backup_email ? prof.backup_email : '';
 }
 
 /**
@@ -1448,16 +1471,23 @@ function updateUserProfile(data) {
   const sh = ss.getSheetByName(USUARIOS_SHEET);
   const values = sh.getDataRange().getValues();
   const headers = values[0].map(h => String(h).trim().toLowerCase());
-  const idxEmail = headers.indexOf('email');
-  const idxNombre = headers.indexOf('nombre');
-  const idxCamp = headers.indexOf('campaña');
-  const idxPrefs = headers.indexOf('prefs_json');
+
+  const idxEmail   = headers.indexOf('email');
+  const idxNombre  = headers.indexOf('nombre');
+  const idxCamp    = headers.indexOf('campaña');       // o 'campana' si tu hoja no lleva tilde
+  const idxPrefs   = headers.indexOf('prefs_json');
+  const idxBackup  = headers.indexOf('backup_email');  // <- ¡declarado!
+  // (opcional) const idxLast = headers.indexOf('last_login');
+
   for (let i = 1; i < values.length; i++) {
     if (normalize(values[i][idxEmail]) === normalize(email)) {
       const row = i + 1;
-      if (idxNombre > -1) sh.getRange(row, idxNombre + 1).setValue(data.nombre);
-      if (idxCamp > -1) sh.getRange(row, idxCamp + 1).setValue(data.campaña);
-      if (idxPrefs > -1) sh.getRange(row, idxPrefs + 1).setValue(JSON.stringify(data.prefs || {}));
+
+      if (idxNombre > -1) sh.getRange(row, idxNombre + 1).setValue(data.nombre || '');
+      if (idxCamp   > -1) sh.getRange(row, idxCamp   + 1).setValue(data.campaña || data.campana || '');
+      if (idxPrefs  > -1) sh.getRange(row, idxPrefs  + 1).setValue(JSON.stringify(data.prefs || {}));
+      if (idxBackup > -1) sh.getRange(row, idxBackup + 1).setValue(data.backup_email || '');
+
       return true;
     }
   }
@@ -1534,30 +1564,3 @@ function getUserMetrics(email) {
 }
 
 
-/** Obtiene favoritos guardados del usuario */
-function getFavoritos(email) {
-  const prof = getUserProfile(email);
-  return prof && prof.favoritos ? prof.favoritos : [];
-}
-
-/** Añade o elimina un favorito */
-function setFavoritos(email, favorito) {
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  const sh = ss.getSheetByName(USUARIOS_SHEET);
-  const values = sh.getDataRange().getValues();
-  const headers = values[0].map(h => String(h).trim().toLowerCase());
-  const idxEmail = headers.indexOf('email');
-  const idxFav = headers.indexOf('favoritos_json');
-  if (idxFav === -1) return [];
-  for (let i = 1; i < values.length; i++) {
-    if (normalize(values[i][idxEmail]) === normalize(email)) {
-      const row = i + 1;
-      const current = values[i][idxFav] ? JSON.parse(values[i][idxFav]) : [];
-      const pos = current.indexOf(favorito);
-      if (pos > -1) current.splice(pos, 1); else current.push(favorito);
-      sh.getRange(row, idxFav + 1).setValue(JSON.stringify(current));
-      return current;
-    }
-  }
-  return [];
-}
