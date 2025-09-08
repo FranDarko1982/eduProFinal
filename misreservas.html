@@ -1,18 +1,19 @@
 <!-- misreservas.html -->
 <div class="reservas-container">
-  <div class="reservas-header" style="display:flex; align-items:center; flex-wrap:wrap; gap:.5rem;">
-    <label for="searchIdMis">Buscar por ID Reserva:</label>
-    <input id="searchIdMis" type="text" placeholder="Introduce ID Reserva…" style="min-width:140px;"/>
-    
-    <!-- Filtro de fecha con icono calendario y modo rango -->
-    <label for="searchDateMis" style="display:flex; align-items:center; gap:0.25rem; cursor:pointer;">
-      <span title="Filtrar por fecha" style="font-size:1.4em; margin-left:.5rem;">📅</span>
-      <input id="searchDateMis" type="text" placeholder="Elige día o rango…" style="width:160px;" readonly />
-    </label>
-
-    <button type="button" id="mis-clear-filters" class="btn-filters-clear" style="margin-left:.5rem;">Quitar filtros</button>
-    <button type="button" id="mis-reservas-reload" class="btn-filters-clear" style="margin-left:.5rem;">Recargar datos</button>
-    <button type="button" id="mis-export-csv" class="btn-filters-clear">Exportar CSV</button>
+  <div class="reservas-header" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem;">
+    <div class="filter-style" style="margin-bottom:0;">
+      <div class="filter">
+        <label for="searchIdMis">Buscar por ID Reserva:</label>
+        <input id="searchIdMis" type="text" placeholder="Introduce ID Reserva…" />
+      </div>
+      <div class="filter">
+        <label for="searchDateMis">Fecha:</label>
+        <input id="searchDateMis" type="text" placeholder="Selecciona fecha" readonly />
+      </div>
+      <button type="button" id="mis-clear-filters" class="btn-filters-clear">Quitar filtros</button>
+      <button type="button" id="mis-reservas-reload" class="btn-filters-clear" style="margin-left:.5rem;">Recargar datos</button>
+      <button type="button" id="mis-export-csv" class="btn-filters-clear">Exportar CSV</button>
+    </div>
   </div>
 
   <div class="salas-table-container">
