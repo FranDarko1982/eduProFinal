@@ -61,7 +61,11 @@
     </div>
 
     <div id="usuariosTableContainer" class="salas-table-container hidden">
-      <div style="display:flex;justify-content:flex-end;margin-bottom:0.5rem;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:0.5rem;align-items:center;">
+        <div>
+          <input type="file" id="fileUploadUsuarios" />
+          <button id="btnUploadUsuarios" class="panel-admin-btn" title="Importar usuarios desde Excel">Subir Excel</button>
+        </div>
         <button id="btnAddUser" class="panel-admin-btn" title="Añadir usuario">+</button>
       </div>
       <table id="usuariosTable" class="table-style">
@@ -438,6 +442,23 @@ const PanelAdmin = (() => {
       .eliminarUsuario(deleteEmail);
   }
 
+  // ------- Importar Usuarios desde Excel -------
+  function subirUsuarios() {
+    const fileInput = qs('#fileUploadUsuarios');
+    const file = fileInput.files[0];
+    if (!file) { alert('Selecciona un archivo Excel primero'); return; }
+    const fr = new FileReader();
+    fr.onload = function(e) {
+      const data = { name: file.name, content: [...new Int8Array(e.target.result)] };
+      if (typeof showSpinner === 'function') showSpinner();
+      google.script.run
+        .withSuccessHandler(msg => { if (typeof hideSpinner==='function') hideSpinner(); cargarUsuarios(); showInfoModal(msg, 'Importación'); })
+        .withFailureHandler(err => { if (typeof hideSpinner==='function') hideSpinner(); alert('Error importando usuarios: ' + err.message); })
+        .importarUsuariosDesdeExcel(data);
+    };
+    fr.readAsArrayBuffer(file);
+  }
+
   // ------- Init & Listeners -------
   function init() {
     // Eventos generales
@@ -463,6 +484,7 @@ const PanelAdmin = (() => {
     qs('#btnDeleteUserCancel').addEventListener('click', closeUserDeleteModal);
     qs('#deleteUserOverlay').addEventListener('click', e => { if (e.target === e.currentTarget) closeUserDeleteModal(); });
     qs('#btnDeleteUserOk').addEventListener('click', confirmDeleteUser);
+    qs('#btnUploadUsuarios').addEventListener('click', subirUsuarios);
 
     // Datos
     showTab('salas');
@@ -485,3 +507,4 @@ const PanelAdmin = (() => {
 // Arranque
 document.addEventListener('DOMContentLoaded', () => PanelAdmin.init());
 </script>
+
