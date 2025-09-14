@@ -1581,11 +1581,16 @@ function importarUsuariosDesdeExcel(data) {
 
   // 4. Obtener cabeceras
   const headers = datos[0].map(h => String(h).trim().toLowerCase());
+  if (headers.indexOf("email") === -1) throw new Error("Falta la columna 'email' en el archivo.");
+  if (headers.indexOf("nombre") === -1) throw new Error("Falta la columna 'nombre' en el archivo.");
+  if (headers.indexOf("rol") === -1) throw new Error("Falta la columna 'rol' en el archivo.");
 
   // 5. Insertar los usuarios en la hoja 'Usuarios'
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   const hojaDestino = ss.getSheetByName(USUARIOS_SHEET);
   if (!hojaDestino) throw new Error("Hoja 'Usuarios' no encontrada");
+
+  let nuevos = 0, duplicados = 0;
 
   for (let i = 1; i < datos.length; i++) {
     const row = datos[i];
@@ -1595,14 +1600,19 @@ function importarUsuariosDesdeExcel(data) {
       email: row[headers.indexOf("email")] || "",
       nombre: row[headers.indexOf("nombre")] || "",
       rol: row[headers.indexOf("rol")] || "",
-      "Campaña": row[headers.indexOf("campaña")] || row[headers.indexOf("campana")] || ""
+      campaña: (headers.indexOf("campaña") !== -1
+                  ? row[headers.indexOf("campaña")]
+                  : headers.indexOf("campana") !== -1
+                    ? row[headers.indexOf("campana")]
+                    : "")
     };
 
     if (usuario.email) {
       try {
         crearUsuario(usuario); // usas tu función ya existente
+        nuevos++;
       } catch (e) {
-        // si ya existe, lo ignoramos (o podrías actualizarlo en vez de fallar)
+        duplicados++;
         Logger.log("Usuario ya existente: " + usuario.email);
       }
     }
@@ -1612,7 +1622,7 @@ function importarUsuariosDesdeExcel(data) {
   DriveApp.getFileById(newFile.id).setTrashed(true);
   file.setTrashed(true);
 
-  return "Importación completada.";
+  return `Importación completada. Nuevos: ${nuevos}, ya existentes: ${duplicados}`;
 }
 
 
