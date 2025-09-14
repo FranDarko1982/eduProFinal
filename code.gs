@@ -1561,4 +1561,58 @@ function getUserMetrics(email) {
   return { res30, res90, horas: Math.round(horas) };
 }
 
+function importarUsuariosDesdeExcel(data) {
+  // 1. Crear archivo temporal en Drive
+  const blob = Utilities.newBlob(data.content, MimeType.MICROSOFT_EXCEL, data.name);
+  const file = DriveApp.createFile(blob);
+
+  // 2. Convertir Excel a Google Sheets con la API de Drive (v3)
+  const resource = {
+    name: "TEMP_Usuarios_" + new Date().toISOString(),
+    mimeType: "application/vnd.google-apps.spreadsheet"
+  };
+  const newFile = Drive.Files.copy(resource, file.getId());
+  const tempSS = SpreadsheetApp.openById(newFile.id);
+
+  // 3. Leer la primera pestaña (asumimos que ahí está la tabla de usuarios)
+  const hojaOrigen = tempSS.getSheets()[0];
+  const datos = hojaOrigen.getDataRange().getValues();
+  if (datos.length < 2) throw new Error("El archivo no contiene datos suficientes.");
+
+  // 4. Obtener cabeceras
+  const headers = datos[0].map(h => String(h).trim().toLowerCase());
+
+  // 5. Insertar los usuarios en la hoja 'Usuarios'
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const hojaDestino = ss.getSheetByName(USUARIOS_SHEET);
+  if (!hojaDestino) throw new Error("Hoja 'Usuarios' no encontrada");
+
+  for (let i = 1; i < datos.length; i++) {
+    const row = datos[i];
+    if (!row.some(v => String(v).trim() !== "")) continue; // saltar filas vacías
+
+    const usuario = {
+      email: row[headers.indexOf("email")] || "",
+      nombre: row[headers.indexOf("nombre")] || "",
+      rol: row[headers.indexOf("rol")] || "",
+      "Campaña": row[headers.indexOf("campaña")] || row[headers.indexOf("campana")] || ""
+    };
+
+    if (usuario.email) {
+      try {
+        crearUsuario(usuario); // usas tu función ya existente
+      } catch (e) {
+        // si ya existe, lo ignoramos (o podrías actualizarlo en vez de fallar)
+        Logger.log("Usuario ya existente: " + usuario.email);
+      }
+    }
+  }
+
+  // 6. Limpiar archivos temporales
+  DriveApp.getFileById(newFile.id).setTrashed(true);
+  file.setTrashed(true);
+
+  return "Importación completada.";
+}
+
 
