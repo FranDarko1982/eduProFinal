@@ -539,8 +539,9 @@
 
   /* --------- Panel de control --------- */
   .panel-admin-container {
-    max-width: 740px;
-    margin: 48px auto 0 auto;
+    width: 100%;
+    max-width: none;
+    margin: 48px 0 0 0;
     background: none;
     padding: 0 24px;
   }
@@ -772,9 +773,9 @@
 
   /* ======== Panel de control: tablas sin scroll horizontal ======== */
 
-  /* 1) Dar más aire al panel y que las tablas puedan ocupar el ancho */
+  /* 1) Dar más aire al panel y permitir que las tablas ocupen todo el ancho */
   .panel-admin-container {
-    max-width: 1200px;            /* antes 740px */
+    max-width: none;            /* antes 740px */
   }
 
   /* 2) Solo en el panel de control: anular min-width y fijar layout */
