@@ -319,6 +319,28 @@
     background: #e1e1e1;
   }
 
+  /* ======= Salas (cards) ======= */
+  .salas-filters { position: sticky; top: 0; background: var(--gris-suave); z-index: 5; padding: 0.5rem 0; }
+  .salas-counter { margin-bottom: 0.5rem; font-weight: 600; color: #444; }
+  .active-filters { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem; }
+  .filter-chip { background: var(--rosa-pastel); color: #111; padding: 0 6px; border-radius: 9999px; font-size: 0.75rem; display: flex; align-items: center; gap: 0.25rem; }
+  .filter-chip button { background: none; border: none; cursor: pointer; color: inherit; font-size: 0.8rem; line-height: 1; }
+  .salas-grid { display: grid; gap: 1rem; }
+  @media (max-width: 639px) { .salas-grid { grid-template-columns: repeat(1, 1fr); } }
+  @media (min-width: 640px) and (max-width: 1023px) { .salas-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (min-width: 1024px) { .salas-grid { grid-template-columns: repeat(4, 1fr); } }
+  .sala-card { cursor: pointer; outline: none; }
+  .sala-card:hover { box-shadow: 0 0 0 2px var(--rosa-claro); }
+  .sala-card:focus { box-shadow: 0 0 0 2px var(--rosa-principal); }
+  .sala-card .sala-actions { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+  .sala-card .sala-badges { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-left: auto; }
+  .sala-badge { background: var(--gris-claro); color: #111; padding: 0 6px; border-radius: 8px; font-size: 0.75rem; }
+  .sala-card .sala-detalles { display: none; margin-top: 0.5rem; font-size: 0.85rem; color: #444; }
+  .sala-card.expanded .sala-detalles { display: block; }
+  .sala-skeleton { height: 150px; background: var(--gris-claro); animation: pulse 1.5s ease-in-out infinite; }
+  @keyframes pulse { 0% { opacity: .6; } 50% { opacity: 1; } 100% { opacity: .6; } }
+  .salas-empty { margin-top: 1rem; color: #bc348b; }
+
   /* =================== MODAL DE RESERVA =================== */
   .modal-reserva-bg {
     display: none;
