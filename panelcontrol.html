@@ -443,21 +443,60 @@ const PanelAdmin = (() => {
   }
 
   // ------- Importar Usuarios desde Excel -------
-  function subirUsuarios() {
-    const fileInput = qs('#fileUploadUsuarios');
-    const file = fileInput.files[0];
-    if (!file) { alert('Selecciona un archivo Excel primero'); return; }
-    const fr = new FileReader();
-    fr.onload = function(e) {
-      const data = { name: file.name, content: [...new Int8Array(e.target.result)] };
-      if (typeof showSpinner === 'function') showSpinner();
-      google.script.run
-        .withSuccessHandler(msg => { if (typeof hideSpinner==='function') hideSpinner(); cargarUsuarios(); showInfoModal(msg, 'Importación'); })
-        .withFailureHandler(err => { if (typeof hideSpinner==='function') hideSpinner(); alert('Error importando usuarios: ' + err.message); })
-        .importarUsuariosDesdeExcel(data);
-    };
-    fr.readAsArrayBuffer(file);
+
+// Utilidades locales para spinner y modal
+function showSpinner() {
+  let spinner = document.getElementById('panel-spinner');
+  if (!spinner) {
+    spinner = document.createElement('div');
+    spinner.id = 'panel-spinner';
+    spinner.style = "position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(255,255,255,0.7);display:flex;align-items:center;justify-content:center;z-index:9999;";
+    spinner.innerHTML = '<div style="font-size:1.2em;color:#bc348b;font-weight:bold;">Cargando...</div>';
+    document.body.appendChild(spinner);
   }
+  spinner.style.display = 'flex';
+}
+
+function hideSpinner() {
+  const spinner = document.getElementById('panel-spinner');
+  if (spinner) spinner.style.display = 'none';
+}
+
+function showInfoModal(msg, title = "Aviso") {
+  // Aquí puedes sustituir alert por un modal bonito si quieres
+  alert(title + "\n\n" + msg);
+}
+
+function subirUsuarios() {
+  const fileInput = qs('#fileUploadUsuarios');
+  const file = fileInput.files[0];
+  if (!file) { alert('Selecciona un archivo Excel primero'); return; }
+
+  showSpinner();
+
+  const fr = new FileReader();
+  fr.onload = function(e) {
+    const data = { name: file.name, content: [...new Int8Array(e.target.result)] };
+    google.script.run
+      .withSuccessHandler(msg => {
+        hideSpinner();
+        cargarUsuarios();
+        showInfoModal(msg && msg.trim() ? msg : 'Usuarios importados correctamente.', '¡Importación exitosa!');
+      })
+      .withFailureHandler(err => {
+        hideSpinner();
+        showInfoModal('Error importando usuarios: ' + (err && err.message ? err.message : err), 'Error');
+      })
+      .importarUsuariosDesdeExcel(data);
+  };
+
+  fr.onerror = function() {
+    hideSpinner();
+    alert('Error leyendo el archivo');
+  };
+
+  fr.readAsArrayBuffer(file);
+}
 
   // ------- Init & Listeners -------
   function init() {
@@ -507,4 +546,5 @@ const PanelAdmin = (() => {
 // Arranque
 document.addEventListener('DOMContentLoaded', () => PanelAdmin.init());
 </script>
+
 
