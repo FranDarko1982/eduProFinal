@@ -1,71 +1,81 @@
 <!-- salas.html -->
 
-<!-- Filtros al estilo general -->
-<div class="filter-style">
-  <div class="filter">
-    <label for="salas-filter-city">Ciudad:</label>
-    <select id="salas-filter-city">
-      <option value="">— Elige Ciudad —</option>
-    </select>
+<div class="salas-filters">
+  <div class="filter-style">
+    <div class="filter">
+      <label for="salas-filter-city">Ciudad:</label>
+      <select id="salas-filter-city">
+        <option value="">— Elige Ciudad —</option>
+      </select>
+    </div>
+    <div class="filter">
+      <label for="salas-filter-center">Centro:</label>
+      <select id="salas-filter-center">
+        <option value="">— Elige Centro —</option>
+      </select>
+    </div>
+    <div class="filter">
+      <label for="salas-filter-room">Sala:</label>
+      <select id="salas-filter-room">
+        <option value="">— Elige Sala —</option>
+      </select>
+    </div>
+    <button type="button" id="salas-clear-filters" class="btn-filters-clear">Quitar filtros</button>
   </div>
-  <div class="filter">
-    <label for="salas-filter-center">Centro:</label>
-    <select id="salas-filter-center">
-      <option value="">— Elige Centro —</option>
-    </select>
-  </div>
-  <div class="filter">
-    <label for="salas-filter-room">Sala:</label>
-    <select id="salas-filter-room">
-      <option value="">— Elige Sala —</option>
-    </select>
-  </div>
-  <button type="button" id="salas-clear-filters" class="btn-filters-clear">Quitar filtros</button>
+  <div id="activeFilters" class="active-filters"></div>
 </div>
 
-<!-- Contenedor para la tabla de salas -->
-<div class="salas-table-container">
-  <table id="salasTable" class="table-style">
-    <thead>
-      <!-- Se genera dinámicamente -->
-    </thead>
-    <tbody>
-      <!-- Se inyectarán aquí las filas de datos -->
-    </tbody>
-  </table>
+<div id="salas-counter" class="salas-counter"></div>
+<div id="salas-skeleton" class="salas-grid"></div>
+<div id="salas-cards" class="salas-grid hidden" aria-live="polite"></div>
+<div id="salas-empty" class="salas-empty hidden">
+  No hay salas que coincidan.
+  <button type="button" class="button-destacado" id="salas-empty-clear">Quitar filtros</button>
 </div>
 
 <script>
+  const userRole = (window.USER_ROLE || '').toLowerCase();
   let salasOriginales = [];
 
   document.addEventListener('DOMContentLoaded', () => {
-    if (typeof showSpinner === 'function') showSpinner();
-
-    // Cargar todas las salas y montar selects de filtros
-    google.script
-      .run
+    showSkeletons(4);
+    google.script.run
       .withSuccessHandler(salas => {
         salasOriginales = Array.isArray(salas) ? salas : [];
         cargarCiudades();
-        renderTabla();
-        if (typeof hideSpinner === 'function') hideSpinner();
+        cargarFiltersFromQuery();
+        renderCards();
       })
       .withFailureHandler(err => {
-        if (typeof hideSpinner === 'function') hideSpinner();
         console.error(err);
-        alert('Error al cargar las salas.');
+        document.getElementById('salas-skeleton').classList.add('hidden');
+        document.getElementById('salas-empty').classList.remove('hidden');
       })
       .getAllSalas();
 
     document.getElementById('salas-filter-city').addEventListener('change', () => {
-      cargarCentros(); cargarSalas(); renderTabla();
+      cargarCentros();
+      cargarSalas();
+      renderCards();
     });
     document.getElementById('salas-filter-center').addEventListener('change', () => {
-      cargarSalas(); renderTabla();
+      cargarSalas();
+      renderCards();
     });
-    document.getElementById('salas-filter-room').addEventListener('change', renderTabla);
+    document.getElementById('salas-filter-room').addEventListener('change', renderCards);
     document.getElementById('salas-clear-filters').addEventListener('click', limpiarFiltros);
+    document.getElementById('salas-empty-clear').addEventListener('click', limpiarFiltros);
   });
+
+  function showSkeletons(n) {
+    const cont = document.getElementById('salas-skeleton');
+    cont.innerHTML = '';
+    for (let i = 0; i < n; i++) {
+      const sk = document.createElement('div');
+      sk.className = 'card sala-skeleton';
+      cont.appendChild(sk);
+    }
+  }
 
   function cargarCiudades() {
     const sel = document.getElementById('salas-filter-city');
@@ -117,48 +127,198 @@
     });
   }
 
+  function cargarFiltersFromQuery() {
+    const params = new URLSearchParams(location.search);
+    const ciudad = params.get('ciudad') || '';
+    const centro = params.get('centro') || '';
+    const sala = params.get('sala') || '';
+    document.getElementById('salas-filter-city').value = ciudad;
+    cargarCentros();
+    document.getElementById('salas-filter-center').value = centro;
+    cargarSalas();
+    document.getElementById('salas-filter-room').value = sala;
+  }
+
+  function persistFilters() {
+    const { ciudad, centro, sala } = getSelectedFilters();
+    const params = new URLSearchParams(location.search);
+    ciudad ? params.set('ciudad', ciudad) : params.delete('ciudad');
+    centro ? params.set('centro', centro) : params.delete('centro');
+    sala ? params.set('sala', sala) : params.delete('sala');
+    const qs = params.toString();
+    history.replaceState(null, '', qs ? `?${qs}` : location.pathname);
+  }
+
+  function getSelectedFilters() {
+    return {
+      ciudad: document.getElementById('salas-filter-city').value,
+      centro: document.getElementById('salas-filter-center').value,
+      sala: document.getElementById('salas-filter-room').value
+    };
+  }
+
   function limpiarFiltros() {
     document.getElementById('salas-filter-city').value = '';
     cargarCentros();
     document.getElementById('salas-filter-center').value = '';
     cargarSalas();
     document.getElementById('salas-filter-room').value = '';
-    renderTabla();
+    renderCards();
   }
 
-  function renderTabla() {
-    const ciudad = document.getElementById('salas-filter-city').value;
-    const centro = document.getElementById('salas-filter-center').value;
-    const sala   = document.getElementById('salas-filter-room').value;
-    const thead  = document.querySelector('#salasTable thead');
-    const tbody  = document.querySelector('#salasTable tbody');
+  function updateChips() {
+    const { ciudad, centro, sala } = getSelectedFilters();
+    const cont = document.getElementById('activeFilters');
+    cont.innerHTML = '';
+    const addChip = (label, field, value) => {
+      const chip = document.createElement('span');
+      chip.className = 'filter-chip';
+      chip.textContent = `${label}: ${value}`;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = '×';
+      btn.addEventListener('click', () => {
+        if (field === 'ciudad') {
+          document.getElementById('salas-filter-city').value = '';
+          cargarCentros();
+          document.getElementById('salas-filter-center').value = '';
+          cargarSalas();
+          document.getElementById('salas-filter-room').value = '';
+        }
+        if (field === 'centro') {
+          document.getElementById('salas-filter-center').value = '';
+          cargarSalas();
+          document.getElementById('salas-filter-room').value = '';
+        }
+        if (field === 'sala') {
+          document.getElementById('salas-filter-room').value = '';
+        }
+        renderCards();
+      });
+      chip.appendChild(btn);
+      cont.appendChild(chip);
+    };
+    if (ciudad) addChip('Ciudad', 'ciudad', ciudad);
+    if (centro) addChip('Centro', 'centro', centro);
+    if (sala) addChip('Sala', 'sala', sala);
+  }
 
-    let datos = salasOriginales;
+  function renderCards() {
+    persistFilters();
+    updateChips();
+    const { ciudad, centro, sala } = getSelectedFilters();
+    const cont = document.getElementById('salas-cards');
+    let datos = salasOriginales.slice();
     if (ciudad) datos = datos.filter(r => String(r.Ciudad).trim() === ciudad);
     if (centro) datos = datos.filter(r => String(r.Centro).trim() === centro);
-    if (sala)   datos = datos.filter(r => String(r.Nombre).trim() === sala);
-
+    if (sala) datos = datos.filter(r => String(r.Nombre).trim() === sala);
+    datos = datos.filter(r => String(r.Activo) === '1' || userRole === 'admin');
+    const counter = document.getElementById('salas-counter');
+    counter.textContent = datos.length ? `${datos.length} sala${datos.length !== 1 ? 's' : ''}` : '';
+    cont.innerHTML = '';
     if (!datos.length) {
-      const cols = Object.keys(salasOriginales[0] || {}).length || 5;
-      tbody.innerHTML = `<tr><td colspan="${cols}" style="text-align:center;color:#bc348b;">No hay salas</td></tr>`;
-      thead.innerHTML = '';
+      document.getElementById('salas-skeleton').classList.add('hidden');
+      cont.classList.add('hidden');
+      document.getElementById('salas-empty').classList.remove('hidden');
       return;
     }
+    document.getElementById('salas-empty').classList.add('hidden');
+    document.getElementById('salas-skeleton').classList.add('hidden');
+    cont.classList.remove('hidden');
+    datos.forEach(s => cont.appendChild(crearCard(s)));
+  }
 
-    // Generar cabecera dinámica
-    const keys = Object.keys(datos[0]);
-    thead.innerHTML = '<tr>' + keys.map(k => `<th>${k}</th>`).join('') + '</tr>';
+  function crearCard(s) {
+    const card = document.createElement('div');
+    card.className = 'card sala-card';
+    card.setAttribute('tabindex', '0');
+    card.setAttribute('role', 'button');
+    card.setAttribute('aria-expanded', 'false');
 
-    // Rellenar filas
-    tbody.innerHTML = '';
-    datos.forEach(item => {
-      const tr = document.createElement('tr');
-      keys.forEach(k => {
-        const td = document.createElement('td');
-        td.textContent = item[k] || '';
-        tr.appendChild(td);
-      });
-      tbody.appendChild(tr);
+    const head = document.createElement('div');
+    head.className = 'card-head';
+    const h3 = document.createElement('h3');
+    h3.textContent = s.Nombre || '—';
+    head.appendChild(h3);
+    const badgeWrap = document.createElement('div');
+    badgeWrap.className = 'sala-badges';
+    const cap = document.createElement('span');
+    cap.className = 'sala-badge';
+    cap.textContent = 'Capacidad ' + (s.Capacidad || '—');
+    badgeWrap.appendChild(cap);
+    if (s.Equipamiento) {
+      const eq = document.createElement('span');
+      eq.className = 'sala-badge';
+      eq.textContent = s.Equipamiento;
+      badgeWrap.appendChild(eq);
+    }
+    head.appendChild(badgeWrap);
+    card.appendChild(head);
+
+    const info = document.createElement('p');
+    info.className = 'sala-info';
+    info.textContent = `${s.Centro || '—'} · ${s.Ciudad || '—'}`;
+    card.appendChild(info);
+
+    const horario = document.createElement('p');
+    horario.className = 'sala-horario';
+    horario.textContent = 'Horario: ' + (s.Horario || '—');
+    card.appendChild(horario);
+
+    const actions = document.createElement('div');
+    actions.className = 'sala-actions';
+    const btnVer = document.createElement('button');
+    btnVer.className = 'button-destacado';
+    btnVer.textContent = 'Ver disponibilidad';
+    btnVer.addEventListener('click', e => {
+      e.stopPropagation();
+      verDisponibilidad(s);
     });
+    actions.appendChild(btnVer);
+    if (userRole === 'admin') {
+      const btnEdit = document.createElement('button');
+      btnEdit.textContent = 'Modificar';
+      btnEdit.addEventListener('click', e => {
+        e.stopPropagation();
+        editarSala(s);
+      });
+      actions.appendChild(btnEdit);
+    }
+    card.appendChild(actions);
+
+    const details = document.createElement('div');
+    details.className = 'sala-detalles';
+    const obs = document.createElement('p');
+    obs.textContent = s.Observaciones || '—';
+    details.appendChild(obs);
+    card.appendChild(details);
+
+    card.addEventListener('click', () => toggleCard(card));
+    card.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        toggleCard(card);
+      }
+    });
+    return card;
+  }
+
+  function toggleCard(card) {
+    const exp = card.classList.toggle('expanded');
+    card.setAttribute('aria-expanded', exp ? 'true' : 'false');
+  }
+
+  function verDisponibilidad(s) {
+    const params = new URLSearchParams(location.search);
+    params.set('sala', s.Nombre);
+    history.replaceState(null, '', location.pathname + '?' + params.toString());
+    const tab = document.querySelector('.tab[data-id="calendar"]');
+    if (tab) tab.click();
+  }
+
+  function editarSala(s) {
+    if (window.PanelAdmin && typeof PanelAdmin.openSalaEditModal === 'function') {
+      PanelAdmin.openSalaEditModal(s['ID Sala']);
+    }
   }
 </script>
