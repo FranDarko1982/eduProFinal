@@ -265,27 +265,6 @@
     horario.textContent = 'Horario: ' + (s.Horario || '—');
     card.appendChild(horario);
 
-    const actions = document.createElement('div');
-    actions.className = 'sala-actions';
-    const btnVer = document.createElement('button');
-    btnVer.className = 'button-destacado';
-    btnVer.textContent = 'Ver disponibilidad';
-    btnVer.addEventListener('click', e => {
-      e.stopPropagation();
-      verDisponibilidad(s);
-    });
-    actions.appendChild(btnVer);
-    if (userRole === 'admin') {
-      const btnEdit = document.createElement('button');
-      btnEdit.textContent = 'Modificar';
-      btnEdit.addEventListener('click', e => {
-        e.stopPropagation();
-        editarSala(s);
-      });
-      actions.appendChild(btnEdit);
-    }
-    card.appendChild(actions);
-
     const details = document.createElement('div');
     details.className = 'sala-detalles';
     const obs = document.createElement('p');
@@ -308,17 +287,4 @@
     card.setAttribute('aria-expanded', exp ? 'true' : 'false');
   }
 
-  function verDisponibilidad(s) {
-    const params = new URLSearchParams(location.search);
-    params.set('sala', s.Nombre);
-    history.replaceState(null, '', location.pathname + '?' + params.toString());
-    const tab = document.querySelector('.tab[data-id="calendar"]');
-    if (tab) tab.click();
-  }
-
-  function editarSala(s) {
-    if (window.PanelAdmin && typeof PanelAdmin.openSalaEditModal === 'function') {
-      PanelAdmin.openSalaEditModal(s['ID Sala']);
-    }
-  }
 </script>
