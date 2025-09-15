@@ -69,11 +69,61 @@
     const ciudades = [...new Set(
       salasOriginales.map(r => String(r.Ciudad || '').trim()).filter(v => v)
     )].sort();
-    ciudades.forEach(c => cont.appendChild(crearSimpleCard(c, () => {
-      current.ciudad = c;
-      renderCentros();
-    })));
+    ciudades.forEach(ciudad => {
+      const centersMap = {};
+      salasOriginales
+        .filter(r => String(r.Ciudad || '').trim() === ciudad)
+        .forEach(r => {
+          const centro = String(r.Centro || '').trim();
+          if (!centro) return;
+          if (!centersMap[centro]) {
+            centersMap[centro] = {
+              count: 0,
+              direccion: r.DireccionCentro || r['Direccion Centro'] || ''
+            };
+          }
+          centersMap[centro].count++;
+          if (!centersMap[centro].direccion) {
+            centersMap[centro].direccion = r.DireccionCentro || r['Direccion Centro'] || '';
+          }
+        });
+      const centros = Object.keys(centersMap).sort().map(k => ({
+        nombre: k,
+        count: centersMap[k].count,
+        direccion: centersMap[k].direccion
+      }));
+      cont.appendChild(crearCiudadCard(ciudad, centros));
+    });
     toggleViews('cities');
+  }
+
+  function crearCiudadCard(ciudad, centros) {
+    const card = document.createElement('div');
+    card.className = 'card sala-card';
+    const h3 = document.createElement('h3');
+    h3.textContent = ciudad;
+    card.appendChild(h3);
+    const ul = document.createElement('ul');
+    ul.className = 'sala-centros';
+    ul.style.listStyle = 'none';
+    ul.style.padding = '0';
+    centros.forEach(c => {
+      const li = document.createElement('li');
+      li.innerHTML = `<strong>${c.nombre}</strong> (${c.count} sala${c.count === 1 ? '' : 's'})`;
+      if (c.direccion) {
+        const addr = document.createElement('div');
+        addr.className = 'sala-centro-dir';
+        addr.textContent = c.direccion;
+        li.appendChild(addr);
+      }
+      ul.appendChild(li);
+    });
+    card.appendChild(ul);
+    card.addEventListener('click', () => {
+      current.ciudad = ciudad;
+      renderCentros();
+    });
+    return card;
   }
 
   function renderCentros() {
