@@ -37,6 +37,7 @@
             <th>ID Sala</th>
             <th>Centro</th>
             <th>Ciudad</th>
+            <th>Direccion Centro</th>
             <th>Nombre</th>
             <th>Capacidad</th>
             <th>Equipamiento</th>
@@ -123,6 +124,7 @@
       <input id="salaId" type="text" class="modal-reserva-input" placeholder="ID Sala (opcional al crear)"/>
       <input id="salaCentro" type="text" class="modal-reserva-input" placeholder="Centro" required />
       <input id="salaCiudad" type="text" class="modal-reserva-input" placeholder="Ciudad" required />
+      <input id="salaDireccion" type="text" class="modal-reserva-input" placeholder="Dirección del Centro" />
       <input id="salaNombre" type="text" class="modal-reserva-input" placeholder="Nombre" required />
       <input id="salaCapacidad" type="number" class="modal-reserva-input" placeholder="Capacidad" />
       <input id="salaEquipamiento" type="text" class="modal-reserva-input" placeholder="Equipamiento" />
@@ -228,7 +230,7 @@ const PanelAdmin = (() => {
     tableC.classList.remove('hidden');
     tbody.innerHTML = '';
 
-    const cols = ['ID Sala','Centro','Ciudad','Nombre','Capacidad','Equipamiento','Observaciones','Horario'];
+    const cols = ['ID Sala','Centro','Ciudad','Direccion Centro','Nombre','Capacidad','Equipamiento','Observaciones','Horario'];
 
     salas.forEach(r => {
       const tr = document.createElement('tr');
@@ -256,6 +258,7 @@ const PanelAdmin = (() => {
     qs('#salaId').value = '';
     qs('#salaCentro').value = '';
     qs('#salaCiudad').value = '';
+    qs('#salaDireccion').value = '';
     qs('#salaNombre').value = '';
     qs('#salaCapacidad').value = '';
     qs('#salaEquipamiento').value = '';
@@ -271,6 +274,7 @@ const PanelAdmin = (() => {
     qs('#salaId').value = safe(s['ID Sala']);
     qs('#salaCentro').value = safe(s['Centro']);
     qs('#salaCiudad').value = safe(s['Ciudad']);
+    qs('#salaDireccion').value = safe(s['Direccion Centro']);
     qs('#salaNombre').value = safe(s['Nombre']);
     qs('#salaCapacidad').value = safe(s['Capacidad']);
     qs('#salaEquipamiento').value = safe(s['Equipamiento']);
@@ -286,6 +290,7 @@ const PanelAdmin = (() => {
       idSala:        qs('#salaId').value.trim(),
       Centro:        qs('#salaCentro').value.trim(),
       Ciudad:        qs('#salaCiudad').value.trim(),
+      'Direccion Centro': qs('#salaDireccion').value.trim(),
       Nombre:        qs('#salaNombre').value.trim(),
       Capacidad:     qs('#salaCapacidad').value.trim(),
       Equipamiento:  qs('#salaEquipamiento').value.trim(),
@@ -546,5 +551,3 @@ function subirUsuarios() {
 // Arranque
 document.addEventListener('DOMContentLoaded', () => PanelAdmin.init());
 </script>
-
-
