@@ -15,6 +15,12 @@
     <button id="tab-usuarios" class="panel-admin-tab" onclick="PanelAdmin.showTab('usuarios')">
       Editar usuarios
     </button>
+    <button id="tab-ciudades" class="panel-admin-tab" onclick="PanelAdmin.showTab('ciudades')">
+      Editar ciudades
+    </button>
+    <button id="tab-centros" class="panel-admin-tab" onclick="PanelAdmin.showTab('centros')">
+      Editar centros
+    </button>
   </div>
 
   <!-- ======= Panel Salas ======= -->
@@ -37,7 +43,6 @@
             <th>ID Sala</th>
             <th>Centro</th>
             <th>Ciudad</th>
-            <th>Direccion Centro</th>
             <th>Nombre</th>
             <th>Capacidad</th>
             <th>Equipamiento</th>
@@ -76,6 +81,62 @@
             <th>Nombre</th>
             <th>Rol</th>
             <th>Campaña</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ======= Panel Ciudades ======= -->
+  <div id="panel-ciudades" class="panel-admin-panel">
+    <div id="ciudadesEmpty" class="panel-admin-center">
+      <div>
+        <div class="panel-admin-title2">No hay ciudades</div>
+        <div class="panel-admin-desc2">Añade una ciudad para empezar a gestionar centros</div>
+      </div>
+      <button id="btnEmptyAddCiudad" class="panel-admin-btn">Añadir ciudad</button>
+    </div>
+    <div id="ciudadesTableContainer" class="salas-table-container hidden">
+      <div style="display:flex;justify-content:flex-end;margin-bottom:0.5rem;">
+        <button id="btnAddCiudad" class="panel-admin-btn" title="Añadir ciudad">+</button>
+      </div>
+      <table id="ciudadesTable" class="table-style">
+        <thead>
+          <tr>
+            <th>ID Ciudad</th>
+            <th>Nombre Ciudad</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ======= Panel Centros ======= -->
+  <div id="panel-centros" class="panel-admin-panel">
+    <div id="centrosEmpty" class="panel-admin-center">
+      <div>
+        <div class="panel-admin-title2">No hay centros</div>
+        <div class="panel-admin-desc2">Añade un centro para completar la información</div>
+      </div>
+      <button id="btnEmptyAddCentro" class="panel-admin-btn">Añadir centro</button>
+    </div>
+    <div id="centrosTableContainer" class="salas-table-container hidden">
+      <div style="display:flex;justify-content:flex-end;margin-bottom:0.5rem;">
+        <button id="btnAddCentro" class="panel-admin-btn" title="Añadir centro">+</button>
+      </div>
+      <table id="centrosTable" class="table-style">
+        <thead>
+          <tr>
+            <th>ID Centro</th>
+            <th>Nombre Centro</th>
+            <th>Direccion Centro</th>
+            <th>Telefono</th>
+            <th>Email</th>
+            <th>Responsable</th>
             <th>Acciones</th>
           </tr>
         </thead>
@@ -124,7 +185,6 @@
       <input id="salaId" type="text" class="modal-reserva-input" placeholder="ID Sala (opcional al crear)"/>
       <input id="salaCentro" type="text" class="modal-reserva-input" placeholder="Centro" required />
       <input id="salaCiudad" type="text" class="modal-reserva-input" placeholder="Ciudad" required />
-      <input id="salaDireccion" type="text" class="modal-reserva-input" placeholder="Dirección del Centro" />
       <input id="salaNombre" type="text" class="modal-reserva-input" placeholder="Nombre" required />
       <input id="salaCapacidad" type="number" class="modal-reserva-input" placeholder="Capacidad" />
       <input id="salaEquipamiento" type="text" class="modal-reserva-input" placeholder="Equipamiento" />
@@ -151,6 +211,67 @@
     </div>
   </div>
 </div>
+<!-- ======= Modal editar/crear Ciudad ======= -->
+<div id="editCiudadModal" class="modal-reserva-bg">
+  <div class="modal-reserva">
+    <h2 class="modal-reserva-titulo">Editar Ciudad</h2>
+    <form id="formEditCiudad" autocomplete="off">
+      <input id="ciudadId" type="text" class="modal-reserva-input" placeholder="ID Ciudad (opcional al crear)" />
+      <input id="ciudadNombre" type="text" class="modal-reserva-input" placeholder="Nombre Ciudad" required />
+      <div class="modal-reserva-botones">
+        <button type="button" id="btnCiudadCancel" class="modal-reserva-btn-cancelar">Cancelar</button>
+        <button type="submit" id="btnCiudadSave" class="modal-reserva-btn-guardar">Guardar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ======= Modal eliminar Ciudad ======= -->
+<div id="deleteCiudadOverlay" class="modal-overlay" style="display:none;">
+  <div class="modal flex-col">
+    <div class="modal-header mb-2">Eliminar Ciudad</div>
+    <div class="modal-body flex flex-col gap-3">
+      <p id="deleteCiudadMsg" class="text-[#0d151b]"></p>
+    </div>
+    <div class="modal-footer" style="display:flex;gap:1rem;">
+      <button id="btnDeleteCiudadCancel" class="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300">Cancelar</button>
+      <button id="btnDeleteCiudadOk" class="px-4 py-2 rounded bg-[#bc348b] text-white hover:bg-[#a1226d]">Eliminar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ======= Modal editar/crear Centro ======= -->
+<div id="editCentroModal" class="modal-reserva-bg">
+  <div class="modal-reserva">
+    <h2 class="modal-reserva-titulo">Editar Centro</h2>
+    <form id="formEditCentro" autocomplete="off">
+      <input id="centroId" type="text" class="modal-reserva-input" placeholder="ID Centro (opcional al crear)" />
+      <input id="centroNombre" type="text" class="modal-reserva-input" placeholder="Nombre Centro" required />
+      <input id="centroDireccion" type="text" class="modal-reserva-input" placeholder="Dirección Centro" />
+      <input id="centroTelefono" type="number" class="modal-reserva-input" placeholder="Telefono" />
+      <input id="centroEmail" type="email" class="modal-reserva-input" placeholder="Email" />
+      <input id="centroResponsable" type="text" class="modal-reserva-input" placeholder="Responsable" />
+      <div class="modal-reserva-botones">
+        <button type="button" id="btnCentroCancel" class="modal-reserva-btn-cancelar">Cancelar</button>
+        <button type="submit" id="btnCentroSave" class="modal-reserva-btn-guardar">Guardar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ======= Modal eliminar Centro ======= -->
+<div id="deleteCentroOverlay" class="modal-overlay" style="display:none;">
+  <div class="modal flex-col">
+    <div class="modal-header mb-2">Eliminar Centro</div>
+    <div class="modal-body flex flex-col gap-3">
+      <p id="deleteCentroMsg" class="text-[#0d151b]"></p>
+    </div>
+    <div class="modal-footer" style="display:flex;gap:1rem;">
+      <button id="btnDeleteCentroCancel" class="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300">Cancelar</button>
+      <button id="btnDeleteCentroOk" class="px-4 py-2 rounded bg-[#bc348b] text-white hover:bg-[#a1226d]">Eliminar</button>
+    </div>
+  </div>
+</div>
 
 <!-- ======= Modal información reutilizable ======= -->
 <div id="infoOverlay" class="modal-overlay" style="display:none;">
@@ -172,10 +293,16 @@ const PanelAdmin = (() => {
   let salasOriginales = [];
   let usuariosOriginales = [];
   let roles = [];
+  let ciudadesOriginales = [];
+  let centrosOriginales = [];
   let currentSalaId = null;   // null => creando
   let currentEmail = null;    // null => creando
+  let currentCiudadId = null;
+  let currentCentroId = null;
   let deleteSalaId = null;
   let deleteEmail = null;
+  let deleteCiudadId = null;
+  let deleteCentroId = null;
 
   // ------- Helpers -------
   const show = (el) => el.style.display = 'flex';
@@ -195,8 +322,12 @@ const PanelAdmin = (() => {
   function showTab(tab) {
     qs('#tab-salas').classList.toggle('active', tab === 'salas');
     qs('#tab-usuarios').classList.toggle('active', tab === 'usuarios');
+    qs('#tab-ciudades').classList.toggle('active', tab === 'ciudades');
+    qs('#tab-centros').classList.toggle('active', tab === 'centros');
     qs('#panel-salas').classList.toggle('active', tab === 'salas');
     qs('#panel-usuarios').classList.toggle('active', tab === 'usuarios');
+    qs('#panel-ciudades').classList.toggle('active', tab === 'ciudades');
+    qs('#panel-centros').classList.toggle('active', tab === 'centros');
   }
 
   // ------- Cargar Salas -------
@@ -230,7 +361,7 @@ const PanelAdmin = (() => {
     tableC.classList.remove('hidden');
     tbody.innerHTML = '';
 
-    const cols = ['ID Sala','Centro','Ciudad','Direccion Centro','Nombre','Capacidad','Equipamiento','Observaciones','Horario'];
+    const cols = ['ID Sala','Centro','Ciudad','Nombre','Capacidad','Equipamiento','Observaciones','Horario'];
 
     salas.forEach(r => {
       const tr = document.createElement('tr');
@@ -258,7 +389,6 @@ const PanelAdmin = (() => {
     qs('#salaId').value = '';
     qs('#salaCentro').value = '';
     qs('#salaCiudad').value = '';
-    qs('#salaDireccion').value = '';
     qs('#salaNombre').value = '';
     qs('#salaCapacidad').value = '';
     qs('#salaEquipamiento').value = '';
@@ -274,7 +404,6 @@ const PanelAdmin = (() => {
     qs('#salaId').value = safe(s['ID Sala']);
     qs('#salaCentro').value = safe(s['Centro']);
     qs('#salaCiudad').value = safe(s['Ciudad']);
-    qs('#salaDireccion').value = safe(s['Direccion Centro']);
     qs('#salaNombre').value = safe(s['Nombre']);
     qs('#salaCapacidad').value = safe(s['Capacidad']);
     qs('#salaEquipamiento').value = safe(s['Equipamiento']);
@@ -290,7 +419,6 @@ const PanelAdmin = (() => {
       idSala:        qs('#salaId').value.trim(),
       Centro:        qs('#salaCentro').value.trim(),
       Ciudad:        qs('#salaCiudad').value.trim(),
-      'Direccion Centro': qs('#salaDireccion').value.trim(),
       Nombre:        qs('#salaNombre').value.trim(),
       Capacidad:     qs('#salaCapacidad').value.trim(),
       Equipamiento:  qs('#salaEquipamiento').value.trim(),
@@ -325,6 +453,214 @@ const PanelAdmin = (() => {
       .withSuccessHandler(() => { cargarSalas(); showInfoModal('Sala eliminada correctamente.','¡Sala Eliminada!'); })
       .withFailureHandler(err => { if (typeof hideSpinner === 'function') hideSpinner(); console.error(err); alert('Error eliminando la sala'); })
       .eliminarSala(deleteSalaId);
+  }
+
+  // ------- Ciudades -------
+  function cargarCiudades() {
+    if (typeof showSpinner === 'function') showSpinner();
+    google.script.run
+      .withSuccessHandler(d => {
+        ciudadesOriginales = Array.isArray(d) ? d : [];
+        renderCiudades(ciudadesOriginales);
+        if (typeof hideSpinner === 'function') hideSpinner();
+      })
+      .withFailureHandler(err => {
+        if (typeof hideSpinner === 'function') hideSpinner();
+        console.error(err); alert('Error al cargar las ciudades');
+      })
+      .getAllCiudades();
+  }
+
+  function renderCiudades(list) {
+    const empty  = qs('#ciudadesEmpty');
+    const tableC = qs('#ciudadesTableContainer');
+    const tbody  = qs('#ciudadesTable tbody');
+    if (!list || !list.length) {
+      empty.classList.remove('hidden');
+      tableC.classList.add('hidden');
+      return;
+    }
+    empty.classList.add('hidden');
+    tableC.classList.remove('hidden');
+    tbody.innerHTML = '';
+    list.forEach(c => {
+      const tr = document.createElement('tr');
+      ['ID Ciudad','Nombre Ciudad'].forEach(k => {
+        const td = document.createElement('td');
+        td.textContent = safe(c[k]);
+        tr.appendChild(td);
+      });
+      const tdAct = document.createElement('td');
+      tdAct.className = 'actions';
+      const id = safe(c['ID Ciudad']).toString().replace(/"/g,'&quot;');
+      tdAct.innerHTML = `
+        <button onclick="PanelAdmin.openCiudadEditModal('${id}')" title="Editar">✏️</button>
+        <button onclick="PanelAdmin.openCiudadDeleteModal('${id}')" title="Eliminar">🗑️</button>
+      `;
+      tr.appendChild(tdAct);
+      tbody.appendChild(tr);
+    });
+  }
+
+  function openCiudadAddModal() {
+    currentCiudadId = null;
+    qs('#editCiudadModal h2').textContent = 'Añadir Ciudad';
+    qs('#ciudadId').value = '';
+    qs('#ciudadNombre').value = '';
+    qs('#editCiudadModal').classList.add('activo');
+  }
+  function openCiudadEditModal(id) {
+    const c = ciudadesOriginales.find(x => String(x['ID Ciudad']) === String(id));
+    if (!c) return;
+    currentCiudadId = String(id);
+    qs('#editCiudadModal h2').textContent = 'Editar Ciudad';
+    qs('#ciudadId').value = safe(c['ID Ciudad']);
+    qs('#ciudadNombre').value = safe(c['Nombre Ciudad']);
+    qs('#editCiudadModal').classList.add('activo');
+  }
+  function closeCiudadEditModal() { qs('#editCiudadModal').classList.remove('activo'); }
+
+  function submitCiudad(e) {
+    e.preventDefault();
+    const payload = {
+      idCiudad: qs('#ciudadId').value.trim(),
+      'Nombre Ciudad': qs('#ciudadNombre').value.trim()
+    };
+    closeCiudadEditModal();
+    if (typeof showSpinner === 'function') showSpinner();
+    const fn = currentCiudadId ? 'actualizarCiudad' : 'crearCiudad';
+    const okHead = currentCiudadId ? '¡Ciudad Actualizada!' : '¡Ciudad Creada!';
+    const okMsg  = currentCiudadId ? 'Ciudad actualizada correctamente.' : 'Ciudad creada correctamente.';
+    const errMsg = currentCiudadId ? 'Error actualizando la ciudad' : 'Error creando la ciudad';
+    google.script.run
+      .withSuccessHandler(() => { cargarCiudades(); showInfoModal(okMsg, okHead); })
+      .withFailureHandler(err => { if (typeof hideSpinner === 'function') hideSpinner(); console.error(err); alert(errMsg); })
+      [fn](payload);
+  }
+
+  function openCiudadDeleteModal(id) {
+    deleteCiudadId = id;
+    qs('#deleteCiudadMsg').textContent = '¿Eliminar la ciudad ' + id + '?';
+    show(qs('#deleteCiudadOverlay'));
+  }
+  function closeCiudadDeleteModal() { hide(qs('#deleteCiudadOverlay')); }
+  function confirmDeleteCiudad() {
+    closeCiudadDeleteModal();
+    if (typeof showSpinner === 'function') showSpinner();
+    google.script.run
+      .withSuccessHandler(() => { cargarCiudades(); showInfoModal('Ciudad eliminada correctamente.','¡Ciudad Eliminada!'); })
+      .withFailureHandler(err => { if (typeof hideSpinner === 'function') hideSpinner(); console.error(err); alert('Error eliminando la ciudad'); })
+      .eliminarCiudad(deleteCiudadId);
+  }
+
+  // ------- Centros -------
+  function cargarCentros() {
+    if (typeof showSpinner === 'function') showSpinner();
+    google.script.run
+      .withSuccessHandler(d => {
+        centrosOriginales = Array.isArray(d) ? d : [];
+        renderCentros(centrosOriginales);
+        if (typeof hideSpinner === 'function') hideSpinner();
+      })
+      .withFailureHandler(err => {
+        if (typeof hideSpinner === 'function') hideSpinner();
+        console.error(err); alert('Error al cargar los centros');
+      })
+      .getAllCentros();
+  }
+
+  function renderCentros(list) {
+    const empty  = qs('#centrosEmpty');
+    const tableC = qs('#centrosTableContainer');
+    const tbody  = qs('#centrosTable tbody');
+    if (!list || !list.length) {
+      empty.classList.remove('hidden');
+      tableC.classList.add('hidden');
+      return;
+    }
+    empty.classList.add('hidden');
+    tableC.classList.remove('hidden');
+    tbody.innerHTML = '';
+    list.forEach(c => {
+      const tr = document.createElement('tr');
+      ['ID Centro','Nombre Centro','Direccion Centro','Telefono','Email','Responsable'].forEach(k => {
+        const td = document.createElement('td');
+        td.textContent = safe(c[k]);
+        tr.appendChild(td);
+      });
+      const tdAct = document.createElement('td');
+      tdAct.className = 'actions';
+      const id = safe(c['ID Centro']).toString().replace(/"/g,'&quot;');
+      tdAct.innerHTML = `
+        <button onclick="PanelAdmin.openCentroEditModal('${id}')" title="Editar">✏️</button>
+        <button onclick="PanelAdmin.openCentroDeleteModal('${id}')" title="Eliminar">🗑️</button>
+      `;
+      tr.appendChild(tdAct);
+      tbody.appendChild(tr);
+    });
+  }
+
+  function openCentroAddModal() {
+    currentCentroId = null;
+    qs('#editCentroModal h2').textContent = 'Añadir Centro';
+    qs('#centroId').value = '';
+    qs('#centroNombre').value = '';
+    qs('#centroDireccion').value = '';
+    qs('#centroTelefono').value = '';
+    qs('#centroEmail').value = '';
+    qs('#centroResponsable').value = '';
+    qs('#editCentroModal').classList.add('activo');
+  }
+  function openCentroEditModal(id) {
+    const c = centrosOriginales.find(x => String(x['ID Centro']) === String(id));
+    if (!c) return;
+    currentCentroId = String(id);
+    qs('#editCentroModal h2').textContent = 'Editar Centro';
+    qs('#centroId').value = safe(c['ID Centro']);
+    qs('#centroNombre').value = safe(c['Nombre Centro']);
+    qs('#centroDireccion').value = safe(c['Direccion Centro']);
+    qs('#centroTelefono').value = safe(c['Telefono']);
+    qs('#centroEmail').value = safe(c['Email']);
+    qs('#centroResponsable').value = safe(c['Responsable']);
+    qs('#editCentroModal').classList.add('activo');
+  }
+  function closeCentroEditModal() { qs('#editCentroModal').classList.remove('activo'); }
+
+  function submitCentro(e) {
+    e.preventDefault();
+    const payload = {
+      idCentro: qs('#centroId').value.trim(),
+      'Nombre Centro': qs('#centroNombre').value.trim(),
+      'Direccion Centro': qs('#centroDireccion').value.trim(),
+      Telefono: qs('#centroTelefono').value.trim(),
+      Email: qs('#centroEmail').value.trim(),
+      Responsable: qs('#centroResponsable').value.trim()
+    };
+    closeCentroEditModal();
+    if (typeof showSpinner === 'function') showSpinner();
+    const fn = currentCentroId ? 'actualizarCentro' : 'crearCentro';
+    const okHead = currentCentroId ? '¡Centro Actualizado!' : '¡Centro Creado!';
+    const okMsg  = currentCentroId ? 'Centro actualizado correctamente.' : 'Centro creado correctamente.';
+    const errMsg = currentCentroId ? 'Error actualizando el centro' : 'Error creando el centro';
+    google.script.run
+      .withSuccessHandler(() => { cargarCentros(); showInfoModal(okMsg, okHead); })
+      .withFailureHandler(err => { if (typeof hideSpinner === 'function') hideSpinner(); console.error(err); alert(errMsg); })
+      [fn](payload);
+  }
+
+  function openCentroDeleteModal(id) {
+    deleteCentroId = id;
+    qs('#deleteCentroMsg').textContent = '¿Eliminar el centro ' + id + '?';
+    show(qs('#deleteCentroOverlay'));
+  }
+  function closeCentroDeleteModal() { hide(qs('#deleteCentroOverlay')); }
+  function confirmDeleteCentro() {
+    closeCentroDeleteModal();
+    if (typeof showSpinner === 'function') showSpinner();
+    google.script.run
+      .withSuccessHandler(() => { cargarCentros(); showInfoModal('Centro eliminado correctamente.','¡Centro Eliminado!'); })
+      .withFailureHandler(err => { if (typeof hideSpinner === 'function') hideSpinner(); console.error(err); alert('Error eliminando el centro'); })
+      .eliminarCentro(deleteCentroId);
   }
 
   // ------- Usuarios -------
@@ -530,11 +866,33 @@ function subirUsuarios() {
     qs('#btnDeleteUserOk').addEventListener('click', confirmDeleteUser);
     qs('#btnUploadUsuarios').addEventListener('click', subirUsuarios);
 
+    // Ciudades: botones
+    qs('#btnAddCiudad').addEventListener('click', openCiudadAddModal);
+    qs('#btnEmptyAddCiudad').addEventListener('click', openCiudadAddModal);
+    qs('#btnCiudadCancel').addEventListener('click', closeCiudadEditModal);
+    qs('#editCiudadModal').addEventListener('click', e => { if (e.target === e.currentTarget) closeCiudadEditModal(); });
+    qs('#formEditCiudad').addEventListener('submit', submitCiudad);
+    qs('#btnDeleteCiudadCancel').addEventListener('click', closeCiudadDeleteModal);
+    qs('#deleteCiudadOverlay').addEventListener('click', e => { if (e.target === e.currentTarget) closeCiudadDeleteModal(); });
+    qs('#btnDeleteCiudadOk').addEventListener('click', confirmDeleteCiudad);
+
+    // Centros: botones
+    qs('#btnAddCentro').addEventListener('click', openCentroAddModal);
+    qs('#btnEmptyAddCentro').addEventListener('click', openCentroAddModal);
+    qs('#btnCentroCancel').addEventListener('click', closeCentroEditModal);
+    qs('#editCentroModal').addEventListener('click', e => { if (e.target === e.currentTarget) closeCentroEditModal(); });
+    qs('#formEditCentro').addEventListener('submit', submitCentro);
+    qs('#btnDeleteCentroCancel').addEventListener('click', closeCentroDeleteModal);
+    qs('#deleteCentroOverlay').addEventListener('click', e => { if (e.target === e.currentTarget) closeCentroDeleteModal(); });
+    qs('#btnDeleteCentroOk').addEventListener('click', confirmDeleteCentro);
+
     // Datos
     showTab('salas');
     cargarRoles();
     cargarSalas();
     cargarUsuarios();
+    cargarCiudades();
+    cargarCentros();
   }
 
   // API pública (solo lo necesario desde HTML)
@@ -544,7 +902,11 @@ function subirUsuarios() {
     openSalaEditModal,
     openSalaDeleteModal,
     openUserEditModal,
-    openUserDeleteModal
+    openUserDeleteModal,
+    openCiudadEditModal,
+    openCiudadDeleteModal,
+    openCentroEditModal,
+    openCentroDeleteModal
   };
 })();
 
