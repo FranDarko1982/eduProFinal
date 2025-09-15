@@ -1,50 +1,34 @@
 <!-- salas.html -->
 
-<div class="salas-filters">
-  <div class="filter-style">
-    <div class="filter">
-      <label for="salas-filter-city">Ciudad:</label>
-      <select id="salas-filter-city">
-        <option value="">— Elige Ciudad —</option>
-      </select>
-    </div>
-    <div class="filter">
-      <label for="salas-filter-center">Centro:</label>
-      <select id="salas-filter-center">
-        <option value="">— Elige Centro —</option>
-      </select>
-    </div>
-    <div class="filter">
-      <label for="salas-filter-room">Sala:</label>
-      <select id="salas-filter-room">
-        <option value="">— Elige Sala —</option>
-      </select>
-    </div>
-    <button type="button" id="salas-clear-filters" class="btn-filters-clear">Quitar filtros</button>
+<button id="salas-back" class="hidden btn-back">← Volver</button>
+
+<div id="salas-skeleton" class="salas-grid"></div>
+
+<div id="salas-cities" class="salas-grid hidden" aria-live="polite"></div>
+<div id="salas-centers" class="salas-grid hidden" aria-live="polite"></div>
+
+<div id="salas-layout" class="salas-layout hidden">
+  <div id="salas-rooms" class="salas-grid salas-rooms"></div>
+  <div id="salas-info" class="sala-info-panel">
+    <img id="salas-plan" class="sala-plan hidden" alt="Plano" />
+    <div id="salas-info-text" class="sala-info-text"></div>
   </div>
-  <div id="activeFilters" class="active-filters"></div>
 </div>
 
-<div id="salas-counter" class="salas-counter"></div>
-<div id="salas-skeleton" class="salas-grid"></div>
-<div id="salas-cards" class="salas-grid hidden" aria-live="polite"></div>
-<div id="salas-empty" class="salas-empty hidden">
-  No hay salas que coincidan.
-  <button type="button" class="button-destacado" id="salas-empty-clear">Quitar filtros</button>
-</div>
+<div id="salas-empty" class="salas-empty hidden">No hay datos.</div>
 
 <script>
   const userRole = (window.USER_ROLE || '').toLowerCase();
   let salasOriginales = [];
+  let current = { ciudad: null, centro: null, sala: null };
+  let currentRooms = [];
 
   document.addEventListener('DOMContentLoaded', () => {
     showSkeletons(4);
     google.script.run
       .withSuccessHandler(salas => {
         salasOriginales = Array.isArray(salas) ? salas : [];
-        cargarCiudades();
-        cargarFiltersFromQuery();
-        renderCards();
+        renderCities();
       })
       .withFailureHandler(err => {
         console.error(err);
@@ -53,18 +37,7 @@
       })
       .getAllSalas();
 
-    document.getElementById('salas-filter-city').addEventListener('change', () => {
-      cargarCentros();
-      cargarSalas();
-      renderCards();
-    });
-    document.getElementById('salas-filter-center').addEventListener('change', () => {
-      cargarSalas();
-      renderCards();
-    });
-    document.getElementById('salas-filter-room').addEventListener('change', renderCards);
-    document.getElementById('salas-clear-filters').addEventListener('click', limpiarFiltros);
-    document.getElementById('salas-empty-clear').addEventListener('click', limpiarFiltros);
+    document.getElementById('salas-back').addEventListener('click', handleBack);
   });
 
   function showSkeletons(n) {
@@ -77,214 +50,136 @@
     }
   }
 
-  function cargarCiudades() {
-    const sel = document.getElementById('salas-filter-city');
-    sel.innerHTML = '<option value="">— Elige Ciudad —</option>';
+  function handleBack() {
+    if (current.sala) {
+      current.sala = null;
+      renderSalaInfo(null);
+    } else if (current.centro) {
+      current.centro = null;
+      renderCentros();
+    } else if (current.ciudad) {
+      current.ciudad = null;
+      renderCities();
+    }
+  }
+
+  function renderCities() {
+    const cont = document.getElementById('salas-cities');
+    cont.innerHTML = '';
     const ciudades = [...new Set(
       salasOriginales.map(r => String(r.Ciudad || '').trim()).filter(v => v)
     )].sort();
-    ciudades.forEach(c => {
-      const opt = document.createElement('option');
-      opt.value = c;
-      opt.textContent = c;
-      sel.appendChild(opt);
-    });
+    ciudades.forEach(c => cont.appendChild(crearSimpleCard(c, () => {
+      current.ciudad = c;
+      renderCentros();
+    })));
+    toggleViews('cities');
   }
 
-  function cargarCentros() {
-    const ciudad = document.getElementById('salas-filter-city').value;
-    const sel = document.getElementById('salas-filter-center');
-    sel.innerHTML = '<option value="">— Elige Centro —</option>';
-    let datos = salasOriginales;
-    if (ciudad) datos = datos.filter(r => String(r.Ciudad).trim() === ciudad);
+  function renderCentros() {
+    const cont = document.getElementById('salas-centers');
+    cont.innerHTML = '';
     const centros = [...new Set(
-      datos.map(r => String(r.Centro || '').trim()).filter(v => v)
+      salasOriginales
+        .filter(r => String(r.Ciudad || '').trim() === current.ciudad)
+        .map(r => String(r.Centro || '').trim()).filter(v => v)
     )].sort();
-    centros.forEach(c => {
-      const opt = document.createElement('option');
-      opt.value = c;
-      opt.textContent = c;
-      sel.appendChild(opt);
-    });
+    centros.forEach(c => cont.appendChild(crearSimpleCard(c, () => {
+      current.centro = c;
+      renderSalas();
+    })));
+    toggleViews('centers');
   }
 
-  function cargarSalas() {
-    const ciudad = document.getElementById('salas-filter-city').value;
-    const centro = document.getElementById('salas-filter-center').value;
-    const sel = document.getElementById('salas-filter-room');
-    sel.innerHTML = '<option value="">— Elige Sala —</option>';
-    let datos = salasOriginales;
-    if (ciudad) datos = datos.filter(r => String(r.Ciudad).trim() === ciudad);
-    if (centro) datos = datos.filter(r => String(r.Centro).trim() === centro);
-    const salas = [...new Set(
-      datos.map(r => String(r.Nombre || '').trim()).filter(v => v)
-    )].sort();
-    salas.forEach(s => {
-      const opt = document.createElement('option');
-      opt.value = s;
-      opt.textContent = s;
-      sel.appendChild(opt);
-    });
-  }
-
-  function cargarFiltersFromQuery() {
-    const params = new URLSearchParams(location.search);
-    const ciudad = params.get('ciudad') || '';
-    const centro = params.get('centro') || '';
-    const sala = params.get('sala') || '';
-    document.getElementById('salas-filter-city').value = ciudad;
-    cargarCentros();
-    document.getElementById('salas-filter-center').value = centro;
-    cargarSalas();
-    document.getElementById('salas-filter-room').value = sala;
-  }
-
-  function persistFilters() {
-    const { ciudad, centro, sala } = getSelectedFilters();
-    const params = new URLSearchParams(location.search);
-    ciudad ? params.set('ciudad', ciudad) : params.delete('ciudad');
-    centro ? params.set('centro', centro) : params.delete('centro');
-    sala ? params.set('sala', sala) : params.delete('sala');
-    const qs = params.toString();
-    history.replaceState(null, '', qs ? `?${qs}` : location.pathname);
-  }
-
-  function getSelectedFilters() {
-    return {
-      ciudad: document.getElementById('salas-filter-city').value,
-      centro: document.getElementById('salas-filter-center').value,
-      sala: document.getElementById('salas-filter-room').value
-    };
-  }
-
-  function limpiarFiltros() {
-    document.getElementById('salas-filter-city').value = '';
-    cargarCentros();
-    document.getElementById('salas-filter-center').value = '';
-    cargarSalas();
-    document.getElementById('salas-filter-room').value = '';
-    renderCards();
-  }
-
-  function updateChips() {
-    const { ciudad, centro, sala } = getSelectedFilters();
-    const cont = document.getElementById('activeFilters');
+  function renderSalas() {
+    const cont = document.getElementById('salas-rooms');
     cont.innerHTML = '';
-    const addChip = (label, field, value) => {
-      const chip = document.createElement('span');
-      chip.className = 'filter-chip';
-      chip.textContent = `${label}: ${value}`;
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.textContent = '×';
-      btn.addEventListener('click', () => {
-        if (field === 'ciudad') {
-          document.getElementById('salas-filter-city').value = '';
-          cargarCentros();
-          document.getElementById('salas-filter-center').value = '';
-          cargarSalas();
-          document.getElementById('salas-filter-room').value = '';
-        }
-        if (field === 'centro') {
-          document.getElementById('salas-filter-center').value = '';
-          cargarSalas();
-          document.getElementById('salas-filter-room').value = '';
-        }
-        if (field === 'sala') {
-          document.getElementById('salas-filter-room').value = '';
-        }
-        renderCards();
-      });
-      chip.appendChild(btn);
-      cont.appendChild(chip);
-    };
-    if (ciudad) addChip('Ciudad', 'ciudad', ciudad);
-    if (centro) addChip('Centro', 'centro', centro);
-    if (sala) addChip('Sala', 'sala', sala);
+    currentRooms = salasOriginales
+      .filter(r => String(r.Ciudad || '').trim() === current.ciudad)
+      .filter(r => String(r.Centro || '').trim() === current.centro)
+      .filter(r => String(r.Activo) === '1' || userRole === 'admin');
+
+    currentRooms.forEach(s => cont.appendChild(crearSalaCard(s)));
+    renderSalaInfo(null);
+    toggleViews('rooms');
   }
 
-  function renderCards() {
-    persistFilters();
-    updateChips();
-    const { ciudad, centro, sala } = getSelectedFilters();
-    const cont = document.getElementById('salas-cards');
-    let datos = salasOriginales.slice();
-    if (ciudad) datos = datos.filter(r => String(r.Ciudad).trim() === ciudad);
-    if (centro) datos = datos.filter(r => String(r.Centro).trim() === centro);
-    if (sala) datos = datos.filter(r => String(r.Nombre).trim() === sala);
-    datos = datos.filter(r => String(r.Activo) === '1' || userRole === 'admin');
-    const counter = document.getElementById('salas-counter');
-    counter.textContent = datos.length ? `${datos.length} sala${datos.length !== 1 ? 's' : ''}` : '';
-    cont.innerHTML = '';
-    if (!datos.length) {
-      document.getElementById('salas-skeleton').classList.add('hidden');
-      cont.classList.add('hidden');
-      document.getElementById('salas-empty').classList.remove('hidden');
-      return;
+  function renderSalaInfo(s) {
+    const img = document.getElementById('salas-plan');
+    const info = document.getElementById('salas-info-text');
+    document.querySelectorAll('#salas-rooms .sala-card').forEach(card => {
+      card.classList.toggle('selected', s && card.dataset.name === s.Nombre);
+    });
+    if (s) {
+      current.sala = s.Nombre;
+      if (s.MapaSala || s['Mapa Sala']) {
+        img.src = s.MapaSala || s['Mapa Sala'];
+        img.classList.remove('hidden');
+      } else {
+        img.classList.add('hidden');
+      }
+      info.textContent = s.Observaciones || '';
+    } else {
+      current.sala = null;
+      const base = currentRooms[0] || {};
+      const plano = base.UbicacionCentro || base.PlanoCentro || base['Ubicacion Centro'] || '';
+      if (plano) {
+        img.src = plano;
+        img.classList.remove('hidden');
+      } else {
+        img.classList.add('hidden');
+      }
+      info.textContent = base.InformacionCentro || base.InfoCentro || base['Informacion Centro'] || '';
     }
-    document.getElementById('salas-empty').classList.add('hidden');
-    document.getElementById('salas-skeleton').classList.add('hidden');
-    cont.classList.remove('hidden');
-    datos.forEach(s => cont.appendChild(crearCard(s)));
   }
 
-  function crearCard(s) {
+  function crearSimpleCard(text, onClick) {
     const card = document.createElement('div');
     card.className = 'card sala-card';
-    card.setAttribute('tabindex', '0');
-    card.setAttribute('role', 'button');
-    card.setAttribute('aria-expanded', 'false');
+    const h3 = document.createElement('h3');
+    h3.textContent = text;
+    card.appendChild(h3);
+    card.addEventListener('click', onClick);
+    return card;
+  }
+
+  function crearSalaCard(s) {
+    const card = document.createElement('div');
+    card.className = 'card sala-card';
+    card.dataset.name = s.Nombre;
 
     const head = document.createElement('div');
     head.className = 'card-head';
     const h3 = document.createElement('h3');
     h3.textContent = s.Nombre || '—';
     head.appendChild(h3);
-    const badgeWrap = document.createElement('div');
-    badgeWrap.className = 'sala-badges';
+    const badges = document.createElement('div');
+    badges.className = 'sala-badges';
     const cap = document.createElement('span');
     cap.className = 'sala-badge';
     cap.textContent = 'Capacidad ' + (s.Capacidad || '—');
-    badgeWrap.appendChild(cap);
+    badges.appendChild(cap);
     if (s.Equipamiento) {
       const eq = document.createElement('span');
       eq.className = 'sala-badge';
       eq.textContent = s.Equipamiento;
-      badgeWrap.appendChild(eq);
+      badges.appendChild(eq);
     }
-    head.appendChild(badgeWrap);
+    head.appendChild(badges);
     card.appendChild(head);
 
-    const info = document.createElement('p');
-    info.className = 'sala-info';
-    info.textContent = `${s.Centro || '—'} · ${s.Ciudad || '—'}`;
-    card.appendChild(info);
-
-    const horario = document.createElement('p');
-    horario.className = 'sala-horario';
-    horario.textContent = 'Horario: ' + (s.Horario || '—');
-    card.appendChild(horario);
-
-    const details = document.createElement('div');
-    details.className = 'sala-detalles';
-    const obs = document.createElement('p');
-    obs.textContent = s.Observaciones || '—';
-    details.appendChild(obs);
-    card.appendChild(details);
-
-    card.addEventListener('click', () => toggleCard(card));
-    card.addEventListener('keydown', e => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        toggleCard(card);
-      }
-    });
+    card.addEventListener('click', () => renderSalaInfo(s));
     return card;
   }
 
-  function toggleCard(card) {
-    const exp = card.classList.toggle('expanded');
-    card.setAttribute('aria-expanded', exp ? 'true' : 'false');
+  function toggleViews(view) {
+    document.getElementById('salas-skeleton').classList.add('hidden');
+    document.getElementById('salas-back').classList.toggle('hidden', view === 'cities');
+    document.getElementById('salas-empty').classList.add('hidden');
+    document.getElementById('salas-cities').classList.toggle('hidden', view !== 'cities');
+    document.getElementById('salas-centers').classList.toggle('hidden', view !== 'centers');
+    document.getElementById('salas-layout').classList.toggle('hidden', view !== 'rooms');
+    if (view !== 'rooms') current.sala = null;
+    if (view !== 'centers') current.centro = view === 'rooms' ? current.centro : null;
   }
-
 </script>
