@@ -1332,6 +1332,7 @@ function crearSala(sala) {
   const idxId           = h('ID Sala');
   const idxCentro       = h('Centro');
   const idxCiudad       = h('Ciudad');
+  const idxDir          = h('Direccion Centro');
   const idxNombre       = h('Nombre');
   const idxCapacidad    = h('Capacidad');
   const idxEquipamiento = h('Equipamiento');
@@ -1354,6 +1355,7 @@ function crearSala(sala) {
   if (idxId           !== -1) row[idxId]           = idSala;
   if (idxCentro       !== -1) row[idxCentro]       = sala.Centro || '';
   if (idxCiudad       !== -1) row[idxCiudad]       = sala.Ciudad || '';
+  if (idxDir          !== -1) row[idxDir]          = sala.DireccionCentro || sala['Direccion Centro'] || '';
   if (idxNombre       !== -1) row[idxNombre]       = sala.Nombre || '';
   if (idxCapacidad    !== -1) row[idxCapacidad]    = sala.Capacidad || '';
   if (idxEquipamiento !== -1) row[idxEquipamiento] = sala.Equipamiento || '';
@@ -1373,6 +1375,7 @@ function actualizarSala(sala) {
   const idxId           = h('ID Sala');
   const idxCentro       = h('Centro');
   const idxCiudad       = h('Ciudad');
+  const idxDir          = h('Direccion Centro');  
   const idxNombre       = h('Nombre');
   const idxCapacidad    = h('Capacidad');
   const idxEquipamiento = h('Equipamiento');
@@ -1389,6 +1392,7 @@ function actualizarSala(sala) {
       const rowNumber = i + 2; // +1 por cabecera y +1 para 1-based
       if (idxCentro       !== -1) sheet.getRange(rowNumber, idxCentro + 1).setValue(sala.Centro || '');
       if (idxCiudad       !== -1) sheet.getRange(rowNumber, idxCiudad + 1).setValue(sala.Ciudad || '');
+      if (idxDir          !== -1) sheet.getRange(rowNumber, idxDir + 1).setValue(sala.DireccionCentro || sala['Direccion Centro'] || '');
       if (idxNombre       !== -1) sheet.getRange(rowNumber, idxNombre + 1).setValue(sala.Nombre || '');
       if (idxCapacidad    !== -1) sheet.getRange(rowNumber, idxCapacidad + 1).setValue(sala.Capacidad || '');
       if (idxEquipamiento !== -1) sheet.getRange(rowNumber, idxEquipamiento + 1).setValue(sala.Equipamiento || '');
@@ -1624,5 +1628,3 @@ function importarUsuariosDesdeExcel(data) {
 
   return `Importación completada. Nuevos: ${nuevos}, ya existentes: ${duplicados}`;
 }
-
-
