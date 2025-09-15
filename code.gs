@@ -3,6 +3,8 @@ const USUARIOS_SHEET    = 'Usuarios';
 const SHEET_NAME        = 'Salas';
 const RESERVAS_SHEET    = 'Reservas';
 const CAMBIOS_RESERVAS_SHEET = 'Cambios reservas';
+const CIUDADES_SHEET    = 'Ciudades';
+const CENTROS_SHEET     = 'Centros';
 // Dirección que recibirá copia de cada reserva
 const RESPONSABLE_EMAIL = 'francisco.benavente.salgado@intelcia.com';
 // URL de la webapp para incluir enlaces en los correos
@@ -161,6 +163,36 @@ function getAllUsuarios() {
   });
 }
 
+/** Devuelve todas las ciudades de la hoja 'Ciudades' */
+function getAllCiudades() {
+  const ss    = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = getSheetByNameIC(ss, CIUDADES_SHEET);
+  if (!sheet) return [];
+  const values = sheet.getDataRange().getValues();
+  if (values.length < 2) return [];
+  const headers = values.shift().map(h => String(h).trim());
+  return values.map(r => {
+    const o = {};
+    headers.forEach((h, i) => o[h] = r[i]);
+    return o;
+  });
+}
+
+/** Devuelve todos los centros de la hoja 'Centros' */
+function getAllCentros() {
+  const ss    = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = getSheetByNameIC(ss, CENTROS_SHEET);
+  if (!sheet) return [];
+  const values = sheet.getDataRange().getValues();
+  if (values.length < 2) return [];
+  const headers = values.shift().map(h => String(h).trim());
+  return values.map(r => {
+    const o = {};
+    headers.forEach((h, i) => o[h] = r[i]);
+    return o;
+  });
+}
+
 /** Devuelve la lista de roles (columna A de la hoja 'Roles') */
 function getRoles() {
   // Lee la hoja 'Roles' (columna A) y devuelve la lista única de roles.
@@ -258,25 +290,19 @@ function eliminarUsuario(email) {
 
 /** Devuelve lista única de ciudades */
 function getCiudades() {
-  // Devuelve la lista única de ciudades definidas en 'Salas'.
-  return [...new Set(
-    getAllSalas()
-      .map(r => String(r.Ciudad || '').trim())
-      .filter(v => v)
-  )].sort();
+  return getAllCiudades()
+    .map(c => String(c['Nombre Ciudad'] || c.NombreCiudad || c.Nombre || '').trim())
+    .filter(v => v)
+    .sort();
 }
 
-/** Devuelve lista única de centros (opcionalmente filtrada por ciudad) */
+/** Devuelve lista única de centros (sin filtrar por ciudad) */
 function getCentros(ciudad) {
-  // Devuelve centros únicos, opcionalmente filtrados por ciudad.
-  ciudad = normalize(ciudad);
-  const all = getAllSalas();
-  return [...new Set(
-    all
-      .filter(r => !ciudad || normalize(r.Ciudad) === ciudad)
-      .map(r => String(r.Centro || '').trim())
-      .filter(v => v)
-  )].sort();
+  // La tabla de centros no está vinculada directamente a ciudades.
+  return getAllCentros()
+    .map(c => String(c['Nombre Centro'] || c.NombreCentro || c.Nombre || '').trim())
+    .filter(v => v)
+    .sort();
 }
 
 /** Devuelve lista única de salas (filtrada por ciudad y centro) */
@@ -1332,7 +1358,6 @@ function crearSala(sala) {
   const idxId           = h('ID Sala');
   const idxCentro       = h('Centro');
   const idxCiudad       = h('Ciudad');
-  const idxDir          = h('Direccion Centro');
   const idxNombre       = h('Nombre');
   const idxCapacidad    = h('Capacidad');
   const idxEquipamiento = h('Equipamiento');
@@ -1355,7 +1380,6 @@ function crearSala(sala) {
   if (idxId           !== -1) row[idxId]           = idSala;
   if (idxCentro       !== -1) row[idxCentro]       = sala.Centro || '';
   if (idxCiudad       !== -1) row[idxCiudad]       = sala.Ciudad || '';
-  if (idxDir          !== -1) row[idxDir]          = sala.DireccionCentro || sala['Direccion Centro'] || '';
   if (idxNombre       !== -1) row[idxNombre]       = sala.Nombre || '';
   if (idxCapacidad    !== -1) row[idxCapacidad]    = sala.Capacidad || '';
   if (idxEquipamiento !== -1) row[idxEquipamiento] = sala.Equipamiento || '';
@@ -1375,7 +1399,6 @@ function actualizarSala(sala) {
   const idxId           = h('ID Sala');
   const idxCentro       = h('Centro');
   const idxCiudad       = h('Ciudad');
-  const idxDir          = h('Direccion Centro');  
   const idxNombre       = h('Nombre');
   const idxCapacidad    = h('Capacidad');
   const idxEquipamiento = h('Equipamiento');
@@ -1392,7 +1415,6 @@ function actualizarSala(sala) {
       const rowNumber = i + 2; // +1 por cabecera y +1 para 1-based
       if (idxCentro       !== -1) sheet.getRange(rowNumber, idxCentro + 1).setValue(sala.Centro || '');
       if (idxCiudad       !== -1) sheet.getRange(rowNumber, idxCiudad + 1).setValue(sala.Ciudad || '');
-      if (idxDir          !== -1) sheet.getRange(rowNumber, idxDir + 1).setValue(sala.DireccionCentro || sala['Direccion Centro'] || '');
       if (idxNombre       !== -1) sheet.getRange(rowNumber, idxNombre + 1).setValue(sala.Nombre || '');
       if (idxCapacidad    !== -1) sheet.getRange(rowNumber, idxCapacidad + 1).setValue(sala.Capacidad || '');
       if (idxEquipamiento !== -1) sheet.getRange(rowNumber, idxEquipamiento + 1).setValue(sala.Equipamiento || '');
@@ -1417,6 +1439,148 @@ function eliminarSala(idSala) {
   for (let i = 0; i < rows.length; i++) {
     if (String(rows[i][idxId]).trim() === targetId) {
       sheet.deleteRow(i + 2); // +1 cabecera +1 base-1
+      return true;
+    }
+  }
+  return false;
+}
+
+/** ========= CRUD CIUDADES ========= **/
+
+function _getCiudadesSheet_() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = getSheetByNameIC(ss, CIUDADES_SHEET);
+  if (!sheet) throw new Error(`Hoja '${CIUDADES_SHEET}' no encontrada`);
+  return sheet;
+}
+
+function _readCiudadesTable_() {
+  const sheet = _getCiudadesSheet_();
+  const values = sheet.getDataRange().getValues();
+  if (values.length < 2) return { headers: [], rows: [], sheet };
+  const headers = values.shift().map(h => String(h).trim());
+  return { headers, rows: values, sheet };
+}
+
+function crearCiudad(ciudad) {
+  const { headers, sheet } = _readCiudadesTable_();
+  const h = (n) => _indexOfHeader_(headers, n);
+  const idxId = h('ID Ciudad');
+  const idxNombre = h('Nombre Ciudad');
+  const id = ciudad.idCiudad && String(ciudad.idCiudad).trim() ? String(ciudad.idCiudad).trim() : 'C' + Date.now();
+  const { rows } = _readCiudadesTable_();
+  if (rows.some(r => idxId !== -1 && String(r[idxId]).trim() === id)) throw new Error('Ya existe una ciudad con ese ID.');
+  const row = headers.map(() => '');
+  if (idxId !== -1) row[idxId] = id;
+  if (idxNombre !== -1) row[idxNombre] = ciudad.NombreCiudad || ciudad.nombre || '';
+  sheet.appendRow(row);
+  return id;
+}
+
+function actualizarCiudad(ciudad) {
+  const { headers, rows, sheet } = _readCiudadesTable_();
+  const h = (n) => _indexOfHeader_(headers, n);
+  const idxId = h('ID Ciudad');
+  const idxNombre = h('Nombre Ciudad');
+  if (idxId === -1) throw new Error("No se encuentra la columna 'ID Ciudad'.");
+  const id = String(ciudad.idCiudad || ciudad['ID Ciudad'] || '').trim();
+  for (let i = 0; i < rows.length; i++) {
+    if (String(rows[i][idxId]).trim() === id) {
+      const row = i + 2;
+      if (idxNombre !== -1) sheet.getRange(row, idxNombre + 1).setValue(ciudad.NombreCiudad || ciudad.nombre || '');
+      return true;
+    }
+  }
+  throw new Error('Ciudad no encontrada.');
+}
+
+function eliminarCiudad(idCiudad) {
+  const { headers, rows, sheet } = _readCiudadesTable_();
+  const idxId = _indexOfHeader_(headers, 'ID Ciudad');
+  if (idxId === -1) throw new Error("No se encuentra la columna 'ID Ciudad'.");
+  const id = String(idCiudad || '').trim();
+  for (let i = 0; i < rows.length; i++) {
+    if (String(rows[i][idxId]).trim() === id) {
+      sheet.deleteRow(i + 2);
+      return true;
+    }
+  }
+  return false;
+}
+
+/** ========= CRUD CENTROS ========= **/
+
+function _getCentrosSheet_() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = getSheetByNameIC(ss, CENTROS_SHEET);
+  if (!sheet) throw new Error(`Hoja '${CENTROS_SHEET}' no encontrada`);
+  return sheet;
+}
+
+function _readCentrosTable_() {
+  const sheet = _getCentrosSheet_();
+  const values = sheet.getDataRange().getValues();
+  if (values.length < 2) return { headers: [], rows: [], sheet };
+  const headers = values.shift().map(h => String(h).trim());
+  return { headers, rows: values, sheet };
+}
+
+function crearCentro(centro) {
+  const { headers, sheet } = _readCentrosTable_();
+  const h = (n) => _indexOfHeader_(headers, n);
+  const idxId   = h('ID Centro');
+  const idxNom  = h('Nombre Centro');
+  const idxDir  = h('Direccion Centro');
+  const idxTel  = h('Telefono');
+  const idxEmail= h('Email');
+  const idxResp = h('Responsable');
+  const id = centro.idCentro && String(centro.idCentro).trim() ? String(centro.idCentro).trim() : 'CT' + Date.now();
+  const { rows } = _readCentrosTable_();
+  if (rows.some(r => idxId !== -1 && String(r[idxId]).trim() === id)) throw new Error('Ya existe un centro con ese ID.');
+  const row = headers.map(() => '');
+  if (idxId   !== -1) row[idxId]   = id;
+  if (idxNom  !== -1) row[idxNom]  = centro.NombreCentro || centro.nombre || '';
+  if (idxDir  !== -1) row[idxDir]  = centro.DireccionCentro || centro['Direccion Centro'] || '';
+  if (idxTel  !== -1) row[idxTel]  = centro.Telefono || '';
+  if (idxEmail!== -1) row[idxEmail]= centro.Email || '';
+  if (idxResp !== -1) row[idxResp] = centro.Responsable || '';
+  sheet.appendRow(row);
+  return id;
+}
+
+function actualizarCentro(centro) {
+  const { headers, rows, sheet } = _readCentrosTable_();
+  const h = (n) => _indexOfHeader_(headers, n);
+  const idxId   = h('ID Centro');
+  const idxNom  = h('Nombre Centro');
+  const idxDir  = h('Direccion Centro');
+  const idxTel  = h('Telefono');
+  const idxEmail= h('Email');
+  const idxResp = h('Responsable');
+  if (idxId === -1) throw new Error("No se encuentra la columna 'ID Centro'.");
+  const id = String(centro.idCentro || centro['ID Centro'] || '').trim();
+  for (let i = 0; i < rows.length; i++) {
+    if (String(rows[i][idxId]).trim() === id) {
+      const row = i + 2;
+      if (idxNom  !== -1) sheet.getRange(row, idxNom  + 1).setValue(centro.NombreCentro || centro.nombre || '');
+      if (idxDir  !== -1) sheet.getRange(row, idxDir  + 1).setValue(centro.DireccionCentro || centro['Direccion Centro'] || '');
+      if (idxTel  !== -1) sheet.getRange(row, idxTel  + 1).setValue(centro.Telefono || '');
+      if (idxEmail!== -1) sheet.getRange(row, idxEmail+ 1).setValue(centro.Email || '');
+      if (idxResp !== -1) sheet.getRange(row, idxResp + 1).setValue(centro.Responsable || '');
+      return true;
+    }
+  }
+  throw new Error('Centro no encontrado.');
+}
+
+function eliminarCentro(idCentro) {
+  const { headers, rows, sheet } = _readCentrosTable_();
+  const idxId = _indexOfHeader_(headers, 'ID Centro');
+  if (idxId === -1) throw new Error("No se encuentra la columna 'ID Centro'.");
+  const id = String(idCentro || '').trim();
+  for (let i = 0; i < rows.length; i++) {
+    if (String(rows[i][idxId]).trim() === id) {
+      sheet.deleteRow(i + 2);
       return true;
     }
   }
