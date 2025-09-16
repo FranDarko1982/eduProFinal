@@ -559,7 +559,9 @@ const PanelAdmin = (() => {
       fileInput.value = '';
       return;
     }
-    if (!/^image\/png$/i.test(file.type)) {
+  
+    const mimeType = (file.type || 'image/png').toLowerCase();
+    if (mimeType && !/^image\/(x-)?png$/.test(mimeType)) {
       alert('Solo se permiten imágenes en formato PNG.');
       fileInput.value = '';
       currentCiudadImageId = null;
@@ -570,31 +572,44 @@ const PanelAdmin = (() => {
     const reader = new FileReader();
     if (typeof showSpinner === 'function') showSpinner();
     reader.onload = function(ev) {
-      const dataUrl = ev.target && ev.target.result;
-      google.script.run
-        .withSuccessHandler(() => {
-          if (typeof hideSpinner === 'function') hideSpinner();
-          currentCiudadImageId = null;
-          currentCiudadImageName = '';
-          fileInput.value = '';
-          cargarCiudades();
-          showInfoModal('Imagen de la ciudad actualizada correctamente.', '¡Imagen actualizada!');
-        })
-        .withFailureHandler(err => {
-          if (typeof hideSpinner === 'function') hideSpinner();
-          currentCiudadImageId = null;
-          currentCiudadImageName = '';
-          fileInput.value = '';
-          console.error(err);
-          alert('Error subiendo la imagen de la ciudad.');
-        })
-        .uploadCiudadImagen({
-          idCiudad: currentCiudadImageId,
-          nombreCiudad: currentCiudadImageName,
-          fileName: file.name,
-          mimeType: file.type,
-          dataUrl: dataUrl
-        });
+      try {
+        const buffer = ev.target && ev.target.result;
+        if (!(buffer instanceof ArrayBuffer)) throw new Error('Archivo inválido');
+        const bytes = Array.from(new Uint8Array(buffer));
+
+        google.script.run
+          .withSuccessHandler(() => {
+            if (typeof hideSpinner === 'function') hideSpinner();
+            currentCiudadImageId = null;
+            currentCiudadImageName = '';
+            fileInput.value = '';
+            cargarCiudades();
+            showInfoModal('Imagen de la ciudad actualizada correctamente.', '¡Imagen actualizada!');
+          })
+          .withFailureHandler(err => {
+            if (typeof hideSpinner === 'function') hideSpinner();
+            currentCiudadImageId = null;
+            currentCiudadImageName = '';
+            fileInput.value = '';
+            console.error(err);
+            const msg = err && err.message ? err.message : err;
+            alert('Error subiendo la imagen de la ciudad.' + (msg ? '\n\n' + msg : ''));
+          })
+          .uploadCiudadImagen({
+            idCiudad: currentCiudadImageId,
+            nombreCiudad: currentCiudadImageName,
+            fileName: file.name,
+            mimeType: mimeType,
+            bytes: bytes
+          });
+      } catch (error) {
+        if (typeof hideSpinner === 'function') hideSpinner();
+        currentCiudadImageId = null;
+        currentCiudadImageName = '';
+        fileInput.value = '';
+        console.error(error);
+        alert('No se pudo leer el archivo seleccionado.');
+      }
     };
     reader.onerror = function() {
       if (typeof hideSpinner === 'function') hideSpinner();
@@ -603,7 +618,7 @@ const PanelAdmin = (() => {
       fileInput.value = '';
       alert('No se pudo leer el archivo seleccionado.');
     };
-    reader.readAsDataURL(file);
+    reader.readAsArrayBuffer(file);
   }
 
   function submitCiudad(e) {
