@@ -1570,9 +1570,11 @@ function _extractDriveFileId_(url) {
 
 function uploadCiudadImagen(data) {
   if (!data || !data.idCiudad) throw new Error('ID de ciudad no proporcionado.');
-  if (!data.dataUrl) throw new Error('Imagen no proporcionada.');
-  const mime = String(data.mimeType || '').toLowerCase();
-  if (mime && mime !== 'image/png') throw new Error('Solo se permiten imágenes PNG.');
+
+  const allowedMimes = ['image/png', 'image/x-png'];
+  let mime = String(data.mimeType || '').toLowerCase();
+  if (mime && allowedMimes.indexOf(mime) === -1) throw new Error('Solo se permiten imágenes PNG.');
+  if (!mime) mime = 'image/png';
 
   const { headers, rows, sheet } = _readCiudadesTable_();
   const idxId = _indexOfHeader_(headers, 'ID Ciudad');
@@ -1583,18 +1585,35 @@ function uploadCiudadImagen(data) {
   const rowIndex = rows.findIndex(r => String(r[idxId]).trim() === id);
   if (rowIndex === -1) throw new Error('Ciudad no encontrada.');
 
-  let base64 = String(data.dataUrl);
-  const base64Index = base64.indexOf('base64,');
-  if (base64Index !== -1) {
-    base64 = base64.substring(base64Index + 7);
+  let bytes = [];
+  if (Array.isArray(data.bytes) && data.bytes.length) {
+    bytes = data.bytes;
+  } else if (data.bytes && typeof data.bytes.length === 'number') {
+    bytes = Array.from(data.bytes);
+  } else if (Array.isArray(data.content) && data.content.length) {
+    bytes = data.content;
+  } else if (data.dataUrl) {
+    let base64 = String(data.dataUrl);
+    const base64Index = base64.indexOf('base64,');
+    if (base64Index !== -1) {
+      base64 = base64.substring(base64Index + 7);
+    }
+    base64 = base64.trim();
+    if (!base64) throw new Error('Datos de imagen inválidos.');
+    bytes = Utilities.base64Decode(base64);
+  } else {
+    throw new Error('Imagen no proporcionada.');
   }
-  if (!base64) throw new Error('Datos de imagen inválidos.');
 
-  const bytes = Utilities.base64Decode(base64);
+  if (bytes instanceof Uint8Array) {
+    bytes = Array.from(bytes);
+  }
+  if (!bytes || !bytes.length) throw new Error('Datos de imagen inválidos.');
+
   const fileNameRaw = data.fileName && String(data.fileName).trim() ? String(data.fileName).trim() : `${id}.png`;
   const fileName = fileNameRaw.toLowerCase().endsWith('.png') ? fileNameRaw : `${fileNameRaw}.png`;
   const folder = _getCiudadImagesFolder_();
-  const blob = Utilities.newBlob(bytes, MimeType.PNG, fileName);
+  const blob = Utilities.newBlob(bytes, 'image/png', fileName);
   const file = folder.createFile(blob);
   file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
 
