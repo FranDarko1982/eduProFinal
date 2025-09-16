@@ -5,6 +5,7 @@ const RESERVAS_SHEET    = 'Reservas';
 const CAMBIOS_RESERVAS_SHEET = 'Cambios reservas';
 const CIUDADES_SHEET    = 'Ciudades';
 const CENTROS_SHEET     = 'Centros';
+const CITY_IMAGES_FOLDER_NAME = 'ReservaSalas_Ciudades';
 // Dirección que recibirá copia de cada reserva
 const RESPONSABLE_EMAIL = 'francisco.benavente.salgado@intelcia.com';
 // URL de la webapp para incluir enlaces en los correos
@@ -1456,10 +1457,40 @@ function _getCiudadesSheet_() {
 
 function _readCiudadesTable_() {
   const sheet = _getCiudadesSheet_();
-  const values = sheet.getDataRange().getValues();
-  if (values.length < 2) return { headers: [], rows: [], sheet };
+  const lastRow = sheet.getLastRow();
+  const lastCol = sheet.getLastColumn();
+  if (lastRow < 1 || lastCol < 1) {
+    return { headers: [], rows: [], sheet };
+  }
+  const values = sheet.getRange(1, 1, lastRow, lastCol).getValues();
+  if (!values.length) return { headers: [], rows: [], sheet };
   const headers = values.shift().map(h => String(h).trim());
-  return { headers, rows: values, sheet };
+  const rows = values;
+  _ensureCiudadImagenColumn_(sheet, headers, rows);
+  return { headers, rows, sheet };
+}
+
+function _ensureCiudadImagenColumn_(sheet, headers, rows) {
+  if (!Array.isArray(headers)) return -1;
+  let idx = _indexOfHeader_(headers, 'Imagen Ciudad');
+  if (idx !== -1) return idx;
+  if (!headers.length) {
+    sheet.getRange(1, 1).setValue('Imagen Ciudad');
+    headers.push('Imagen Ciudad');
+    if (Array.isArray(rows)) rows.forEach(r => r.push(''));
+    return 0;
+  }
+  const colPosition = headers.length;
+  sheet.insertColumnAfter(colPosition);
+  const newCol = colPosition + 1;
+  sheet.getRange(1, newCol).setValue('Imagen Ciudad');
+  const lastRow = sheet.getLastRow();
+  if (lastRow > 1) {
+    sheet.getRange(2, newCol, lastRow - 1).clearContent();
+  }
+  headers.push('Imagen Ciudad');
+  if (Array.isArray(rows)) rows.forEach(r => r.push(''));
+  return headers.length - 1;
 }
 
 function crearCiudad(ciudad) {
@@ -1467,12 +1498,14 @@ function crearCiudad(ciudad) {
   const h = (n) => _indexOfHeader_(headers, n);
   const idxId = h('ID Ciudad');
   const idxNombre = h('Nombre Ciudad');
+  const idxImagen = h('Imagen Ciudad');  
   const id = ciudad.idCiudad && String(ciudad.idCiudad).trim() ? String(ciudad.idCiudad).trim() : 'C' + Date.now();
   const { rows } = _readCiudadesTable_();
   if (rows.some(r => idxId !== -1 && String(r[idxId]).trim() === id)) throw new Error('Ya existe una ciudad con ese ID.');
   const row = headers.map(() => '');
   if (idxId !== -1) row[idxId] = id;
   if (idxNombre !== -1) row[idxNombre] = ciudad.NombreCiudad || ciudad.nombre || '';
+  if (idxImagen !== -1) row[idxImagen] = ciudad['Imagen Ciudad'] || ciudad.ImagenCiudad || ciudad.imagen || '';
   sheet.appendRow(row);
   return id;
 }
@@ -1482,12 +1515,16 @@ function actualizarCiudad(ciudad) {
   const h = (n) => _indexOfHeader_(headers, n);
   const idxId = h('ID Ciudad');
   const idxNombre = h('Nombre Ciudad');
+  const idxImagen = h('Imagen Ciudad');
   if (idxId === -1) throw new Error("No se encuentra la columna 'ID Ciudad'.");
   const id = String(ciudad.idCiudad || ciudad['ID Ciudad'] || '').trim();
   for (let i = 0; i < rows.length; i++) {
     if (String(rows[i][idxId]).trim() === id) {
       const row = i + 2;
       if (idxNombre !== -1) sheet.getRange(row, idxNombre + 1).setValue(ciudad.NombreCiudad || ciudad.nombre || '');
+      if (idxImagen !== -1 && (ciudad['Imagen Ciudad'] || ciudad.ImagenCiudad || ciudad.imagen)) {
+        sheet.getRange(row, idxImagen + 1).setValue(ciudad['Imagen Ciudad'] || ciudad.ImagenCiudad || ciudad.imagen || '');
+      }
       return true;
     }
   }
@@ -1497,15 +1534,79 @@ function actualizarCiudad(ciudad) {
 function eliminarCiudad(idCiudad) {
   const { headers, rows, sheet } = _readCiudadesTable_();
   const idxId = _indexOfHeader_(headers, 'ID Ciudad');
+  const idxImagen = _indexOfHeader_(headers, 'Imagen Ciudad');
   if (idxId === -1) throw new Error("No se encuentra la columna 'ID Ciudad'.");
   const id = String(idCiudad || '').trim();
   for (let i = 0; i < rows.length; i++) {
     if (String(rows[i][idxId]).trim() === id) {
+      if (idxImagen !== -1) {
+        const prev = String(rows[i][idxImagen] || '').trim();
+        const fileId = _extractDriveFileId_(prev);
+        if (fileId) {
+          try { DriveApp.getFileById(fileId).setTrashed(true); } catch (err) { Logger.log('No se pudo eliminar la imagen de ciudad: ' + err); }
+        }
+      }
       sheet.deleteRow(i + 2);
       return true;
     }
   }
   return false;
+}
+
+function _getCiudadImagesFolder_() {
+  const folders = DriveApp.getFoldersByName(CITY_IMAGES_FOLDER_NAME);
+  if (folders.hasNext()) return folders.next();
+  return DriveApp.createFolder(CITY_IMAGES_FOLDER_NAME);
+}
+
+function _extractDriveFileId_(url) {
+  if (!url) return '';
+  const str = String(url);
+  const idParam = str.indexOf('id=') !== -1 ? str.split('id=')[1].split('&')[0] : '';
+  if (idParam) return decodeURIComponent(idParam);
+  const match = str.match(/[-\w]{25,}/);
+  return match ? match[0] : '';
+}
+
+function uploadCiudadImagen(data) {
+  if (!data || !data.idCiudad) throw new Error('ID de ciudad no proporcionado.');
+  if (!data.dataUrl) throw new Error('Imagen no proporcionada.');
+  const mime = String(data.mimeType || '').toLowerCase();
+  if (mime && mime !== 'image/png') throw new Error('Solo se permiten imágenes PNG.');
+
+  const { headers, rows, sheet } = _readCiudadesTable_();
+  const idxId = _indexOfHeader_(headers, 'ID Ciudad');
+  const idxImagen = _indexOfHeader_(headers, 'Imagen Ciudad');
+  if (idxId === -1 || idxImagen === -1) throw new Error('Estructura de la tabla de ciudades no válida.');
+
+  const id = String(data.idCiudad).trim();
+  const rowIndex = rows.findIndex(r => String(r[idxId]).trim() === id);
+  if (rowIndex === -1) throw new Error('Ciudad no encontrada.');
+
+  let base64 = String(data.dataUrl);
+  const base64Index = base64.indexOf('base64,');
+  if (base64Index !== -1) {
+    base64 = base64.substring(base64Index + 7);
+  }
+  if (!base64) throw new Error('Datos de imagen inválidos.');
+
+  const bytes = Utilities.base64Decode(base64);
+  const fileNameRaw = data.fileName && String(data.fileName).trim() ? String(data.fileName).trim() : `${id}.png`;
+  const fileName = fileNameRaw.toLowerCase().endsWith('.png') ? fileNameRaw : `${fileNameRaw}.png`;
+  const folder = _getCiudadImagesFolder_();
+  const blob = Utilities.newBlob(bytes, MimeType.PNG, fileName);
+  const file = folder.createFile(blob);
+  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+
+  const prevUrl = String(rows[rowIndex][idxImagen] || '').trim();
+  const prevId = _extractDriveFileId_(prevUrl);
+  if (prevId) {
+    try { DriveApp.getFileById(prevId).setTrashed(true); } catch (err) { Logger.log('No se pudo eliminar la imagen anterior de la ciudad: ' + err); }
+  }
+
+  const viewUrl = `https://drive.google.com/uc?export=view&id=${file.getId()}`;
+  sheet.getRange(rowIndex + 2, idxImagen + 1).setValue(viewUrl);
+  return viewUrl;
 }
 
 /** ========= CRUD CENTROS ========= **/
