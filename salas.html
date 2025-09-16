@@ -27,9 +27,43 @@
   const userRole = (window.USER_ROLE || '').toLowerCase();
   let salasOriginales = [];
   let centrosInfo = {};
-  let ciudadesInfo = {};
+  let ciudadesInfo = Object.create(null);
   let current = { ciudad: null, centro: null, sala: null };
   let currentRooms = [];
+
+  function normalizarClaveCiudad(valor) {
+    if (!valor) return '';
+    let texto = String(valor).trim().toLowerCase();
+    if (typeof String.prototype.normalize === 'function') {
+      try {
+        return texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      } catch (error) {
+        // Si falla seguimos con la aproximación manual de abajo.
+      }
+    }
+    return texto
+      .replace(/[áàäâãå]/g, 'a')
+      .replace(/[éèëê]/g, 'e')
+      .replace(/[íìïî]/g, 'i')
+      .replace(/[óòöôõ]/g, 'o')
+      .replace(/[úùüû]/g, 'u')
+      .replace(/ñ/g, 'n')
+      .replace(/ç/g, 'c');
+  }
+
+  function guardarCiudadInfo(nombre, datos) {
+    if (!nombre) return;
+    ciudadesInfo[nombre] = datos;
+    const clave = normalizarClaveCiudad(nombre);
+    if (clave && clave !== nombre) {
+      ciudadesInfo[clave] = datos;
+    }
+  }
+
+  function obtenerCiudadInfo(nombre) {
+    if (!nombre) return null;
+    return ciudadesInfo[nombre] || ciudadesInfo[normalizarClaveCiudad(nombre)] || null;
+  }
 
   document.addEventListener('DOMContentLoaded', () => {
     showSkeletons(4);
@@ -40,10 +74,10 @@
   function cargarCiudades() {
     google.script.run
       .withSuccessHandler(ciudades => {
-        ciudadesInfo = {};
+        ciudadesInfo = Object.create(null);
         (Array.isArray(ciudades) ? ciudades : []).forEach(c => {
           const nombre = String(c['Nombre Ciudad'] || c.NombreCiudad || c.Nombre || '').trim();
-          if (nombre) ciudadesInfo[nombre] = c;
+          if (nombre) guardarCiudadInfo(nombre, c);
         });
         cargarCentros();
       })
@@ -202,7 +236,7 @@
   function renderCiudadImagen() {
     const img = document.getElementById('salas-city-image');
     const placeholder = document.getElementById('salas-city-image-empty');
-    const ciudad = ciudadesInfo[current.ciudad] || {};
+    const ciudad = obtenerCiudadInfo(current.ciudad) || {};
     const url = ciudad['Imagen Ciudad'] || ciudad.ImagenCiudad || ciudad.Imagen || ciudad.Plano || '';
     if (url) {
       img.src = url;
