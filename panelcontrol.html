@@ -106,13 +106,15 @@
         <thead>
           <tr>
             <th>ID Ciudad</th>
-            <th>Nombre Ciudad</th>
+            <th>Ciudad</th>
+            <th>Imagen Ciudad</th>
             <th>Acciones</th>
           </tr>
         </thead>
         <tbody></tbody>
       </table>
     </div>
+    <input type="file" id="ciudadImageInput" accept="image/png" class="hidden" />
   </div>
 
   <!-- ======= Panel Centros ======= -->
@@ -298,6 +300,8 @@ const PanelAdmin = (() => {
   let currentSalaId = null;   // null => creando
   let currentEmail = null;    // null => creando
   let currentCiudadId = null;
+  let currentCiudadImageId = null;
+  let currentCiudadImageName = '';
   let currentCentroId = null;
   let deleteSalaId = null;
   let deleteEmail = null;
@@ -485,15 +489,31 @@ const PanelAdmin = (() => {
     tbody.innerHTML = '';
     list.forEach(c => {
       const tr = document.createElement('tr');
-      ['ID Ciudad','Nombre Ciudad'].forEach(k => {
+      ['ID Ciudad','Ciudad','Imagen Ciudad'].forEach(k => {
         const td = document.createElement('td');
-        td.textContent = safe(c[k]);
+        const value = (k === 'Ciudad') ? (c['Ciudad'] || c['Nombre Ciudad']) : c[k];
+        if (k === 'Imagen Ciudad') {
+          const url = safe(c[k]);
+          if (url) {
+            const link = document.createElement('a');
+            link.href = url;
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            link.textContent = 'Ver imagen';
+            td.appendChild(link);
+          } else {
+            td.textContent = '—';
+          }
+        } else {
+          td.textContent = safe(c[k]);
+        }
         tr.appendChild(td);
       });
       const tdAct = document.createElement('td');
       tdAct.className = 'actions';
       const id = safe(c['ID Ciudad']).toString().replace(/"/g,'&quot;');
       tdAct.innerHTML = `
+        <button onclick="PanelAdmin.openCiudadImageDialog('${id}')" title="Cargar imagen">🖼️</button>
         <button onclick="PanelAdmin.openCiudadEditModal('${id}')" title="Editar">✏️</button>
         <button onclick="PanelAdmin.openCiudadDeleteModal('${id}')" title="Eliminar">🗑️</button>
       `;
@@ -515,16 +535,82 @@ const PanelAdmin = (() => {
     currentCiudadId = String(id);
     qs('#editCiudadModal h2').textContent = 'Editar Ciudad';
     qs('#ciudadId').value = safe(c['ID Ciudad']);
-    qs('#ciudadNombre').value = safe(c['Nombre Ciudad']);
+    qs('#ciudadNombre').value = safe(c['Ciudad'] || c['Nombre Ciudad']);
     qs('#editCiudadModal').classList.add('activo');
   }
   function closeCiudadEditModal() { qs('#editCiudadModal').classList.remove('activo'); }
+
+  function openCiudadImageDialog(id) {
+    const ciudad = ciudadesOriginales.find(x => String(x['ID Ciudad']) === String(id));
+    if (!ciudad) return;
+    currentCiudadImageId = String(id);
+    currentCiudadImageName = safe(ciudad['Nombre Ciudad']);
+    const input = qs('#ciudadImageInput');
+    if (!input) return;
+    input.value = '';
+    input.click();
+  }
+
+  function handleCiudadImageSelected(e) {
+    const fileInput = e.target;
+    const file = fileInput.files && fileInput.files[0];
+    if (!file) return;
+    if (!currentCiudadImageId) {
+      fileInput.value = '';
+      return;
+    }
+    if (!/^image\/png$/i.test(file.type)) {
+      alert('Solo se permiten imágenes en formato PNG.');
+      fileInput.value = '';
+      currentCiudadImageId = null;
+      currentCiudadImageName = '';
+      return;
+    }
+
+    const reader = new FileReader();
+    if (typeof showSpinner === 'function') showSpinner();
+    reader.onload = function(ev) {
+      const dataUrl = ev.target && ev.target.result;
+      google.script.run
+        .withSuccessHandler(() => {
+          if (typeof hideSpinner === 'function') hideSpinner();
+          currentCiudadImageId = null;
+          currentCiudadImageName = '';
+          fileInput.value = '';
+          cargarCiudades();
+          showInfoModal('Imagen de la ciudad actualizada correctamente.', '¡Imagen actualizada!');
+        })
+        .withFailureHandler(err => {
+          if (typeof hideSpinner === 'function') hideSpinner();
+          currentCiudadImageId = null;
+          currentCiudadImageName = '';
+          fileInput.value = '';
+          console.error(err);
+          alert('Error subiendo la imagen de la ciudad.');
+        })
+        .uploadCiudadImagen({
+          idCiudad: currentCiudadImageId,
+          nombreCiudad: currentCiudadImageName,
+          fileName: file.name,
+          mimeType: file.type,
+          dataUrl: dataUrl
+        });
+    };
+    reader.onerror = function() {
+      if (typeof hideSpinner === 'function') hideSpinner();
+      currentCiudadImageId = null;
+      currentCiudadImageName = '';
+      fileInput.value = '';
+      alert('No se pudo leer el archivo seleccionado.');
+    };
+    reader.readAsDataURL(file);
+  }
 
   function submitCiudad(e) {
     e.preventDefault();
     const payload = {
       idCiudad: qs('#ciudadId').value.trim(),
-      'Nombre Ciudad': qs('#ciudadNombre').value.trim()
+      'Ciudad': qs('#ciudadNombre').value.trim()
     };
     closeCiudadEditModal();
     if (typeof showSpinner === 'function') showSpinner();
@@ -875,6 +961,8 @@ function subirUsuarios() {
     qs('#btnDeleteCiudadCancel').addEventListener('click', closeCiudadDeleteModal);
     qs('#deleteCiudadOverlay').addEventListener('click', e => { if (e.target === e.currentTarget) closeCiudadDeleteModal(); });
     qs('#btnDeleteCiudadOk').addEventListener('click', confirmDeleteCiudad);
+    const ciudadInput = qs('#ciudadImageInput');
+    if (ciudadInput) ciudadInput.addEventListener('change', handleCiudadImageSelected);
 
     // Centros: botones
     qs('#btnAddCentro').addEventListener('click', openCentroAddModal);
@@ -904,6 +992,7 @@ function subirUsuarios() {
     openUserEditModal,
     openUserDeleteModal,
     openCiudadEditModal,
+    openCiudadImageDialog,
     openCiudadDeleteModal,
     openCentroEditModal,
     openCentroDeleteModal
