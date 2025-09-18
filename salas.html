@@ -76,7 +76,13 @@
       .withSuccessHandler(ciudades => {
         ciudadesInfo = Object.create(null);
         (Array.isArray(ciudades) ? ciudades : []).forEach(c => {
-          const nombre = String(c['Nombre Ciudad'] || c.NombreCiudad || c.Nombre || '').trim();
+          const nombre = String(
+            c['Ciudad'] ||
+            c['Nombre Ciudad'] ||
+            c.NombreCiudad ||
+            c.Nombre ||
+            ''
+          ).trim();
           if (nombre) guardarCiudadInfo(nombre, c);
         });
         cargarCentros();
@@ -237,7 +243,13 @@
     const img = document.getElementById('salas-city-image');
     const placeholder = document.getElementById('salas-city-image-empty');
     const ciudad = obtenerCiudadInfo(current.ciudad) || {};
-    const url = ciudad['Imagen Ciudad'] || ciudad.ImagenCiudad || ciudad.Imagen || ciudad.Plano || '';
+    const url =
+      ciudad['Imagen Ciudad'] ||
+      ciudad['Imagen ciudad'] ||
+      ciudad.ImagenCiudad ||
+      ciudad.imagenCiudad ||
+      ciudad.Imagen ||
+      ciudad.Plano || '';
     if (url) {
       img.src = url;
       img.alt = `Mapa de centros de ${current.ciudad}`;
