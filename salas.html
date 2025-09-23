@@ -51,6 +51,29 @@
     }
   };
 
+  const ROOM_ICONS = {
+    centro: {
+      src: 'https://drive.google.com/thumbnail?sz=w1000&id=1ZYyCPVHnfgUPasiAl2fGhDd1GNSou0mn',
+      alt: 'Centro de la sala'
+    },
+    capacidad: {
+      src: 'https://drive.google.com/thumbnail?sz=w1000&id=1wX-Xmw1kwh5f3j25LFaN55WPYK9TTPAI',
+      alt: 'Capacidad de la sala'
+    },
+    equipamiento: {
+      src: 'https://drive.google.com/thumbnail?sz=w1000&id=1-KFgTTT3Wri6uvFc7gXWmGj273KKi-uq',
+      alt: 'Equipamiento disponible en la sala'
+    },
+    software: {
+      src: 'https://drive.google.com/thumbnail?sz=w1000&id=1g1PfNfqGh9oY7vq9GzNS8QfWayANxhMY',
+      alt: 'Software disponible en la sala'
+    },
+    horario: {
+      src: 'https://drive.google.com/thumbnail?sz=w1000&id=10oZbj36hTAS6CaCAIi0lrv-86iD416Xc',
+      alt: 'Horario de la sala'
+    }
+  };
+
   function normalizarClaveCiudad(valor) {
     if (!valor) return '';
     let texto = String(valor).trim().toLowerCase();
@@ -377,10 +400,11 @@
     const img = document.getElementById('salas-plan');
     const info = document.getElementById('salas-info-text');
     document.querySelectorAll('#salas-rooms .sala-card').forEach(card => {
-      card.classList.toggle('selected', s && card.dataset.name === s.Nombre);
+      const targetName = s ? String(s.Nombre || s['Nombre Sala'] || '') : '';
+      card.classList.toggle('selected', Boolean(s) && card.dataset.name === targetName);
     });
     if (s) {
-      current.sala = s.Nombre;
+      current.sala = String(s.Nombre || s['Nombre Sala'] || '');
       if (s.MapaSala || s['Mapa Sala']) {
         img.src = s.MapaSala || s['Mapa Sala'];
         img.classList.remove('hidden');
@@ -508,29 +532,68 @@
   }
 
   function crearSalaCard(s) {
+    const rawNombre = String(s.Nombre || s['Nombre Sala'] || '');
+    const nombre = rawNombre.trim() || 'Sala sin nombre';
+    const centro = String(s.Centro || '').trim();
+    const capacidad = String(s.Capacidad || s['Capacidad'] || '').trim();
+    const equipamiento = String(s.Equipamiento || s['Equipamiento'] || '').trim();
+    const software = String(s.Software || s['Software'] || '').trim();
+    const horario = String(s.Horario || s['Horario'] || '').trim();
+
     const card = document.createElement('div');
-    card.className = 'card sala-card';
-    card.dataset.name = s.Nombre;
+    card.className = 'card sala-card sala-center-card sala-room-card';
+    card.dataset.name = rawNombre;
 
     const head = document.createElement('div');
-    head.className = 'card-head';
+    head.className = 'card-head sala-center-head sala-room-head';
     const h3 = document.createElement('h3');
-    h3.textContent = s.Nombre || '—';
+    h3.className = 'sala-room-title';
+    h3.textContent = nombre;
     head.appendChild(h3);
-    const badges = document.createElement('div');
-    badges.className = 'sala-badges';
-    const cap = document.createElement('span');
-    cap.className = 'sala-badge';
-    cap.textContent = 'Capacidad ' + (s.Capacidad || '—');
-    badges.appendChild(cap);
-    if (s.Equipamiento) {
-      const eq = document.createElement('span');
-      eq.className = 'sala-badge';
-      eq.textContent = s.Equipamiento;
-      badges.appendChild(eq);
-    }
-    head.appendChild(badges);
     card.appendChild(head);
+
+    const body = document.createElement('div');
+    body.className = 'sala-center-body sala-room-body';
+
+    const infoSection = document.createElement('div');
+    infoSection.className = 'sala-center-info sala-room-info';
+
+    [
+      { icon: ROOM_ICONS.centro, texto: centro },
+      { icon: ROOM_ICONS.capacidad, texto: capacidad },
+      { icon: ROOM_ICONS.equipamiento, texto: equipamiento },
+      { icon: ROOM_ICONS.software, texto: software },
+      { icon: ROOM_ICONS.horario, texto: horario }
+    ].forEach(item => {
+      if (!item.texto) return;
+      const row = document.createElement('div');
+      row.className = 'sala-center-row sala-room-row';
+
+      const iconWrapper = document.createElement('span');
+      iconWrapper.className = 'sala-center-icon sala-room-icon';
+      const iconImg = document.createElement('img');
+      iconImg.className = 'sala-center-icon-img sala-room-icon-img';
+      iconImg.src = item.icon.src;
+      iconImg.alt = item.icon.alt;
+      iconImg.loading = 'lazy';
+      iconWrapper.appendChild(iconImg);
+
+      const text = document.createElement('span');
+      text.className = 'sala-center-text sala-room-text';
+      text.textContent = item.texto;
+
+      row.appendChild(iconWrapper);
+      row.appendChild(text);
+      infoSection.appendChild(row);
+    });
+
+    if (infoSection.children.length) {
+      body.appendChild(infoSection);
+    }
+
+    if (body.children.length) {
+      card.appendChild(body);
+    }
 
     card.addEventListener('click', () => renderSalaInfo(s));
     return card;
