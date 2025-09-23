@@ -422,13 +422,6 @@
     title.textContent = datos.nombre || '—';
     head.appendChild(title);
 
-    if (datos.count != null) {
-      const badge = document.createElement('span');
-      badge.className = 'sala-badge sala-center-badge';
-      badge.textContent = `${datos.count} sala${datos.count === 1 ? '' : 's'}`;
-      head.appendChild(badge);
-    }
-
     card.appendChild(head);
 
     const body = document.createElement('div');
