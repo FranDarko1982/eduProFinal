@@ -23,6 +23,9 @@
     <!-- CABECERA MODERNA -->
     <header class="main-header">
       <div class="header-content">
+        <img src="https://guiods.com/wp-content/uploads/logo-intelcia.png" 
+             alt="Intelcia" 
+             class="header-logo-intelcia" />
         <div class="header-text">
           <h1>Reserva Salas de Formación</h1>
           <p>Consulta la disponibilidad de salas y reserva</p>
@@ -32,8 +35,6 @@
 
     <!-- NAV -> Sidebar de iconos -->
     <nav class="sidebar-icons tabs" id="mainTabs" aria-label="Navegación principal">
-      <img src="https://seleccion.unisono.es/imagenes/logo_color.png" alt="Company Logo" class="tabs-logo" style="width:36px; margin-bottom:8px;" />
-
       <button class="tab active" data-id="inicio" data-visible="admin,usuario,manager" title="Inicio" aria-label="Inicio">
         <span class="material-symbols-outlined">home</span>
       </button>
@@ -129,9 +130,8 @@
       // Inicializa si hace falta y, siempre que muestres la sección, fuerza size/render
       function initOrResizeCalendar(){
         try {
-          // 1) Inicialización si aún no se hizo
           if (!window.__CAL_INITED) {
-            if (typeof initCalendar === 'function') {         // tu función habitual
+            if (typeof initCalendar === 'function') {         
               initCalendar();
               window.__CAL_INITED = true;
             } else if (window.Calendar && typeof window.Calendar.init === 'function') {
@@ -139,18 +139,14 @@
               window.__CAL_INITED = true;
             }
           }
-
-          // 2) Forzar recalcular tamaños cuando la sección ya es visible
           const cal =
-            window.calendar ||                              // variable global habitual
-            (window.Calendar && window.Calendar.instance) || // por si usas objeto
+            window.calendar ||
+            (window.Calendar && window.Calendar.instance) ||
             null;
 
-          // Dejar que el navegador pinte el cambio de sección y luego recalcular
           requestAnimationFrame(() => {
             if (cal && typeof cal.updateSize === 'function') cal.updateSize();
             if (cal && typeof cal.render === 'function')     cal.render();
-            // Y como plan B, un resize global:
             window.dispatchEvent(new Event('resize'));
           });
         } catch (e) {
@@ -216,7 +212,6 @@
         function showSection(tabBtn) {
           const target = tabBtn.getAttribute('data-id');
           showSectionById(target);
-          // Si al arrancar la activa es 'calendar', asegura render correcto
           if (target === 'calendar') initOrResizeCalendar();
         }
 
