@@ -27,7 +27,7 @@
 <script>
   const userRole = (window.USER_ROLE || '').toLowerCase();
   let salasOriginales = [];
-  let centrosInfo = {};
+  let centrosInfo = Object.create(null);
   let ciudadesInfo = Object.create(null);
   let current = { ciudad: null, centro: null, sala: null };
   let currentRooms = [];
@@ -85,6 +85,20 @@
     return ciudadesInfo[nombre] || ciudadesInfo[normalizarClaveCiudad(nombre)] || null;
   }
 
+  function guardarCentroInfo(nombre, datos) {
+    if (!nombre) return;
+    centrosInfo[nombre] = datos;
+    const clave = normalizarClaveCiudad(nombre);
+    if (clave && clave !== nombre) {
+      centrosInfo[clave] = datos;
+    }
+  }
+
+  function obtenerCentroInfo(nombre) {
+    if (!nombre) return null;
+    return centrosInfo[nombre] || centrosInfo[normalizarClaveCiudad(nombre)] || null;
+  }
+
   document.addEventListener('DOMContentLoaded', () => {
     showSkeletons(4);
     cargarCiudades();
@@ -114,10 +128,10 @@
   function cargarCentros() {
     google.script.run
       .withSuccessHandler(centros => {
-        centrosInfo = {};
+        centrosInfo = Object.create(null);
         (Array.isArray(centros) ? centros : []).forEach(c => {
           const nombre = String(c['Nombre Centro'] || c.NombreCentro || c.Nombre || '').trim();
-          if (nombre) centrosInfo[nombre] = c;
+          if (nombre) guardarCentroInfo(nombre, c);
         });
         cargarSalas();
       })
@@ -178,12 +192,16 @@
           const centro = String(r.Centro || '').trim();
           if (!centro) return;
           if (!centersMap[centro]) {
-          const info = centrosInfo[centro] || {};
-          centersMap[centro] = {
-            count: 0,
-            direccion: info.DireccionCentro || info['Direccion Centro'] || ''
-          };
-        }
+            const info = obtenerCentroInfo(centro) || {};
+            centersMap[centro] = {
+              count: 0,
+              direccion:
+                info.DireccionCentro ||
+                info['Direccion Centro'] ||
+                info['Dirección Centro'] ||
+                ''
+            };
+          }
         centersMap[centro].count++;
       });
       const centros = Object.keys(centersMap).sort().map(k => ({
@@ -246,7 +264,7 @@
     Object.keys(grouped)
       .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
       .forEach(nombre => {
-        const info = centrosInfo[nombre] || {};
+        const info = obtenerCentroInfo(nombre) || {};
         const salas = (roomsByCenter[nombre] || [])
           .map(r => {
             const salaNombre = String(r.Nombre || r['Nombre Sala'] || '').trim();
@@ -261,7 +279,12 @@
           crearCentroCard({
             nombre,
             count: salas.length,
-            direccion: info['Direccion Centro'] || info.DireccionCentro || info.Direccion || '',
+            direccion:
+              info['Direccion Centro'] ||
+              info['Dirección Centro'] ||
+              info.DireccionCentro ||
+              info.Direccion ||
+              '',
             telefono: info.Telefono || info['Teléfono'] || '',
             email: info.Email || '',
             responsable: info.Responsable || info['Responsable Centro'] || '',
