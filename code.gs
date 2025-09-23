@@ -1623,7 +1623,7 @@ function uploadCiudadImagen(data) {
     try { DriveApp.getFileById(prevId).setTrashed(true); } catch (err) { Logger.log('No se pudo eliminar la imagen anterior de la ciudad: ' + err); }
   }
 
-  const viewUrl = `https://drive.google.com/uc?export=view&id=${file.getId()}`;
+  const viewUrl = `https://drive.google.com/thumbnail?sz=w1000&id=${file.getId()}`;
   sheet.getRange(rowIndex + 2, idxImagen + 1).setValue(viewUrl);
   return viewUrl;
 }
