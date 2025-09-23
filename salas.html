@@ -32,6 +32,25 @@
   let current = { ciudad: null, centro: null, sala: null };
   let currentRooms = [];
 
+  const CENTER_ICONS = {
+    ubicacion: {
+      src: 'https://drive.google.com/thumbnail?sz=w1000&id=12T2BaLFqegpXg0oJmEixxe3t9HJdHDaM',
+      alt: 'Dirección del centro'
+    },
+    telefono: {
+      src: 'https://drive.google.com/thumbnail?sz=w1000&id=1XZ5SQVTZGMqd2vv8P8OzAPhZsRwG_9Rh',
+      alt: 'Teléfono del centro'
+    },
+    email: {
+      src: 'https://drive.google.com/thumbnail?sz=w1000&id=17P7Zvt0mc-Zl-5FVEfpwFw0Q9EU6_QET',
+      alt: 'Correo electrónico del centro'
+    },
+    responsable: {
+      src: 'https://drive.google.com/thumbnail?sz=w1000&id=1pIojlguVE1hxt3ftk1YqIRUwYxLzOvsP',
+      alt: 'Responsable del centro'
+    }
+  };
+
   function normalizarClaveCiudad(valor) {
     if (!valor) return '';
     let texto = String(valor).trim().toLowerCase();
@@ -211,27 +230,42 @@
     cont.innerHTML = '';
 
     const grouped = {};
+    const roomsByCenter = {};
+
     salasOriginales
       .filter(r => String(r.Ciudad || '').trim() === current.ciudad)
-      .map(r => String(r.Centro || '').trim())
-      .filter(Boolean)
-      .forEach(nombre => {
-        if (!grouped[nombre]) grouped[nombre] = 0;
-        grouped[nombre] += 1;
+      .forEach(r => {
+        const nombre = String(r.Centro || '').trim();
+        if (!nombre) return;
+        grouped[nombre] = (grouped[nombre] || 0) + 1;
+        if (userRole !== 'admin' && String(r.Activo) !== '1') return;
+        if (!roomsByCenter[nombre]) roomsByCenter[nombre] = [];
+        roomsByCenter[nombre].push(r);
       });
 
     Object.keys(grouped)
-      .sort()
+      .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
       .forEach(nombre => {
         const info = centrosInfo[nombre] || {};
+        const salas = (roomsByCenter[nombre] || [])
+          .map(r => {
+            const salaNombre = String(r.Nombre || r['Nombre Sala'] || '').trim();
+            return {
+              nombre: salaNombre || 'Sala sin nombre',
+              capacidad: String(r.Capacidad || r['Capacidad'] || '').trim()
+            };
+          })
+          .sort((a, b) => a.nombre.localeCompare(b.nombre, undefined, { numeric: true, sensitivity: 'base' }));
+
         cont.appendChild(
           crearCentroCard({
             nombre,
-            count: grouped[nombre],
+            count: salas.length,
             direccion: info['Direccion Centro'] || info.DireccionCentro || info.Direccion || '',
             telefono: info.Telefono || info['Teléfono'] || '',
             email: info.Email || '',
-            responsable: info.Responsable || info['Responsable Centro'] || ''
+            responsable: info.Responsable || info['Responsable Centro'] || '',
+            salas
           })
         );
       });
@@ -337,26 +371,75 @@
     const body = document.createElement('div');
     body.className = 'sala-center-body';
 
+    const infoSection = document.createElement('div');
+    infoSection.className = 'sala-center-info';
+
     [
-      { icon: '📍', texto: datos.direccion },
-      { icon: '📞', texto: datos.telefono },
-      { icon: '✉️', texto: datos.email },
-      { icon: '👤', texto: datos.responsable }
+      { icon: CENTER_ICONS.ubicacion, texto: datos.direccion },
+      { icon: CENTER_ICONS.telefono, texto: datos.telefono },
+      { icon: CENTER_ICONS.email, texto: datos.email },
+      { icon: CENTER_ICONS.responsable, texto: datos.responsable }
     ].forEach(item => {
       if (!item.texto) return;
       const row = document.createElement('div');
       row.className = 'sala-center-row';
-      const icon = document.createElement('span');
-      icon.className = 'sala-center-icon';
-      icon.setAttribute('aria-hidden', 'true');
-      icon.textContent = item.icon;
+
+      const iconWrapper = document.createElement('span');
+      iconWrapper.className = 'sala-center-icon';
+      const iconImg = document.createElement('img');
+      iconImg.className = 'sala-center-icon-img';
+      iconImg.src = item.icon.src;
+      iconImg.alt = item.icon.alt;
+      iconImg.loading = 'lazy';
+      iconWrapper.appendChild(iconImg);
+
       const text = document.createElement('span');
       text.className = 'sala-center-text';
       text.textContent = item.texto;
-      row.appendChild(icon);
+
+      row.appendChild(iconWrapper);
       row.appendChild(text);
-      body.appendChild(row);
+      infoSection.appendChild(row);
     });
+
+    if (infoSection.children.length) {
+      body.appendChild(infoSection);
+    }
+
+    if (Array.isArray(datos.salas) && datos.salas.length) {
+      const roomsSection = document.createElement('div');
+      roomsSection.className = 'sala-center-rooms-section';
+
+      const roomsTitle = document.createElement('div');
+      roomsTitle.className = 'sala-center-section-title';
+      roomsTitle.textContent = 'Salas de formación';
+      roomsSection.appendChild(roomsTitle);
+
+      const roomsList = document.createElement('ul');
+      roomsList.className = 'sala-center-rooms';
+
+      datos.salas.forEach(sala => {
+        const item = document.createElement('li');
+        item.className = 'sala-center-room';
+
+        const name = document.createElement('span');
+        name.className = 'sala-center-room-name';
+        name.textContent = sala.capacidad ? `${sala.nombre || '—'}:` : sala.nombre || '—';
+        item.appendChild(name);
+
+        if (sala.capacidad) {
+          const capacity = document.createElement('span');
+          capacity.className = 'sala-center-room-capacity';
+          capacity.textContent = `Capacidad ${sala.capacidad}`;
+          item.appendChild(capacity);
+        }
+
+        roomsList.appendChild(item);
+      });
+
+      roomsSection.appendChild(roomsList);
+      body.appendChild(roomsSection);
+    }
 
     if (body.children.length) card.appendChild(body);
 
