@@ -347,10 +347,18 @@
   .sala-center-card { width: 100%; cursor: pointer; }
   .sala-center-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
   .sala-center-badge { background: var(--rosa-pastel); color: #861f55; }
-  .sala-center-body { display: flex; flex-direction: column; gap: 0.45rem; margin-top: 0.75rem; }
-  .sala-center-row { display: flex; gap: 0.6rem; align-items: flex-start; font-size: 0.9rem; color: #444; }
-  .sala-center-icon { font-size: 1.1rem; line-height: 1; margin-top: 0.1rem; }
+  .sala-center-body { display: flex; flex-direction: column; gap: 1rem; margin-top: 0.9rem; }
+  .sala-center-info { display: flex; flex-direction: column; gap: 0.65rem; }
+  .sala-center-row { display: flex; gap: 0.75rem; align-items: center; font-size: 0.9rem; color: #444; }
+  .sala-center-icon { flex-shrink: 0; width: 2rem; height: 2rem; border-radius: 10px; background: var(--gris-suave); display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06); padding: 0.3rem; }
+  .sala-center-icon-img { width: 100%; height: 100%; object-fit: contain; }
   .sala-center-text { flex: 1; word-break: break-word; }
+  .sala-center-rooms-section { border-top: 1px solid var(--gris-claro); padding-top: 0.75rem; display: flex; flex-direction: column; gap: 0.55rem; }
+  .sala-center-section-title { font-weight: 600; font-size: 0.92rem; color: var(--negro); text-transform: none; }
+  .sala-center-rooms { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.45rem; }
+  .sala-center-room { display: flex; justify-content: space-between; gap: 0.75rem; font-size: 0.9rem; color: #444; }
+  .sala-center-room-name { font-weight: 500; }
+  .sala-center-room-capacity { color: var(--rosa-principal); font-weight: 600; white-space: nowrap; }
   .salas-city-visual { flex: 1 1 0; min-width: 0; background: var(--blanco); border-radius: 14px; padding: 1rem; display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 18px -10px rgba(0,0,0,0.25); }
   .salas-city-image { width: 100%; height: 100%; object-fit: contain; border-radius: 12px; box-shadow: 0 4px 14px -6px rgba(0,0,0,0.25); }
   .salas-city-image-empty { text-align: center; font-size: 0.9rem; color: #666; padding: 1rem; }
