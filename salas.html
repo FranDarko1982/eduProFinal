@@ -216,26 +216,66 @@
 
   function crearCiudadCard(ciudad, centros) {
     const card = document.createElement('div');
-    card.className = 'card sala-card';
-    const h3 = document.createElement('h3');
-    h3.textContent = ciudad;
-    card.appendChild(h3);
-    const ul = document.createElement('ul');
-    ul.className = 'sala-centros';
-    ul.style.listStyle = 'none';
-    ul.style.padding = '0';
+    card.className = 'card sala-card sala-city-card';
+
+    const head = document.createElement('div');
+    head.className = 'card-head sala-city-head';
+    const title = document.createElement('h3');
+    title.className = 'sala-city-title';
+    title.textContent = ciudad || '—';
+    head.appendChild(title);
+    card.appendChild(head);
+
+    const centersList = document.createElement('div');
+    centersList.className = 'sala-city-centers';
+
     centros.forEach(c => {
-      const li = document.createElement('li');
-      li.innerHTML = `<strong>${c.nombre}</strong> (${c.count} sala${c.count === 1 ? '' : 's'})`;
-      if (c.direccion) {
-        const addr = document.createElement('div');
-        addr.className = 'sala-centro-dir';
-        addr.textContent = c.direccion;
-        li.appendChild(addr);
+      const item = document.createElement('div');
+      item.className = 'sala-city-center';
+
+      const centerHead = document.createElement('div');
+      centerHead.className = 'sala-city-center-head';
+
+      const name = document.createElement('span');
+      name.className = 'sala-city-center-name';
+      name.textContent = c.nombre || '—';
+      centerHead.appendChild(name);
+
+      if (c.count != null) {
+        const count = document.createElement('span');
+        count.className = 'sala-city-center-count';
+        count.textContent = `${c.count} sala${c.count === 1 ? '' : 's'}`;
+        centerHead.appendChild(count);
       }
-      ul.appendChild(li);
+
+      item.appendChild(centerHead);
+
+      if (c.direccion) {
+        const addressRow = document.createElement('div');
+        addressRow.className = 'sala-city-center-address';
+
+        const iconWrapper = document.createElement('span');
+        iconWrapper.className = 'sala-city-icon';
+        const iconImg = document.createElement('img');
+        iconImg.className = 'sala-city-icon-img';
+        iconImg.src = CENTER_ICONS.ubicacion.src;
+        iconImg.alt = CENTER_ICONS.ubicacion.alt;
+        iconImg.loading = 'lazy';
+        iconWrapper.appendChild(iconImg);
+
+        const text = document.createElement('span');
+        text.className = 'sala-city-address-text';
+        text.textContent = c.direccion;
+
+        addressRow.appendChild(iconWrapper);
+        addressRow.appendChild(text);
+        item.appendChild(addressRow);
+      }
+
+      centersList.appendChild(item);
     });
-    card.appendChild(ul);
+
+    card.appendChild(centersList);
     card.addEventListener('click', () => {
       current.ciudad = ciudad;
       renderCentros();
