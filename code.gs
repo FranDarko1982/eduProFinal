@@ -6,6 +6,8 @@ const CAMBIOS_RESERVAS_SHEET = 'Cambios reservas';
 const CIUDADES_SHEET    = 'Ciudades';
 const CENTROS_SHEET     = 'Centros';
 const CITY_IMAGES_FOLDER_NAME = 'ReservaSalas_Ciudades';
+const CENTER_IMAGES_FOLDER_NAME = 'ReservaSalas_Centros';
+const SALA_IMAGES_FOLDER_NAME = 'ReservaSalas_Salas';
 // Dirección que recibirá copia de cada reserva
 const RESPONSABLE_EMAIL = 'francisco.benavente.salgado@intelcia.com';
 // URL de la webapp para incluir enlaces en los correos
@@ -1342,12 +1344,66 @@ function _readSalasTable_() {
   const values = sheet.getDataRange().getValues();
   if (values.length < 2) return { headers: [], rows: [], sheet };
   const headers = values.shift().map(h => String(h).trim());
+  _ensureImageColumn_(sheet, headers, values, 'Imagen Sala');
   return { headers, rows: values, sheet };
 }
 
 function _indexOfHeader_(headers, name) {
   // Devuelve el índice de una cabecera (nombre exacto).
   return headers.indexOf(String(name).trim());
+}
+
+function _ensureImageColumn_(sheet, headers, rows, columnName) {
+  if (!Array.isArray(headers)) return -1;
+  let idx = _indexOfHeader_(headers, columnName);
+  if (idx !== -1) return idx;
+
+  if (!headers.length) {
+    sheet.getRange(1, 1).setValue(columnName);
+    headers.push(columnName);
+    if (Array.isArray(rows)) rows.forEach(r => r.push(''));
+    return 0;
+  }
+
+  const colPosition = headers.length;
+  sheet.insertColumnAfter(colPosition);
+  const newCol = colPosition + 1;
+  sheet.getRange(1, newCol).setValue(columnName);
+  const lastRow = sheet.getLastRow();
+  if (lastRow > 1) {
+    sheet.getRange(2, newCol, lastRow - 1).clearContent();
+  }
+  headers.push(columnName);
+  if (Array.isArray(rows)) rows.forEach(r => r.push(''));
+  return headers.length - 1;
+}
+
+function _extractBytesFromUpload_(data) {
+  let bytes = [];
+  if (Array.isArray(data.bytes) && data.bytes.length) {
+    bytes = data.bytes;
+  } else if (data.bytes && typeof data.bytes.length === 'number') {
+    bytes = Array.from(data.bytes);
+  } else if (Array.isArray(data.content) && data.content.length) {
+    bytes = data.content;
+  } else if (data.dataUrl) {
+    let base64 = String(data.dataUrl);
+    const base64Index = base64.indexOf('base64,');
+    if (base64Index !== -1) {
+      base64 = base64.substring(base64Index + 7);
+    }
+    base64 = base64.trim();
+    if (!base64) throw new Error('Datos de imagen inválidos.');
+    bytes = Utilities.base64Decode(base64);
+  } else {
+    throw new Error('Imagen no proporcionada.');
+  }
+
+  if (bytes instanceof Uint8Array) {
+    bytes = Array.from(bytes);
+  }
+  if (!bytes || !bytes.length) throw new Error('Datos de imagen inválidos.');
+  return bytes;
 }
 
 /** Crea una nueva sala. Si no envías idSala, genero 'S' + timestamp. */
@@ -1364,6 +1420,7 @@ function crearSala(sala) {
   const idxEquipamiento = h('Equipamiento');
   const idxObs          = h('Observaciones');
   const idxHorario      = h('Horario');
+  const idxImagen       = h('Imagen Sala');
 
   // ID (si viene vacío, generamos uno)
   const idSala = sala.idSala && String(sala.idSala).trim() ? String(sala.idSala).trim() : 'S' + Date.now();
@@ -1386,6 +1443,7 @@ function crearSala(sala) {
   if (idxEquipamiento !== -1) row[idxEquipamiento] = sala.Equipamiento || '';
   if (idxObs          !== -1) row[idxObs]          = sala.Observaciones || '';
   if (idxHorario      !== -1) row[idxHorario]      = sala.Horario || '';
+  if (idxImagen      !== -1) row[idxImagen]       = sala['Imagen Sala'] || sala.ImagenSala || sala.MapaSala || sala['Mapa Sala'] || '';
 
   sheet.appendRow(row);
   return idSala;
@@ -1421,6 +1479,9 @@ function actualizarSala(sala) {
       if (idxEquipamiento !== -1) sheet.getRange(rowNumber, idxEquipamiento + 1).setValue(sala.Equipamiento || '');
       if (idxObs          !== -1) sheet.getRange(rowNumber, idxObs + 1).setValue(sala.Observaciones || '');
       if (idxHorario      !== -1) sheet.getRange(rowNumber, idxHorario + 1).setValue(sala.Horario || '');
+      if (idxImagen       !== -1 && (sala['Imagen Sala'] || sala.ImagenSala || sala.MapaSala || sala['Mapa Sala'])) {
+        sheet.getRange(rowNumber, idxImagen + 1).setValue(sala['Imagen Sala'] || sala.ImagenSala || sala.MapaSala || sala['Mapa Sala'] || '');
+      }
       return true;
     }
   }
@@ -1432,6 +1493,7 @@ function eliminarSala(idSala) {
   // Elimina una sala por su 'ID Sala'; devuelve true/false.
   const { headers, rows, sheet } = _readSalasTable_();
   const idxId = _indexOfHeader_(headers, 'ID Sala');
+  const idxImagen = _indexOfHeader_(headers, 'Imagen Sala');
   if (idxId === -1) throw new Error("No se encuentra la columna 'ID Sala'.");
 
   const targetId = String(idSala || '').trim();
@@ -1439,11 +1501,63 @@ function eliminarSala(idSala) {
 
   for (let i = 0; i < rows.length; i++) {
     if (String(rows[i][idxId]).trim() === targetId) {
+      if (idxImagen !== -1) {
+        const prev = String(rows[i][idxImagen] || '').trim();
+        const fileId = _extractDriveFileId_(prev);
+        if (fileId) {
+          try {
+            DriveApp.getFileById(fileId).setTrashed(true);
+          } catch (err) {
+            Logger.log('No se pudo eliminar la imagen de la sala: ' + err);
+          }
+        }
+      }
       sheet.deleteRow(i + 2); // +1 cabecera +1 base-1
       return true;
     }
   }
   return false;
+}
+
+function uploadSalaImagen(data) {
+  if (!data || !data.idSala) throw new Error('ID de sala no proporcionado.');
+
+  const allowedMimes = ['image/png', 'image/x-png'];
+  let mime = String(data.mimeType || '').toLowerCase();
+  if (mime && allowedMimes.indexOf(mime) === -1) throw new Error('Solo se permiten imágenes PNG.');
+  if (!mime) mime = 'image/png';
+
+  const { headers, rows, sheet } = _readSalasTable_();
+  const idxId = _indexOfHeader_(headers, 'ID Sala');
+  const idxImagen = _indexOfHeader_(headers, 'Imagen Sala');
+  if (idxId === -1 || idxImagen === -1) throw new Error('Estructura de la tabla de salas no válida.');
+
+  const id = String(data.idSala).trim();
+  const rowIndex = rows.findIndex(r => String(r[idxId]).trim() === id);
+  if (rowIndex === -1) throw new Error('Sala no encontrada.');
+
+  const bytes = _extractBytesFromUpload_(data);
+
+  const fileNameRaw = data.fileName && String(data.fileName).trim() ? String(data.fileName).trim() : `${id}.png`;
+  const fileName = fileNameRaw.toLowerCase().endsWith('.png') ? fileNameRaw : `${fileNameRaw}.png`;
+  const folder = _getSalaImagesFolder_();
+  const blob = Utilities.newBlob(bytes, 'image/png', fileName);
+  const file = folder.createFile(blob);
+  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+
+  const prevUrl = String(rows[rowIndex][idxImagen] || '').trim();
+  const prevId = _extractDriveFileId_(prevUrl);
+  if (prevId) {
+    try {
+      DriveApp.getFileById(prevId).setTrashed(true);
+    } catch (err) {
+      Logger.log('No se pudo eliminar la imagen anterior de la sala: ' + err);
+    }
+  }
+
+  const viewUrl = `https://drive.google.com/thumbnail?sz=w1000&id=${file.getId()}`;
+  sheet.getRange(rowIndex + 2, idxImagen + 1).setValue(viewUrl);
+  return viewUrl;
 }
 
 /** ========= CRUD CIUDADES ========= **/
@@ -1553,10 +1667,22 @@ function eliminarCiudad(idCiudad) {
   return false;
 }
 
-function _getCiudadImagesFolder_() {
-  const folders = DriveApp.getFoldersByName(CITY_IMAGES_FOLDER_NAME);
+function _getOrCreateFolder_(name) {
+  const folders = DriveApp.getFoldersByName(name);
   if (folders.hasNext()) return folders.next();
-  return DriveApp.createFolder(CITY_IMAGES_FOLDER_NAME);
+  return DriveApp.createFolder(name);
+}
+
+function _getCiudadImagesFolder_() {
+  return _getOrCreateFolder_(CITY_IMAGES_FOLDER_NAME);
+}
+
+function _getCentroImagesFolder_() {
+  return _getOrCreateFolder_(CENTER_IMAGES_FOLDER_NAME);
+}
+
+function _getSalaImagesFolder_() {
+  return _getOrCreateFolder_(SALA_IMAGES_FOLDER_NAME);
 }
 
 function _extractDriveFileId_(url) {
@@ -1623,7 +1749,7 @@ function uploadCiudadImagen(data) {
     try { DriveApp.getFileById(prevId).setTrashed(true); } catch (err) { Logger.log('No se pudo eliminar la imagen anterior de la ciudad: ' + err); }
   }
 
-  const viewUrl = `https://drive.google.com/thumbnail?sz=w1000&id=${file.getId()}`;
+  const viewUrl = `https://drive.google.com/thumbnail?sz=w5000&id=${file.getId()}`;
   sheet.getRange(rowIndex + 2, idxImagen + 1).setValue(viewUrl);
   return viewUrl;
 }
@@ -1642,6 +1768,7 @@ function _readCentrosTable_() {
   const values = sheet.getDataRange().getValues();
   if (values.length < 2) return { headers: [], rows: [], sheet };
   const headers = values.shift().map(h => String(h).trim());
+  _ensureImageColumn_(sheet, headers, values, 'Imagen Centro');
   return { headers, rows: values, sheet };
 }
 
@@ -1654,6 +1781,7 @@ function crearCentro(centro) {
   const idxTel  = h('Telefono');
   const idxEmail= h('Email');
   const idxResp = h('Responsable');
+  const idxImagen = h('Imagen Centro');
   const id = centro.idCentro && String(centro.idCentro).trim() ? String(centro.idCentro).trim() : 'CT' + Date.now();
   const { rows } = _readCentrosTable_();
   if (rows.some(r => idxId !== -1 && String(r[idxId]).trim() === id)) throw new Error('Ya existe un centro con ese ID.');
@@ -1664,6 +1792,7 @@ function crearCentro(centro) {
   if (idxTel  !== -1) row[idxTel]  = centro.Telefono || '';
   if (idxEmail!== -1) row[idxEmail]= centro.Email || '';
   if (idxResp !== -1) row[idxResp] = centro.Responsable || '';
+  if (idxImagen !== -1) row[idxImagen] = centro['Imagen Centro'] || centro.ImagenCentro || centro.PlanoCentro || centro['Plano Centro'] || '';
   sheet.appendRow(row);
   return id;
 }
@@ -1677,6 +1806,7 @@ function actualizarCentro(centro) {
   const idxTel  = h('Telefono');
   const idxEmail= h('Email');
   const idxResp = h('Responsable');
+  const idxImagen = h('Imagen Centro');
   if (idxId === -1) throw new Error("No se encuentra la columna 'ID Centro'.");
   const id = String(centro.idCentro || centro['ID Centro'] || '').trim();
   for (let i = 0; i < rows.length; i++) {
@@ -1687,6 +1817,9 @@ function actualizarCentro(centro) {
       if (idxTel  !== -1) sheet.getRange(row, idxTel  + 1).setValue(centro.Telefono || '');
       if (idxEmail!== -1) sheet.getRange(row, idxEmail+ 1).setValue(centro.Email || '');
       if (idxResp !== -1) sheet.getRange(row, idxResp + 1).setValue(centro.Responsable || '');
+      if (idxImagen !== -1 && (centro['Imagen Centro'] || centro.ImagenCentro || centro.PlanoCentro || centro['Plano Centro'])) {
+        sheet.getRange(row, idxImagen + 1).setValue(centro['Imagen Centro'] || centro.ImagenCentro || centro.PlanoCentro || centro['Plano Centro'] || '');
+      }
       return true;
     }
   }
@@ -1696,10 +1829,22 @@ function actualizarCentro(centro) {
 function eliminarCentro(idCentro) {
   const { headers, rows, sheet } = _readCentrosTable_();
   const idxId = _indexOfHeader_(headers, 'ID Centro');
+  const idxImagen = _indexOfHeader_(headers, 'Imagen Centro');
   if (idxId === -1) throw new Error("No se encuentra la columna 'ID Centro'.");
   const id = String(idCentro || '').trim();
   for (let i = 0; i < rows.length; i++) {
     if (String(rows[i][idxId]).trim() === id) {
+      if (idxImagen !== -1) {
+        const prev = String(rows[i][idxImagen] || '').trim();
+        const prevId = _extractDriveFileId_(prev);
+        if (prevId) {
+          try {
+            DriveApp.getFileById(prevId).setTrashed(true);
+          } catch (err) {
+            Logger.log('No se pudo eliminar la imagen del centro: ' + err);
+          }
+        }
+      }
       sheet.deleteRow(i + 2);
       return true;
     }
@@ -1707,6 +1852,46 @@ function eliminarCentro(idCentro) {
   return false;
 }
 
+function uploadCentroImagen(data) {
+  if (!data || !data.idCentro) throw new Error('ID de centro no proporcionado.');
+
+  const allowedMimes = ['image/png', 'image/x-png'];
+  let mime = String(data.mimeType || '').toLowerCase();
+  if (mime && allowedMimes.indexOf(mime) === -1) throw new Error('Solo se permiten imágenes PNG.');
+  if (!mime) mime = 'image/png';
+
+  const { headers, rows, sheet } = _readCentrosTable_();
+  const idxId = _indexOfHeader_(headers, 'ID Centro');
+  const idxImagen = _indexOfHeader_(headers, 'Imagen Centro');
+  if (idxId === -1 || idxImagen === -1) throw new Error('Estructura de la tabla de centros no válida.');
+
+  const id = String(data.idCentro).trim();
+  const rowIndex = rows.findIndex(r => String(r[idxId]).trim() === id);
+  if (rowIndex === -1) throw new Error('Centro no encontrado.');
+
+  const bytes = _extractBytesFromUpload_(data);
+
+  const fileNameRaw = data.fileName && String(data.fileName).trim() ? String(data.fileName).trim() : `${id}.png`;
+  const fileName = fileNameRaw.toLowerCase().endsWith('.png') ? fileNameRaw : `${fileNameRaw}.png`;
+  const folder = _getCentroImagesFolder_();
+  const blob = Utilities.newBlob(bytes, 'image/png', fileName);
+  const file = folder.createFile(blob);
+  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+
+  const prevUrl = String(rows[rowIndex][idxImagen] || '').trim();
+  const prevId = _extractDriveFileId_(prevUrl);
+  if (prevId) {
+    try {
+      DriveApp.getFileById(prevId).setTrashed(true);
+    } catch (err) {
+      Logger.log('No se pudo eliminar la imagen anterior del centro: ' + err);
+    }
+  }
+
+  const viewUrl = `https://drive.google.com/thumbnail?sz=w2000&id=${file.getId()}`;
+  sheet.getRange(rowIndex + 2, idxImagen + 1).setValue(viewUrl);
+  return viewUrl;
+}
 
 /**
  * Devuelve el perfil del usuario por email.
