@@ -324,17 +324,52 @@ function getCentros(ciudad) {
 
 /** Devuelve lista única de salas (filtrada por ciudad y centro) */
 function getSalas(ciudad, centro) {
-  // Devuelve nombres de salas únicos filtrando por ciudad/centro.
+  // Devuelve salas únicas (nombre + capacidad) filtrando por ciudad/centro.
   ciudad = normalize(ciudad);
   centro = normalize(centro);
   const all = getAllSalas();
-  return [...new Set(
-    all
-      .filter(r => (!ciudad || normalize(r.Ciudad) === ciudad)
-                 && (!centro || normalize(r.Centro) === centro))
-      .map(r => String(r.Nombre || '').trim())
-      .filter(v => v)
-  )].sort();
+  
+  const seen = new Map();
+  all.forEach(r => {
+    if (ciudad && normalize(r.Ciudad) !== ciudad) return;
+    if (centro && normalize(r.Centro) !== centro) return;
+
+    const nombre = String(r.Nombre || '').trim();
+    if (!nombre) return;
+
+    const key = normalize(nombre);
+    if (seen.has(key)) return;
+
+    const capacidad = formatSalaCapacityValue(r.Capacidad);
+    seen.set(key, {
+      nombre: nombre,
+      capacidad: capacidad
+    });
+  });
+
+  return Array.from(seen.values()).sort((a, b) =>
+    String(a.nombre || '').localeCompare(
+      String(b.nombre || ''),
+      'es',
+      { sensitivity: 'base' }
+    )
+  );
+}
+
+function formatSalaCapacityValue(cap) {
+  if (cap === null || cap === undefined) return '';
+  if (typeof cap === 'number') {
+    if (!isFinite(cap)) return '';
+    return String(Math.round(cap));
+  }
+  const str = String(cap).trim();
+  if (!str) return '';
+  const normalized = str.replace(',', '.');
+  const num = Number(normalized);
+  if (!isNaN(num)) {
+    return String(Math.round(num));
+  }
+  return str;
 }
 
 /**
