@@ -293,19 +293,45 @@ function eliminarUsuario(email) {
 
 /** Devuelve lista única de ciudades */
 function getCiudades() {
-  return getAllCiudades()
+  const ciudadesDesdeTabla = getAllCiudades()
     .map(c => String(c['Nombre Ciudad'] || c.NombreCiudad || c.Nombre || '').trim())
     .filter(v => v)
     .sort();
+
+  if (ciudadesDesdeTabla.length) {
+    return ciudadesDesdeTabla;
+  }
+
+  // Fallback: si la tabla de ciudades está vacía, obtenemos las ciudades
+  // directamente desde la hoja de salas.
+  return [...new Set(
+    getAllSalas()
+      .map(r => String(r.Ciudad || '').trim())
+      .filter(v => v)
+  )].sort();
 }
 
 /** Devuelve lista única de centros (sin filtrar por ciudad) */
 function getCentros(ciudad) {
   // La tabla de centros no está vinculada directamente a ciudades.
-  return getAllCentros()
+  const centrosDesdeTabla = getAllCentros()
     .map(c => String(c['Nombre Centro'] || c.NombreCentro || c.Nombre || '').trim())
     .filter(v => v)
     .sort();
+
+  if (centrosDesdeTabla.length) {
+    return centrosDesdeTabla;
+  }
+
+  // Fallback: si no hay datos en la hoja de centros, derivamos la lista
+  // desde la hoja de salas, filtrando opcionalmente por ciudad.
+  const ciudadNormalizada = normalize(ciudad);
+  return [...new Set(
+    getAllSalas()
+      .filter(r => !ciudadNormalizada || normalize(r.Ciudad) === ciudadNormalizada)
+      .map(r => String(r.Centro || '').trim())
+      .filter(v => v)
+  )].sort();
 }
 
 /** Devuelve lista única de salas (filtrada por ciudad y centro) */
