@@ -18,12 +18,14 @@
         background-color: #fff;
         padding: 1.5rem 2rem;
         box-shadow: 0 6px 18px rgba(12, 30, 58, 0.08);
-      }
-
-      .main-header .header-content {
         display: flex;
         align-items: center;
-        gap: 1.5rem;
+        gap: clamp(0.75rem, 2vw, 1.25rem);
+      }
+
+        .main-header .header-logo {
+        display: flex;
+        align-items: center;
       }
 
       .main-header .header-logo-intelcia {
@@ -41,6 +43,8 @@
         display: flex;
         flex-direction: column;
         gap: 0.25rem;
+        align-items: flex-start;
+        text-align: left;
       }
 
       .main-header .header-text h1,
@@ -51,12 +55,14 @@
       @media (max-width: 768px) {
         .main-header {
           padding: 1.25rem;
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 1rem;
         }
 
-        .main-header .header-content {
-          flex-direction: column;
-          text-align: center;
-          gap: 1rem;
+        .main-header .header-logo {
+          width: 100%;
+          justify-content: flex-start;
         }
 
         .main-header .header-logo-intelcia {
@@ -65,7 +71,7 @@
         }
       }
     </style>
-    
+
     <script>
       window.USER_ROLE  = '<?= usuario.rol ?>'.toLowerCase();
       window.USER_EMAIL = '<?= getActiveUserEmail() ?>';
@@ -75,14 +81,14 @@
   <body>
     <!-- CABECERA MODERNA -->
     <header class="main-header">
-      <div class="header-content">
-        <img src="https://guiods.com/wp-content/uploads/logo-intelcia.png" 
-             alt="Intelcia" 
+      <div class="header-logo">
+        <img src="https://drive.google.com/thumbnail?sz=w500&id=1GYY7By40ONvXxl5qX4FSpaMqts8reoPy"
+             alt="Intelcia"
              class="header-logo-intelcia" />
-        <div class="header-text">
-          <h1>Reserva Salas de Formación</h1>
-          <p>Consulta la disponibilidad de salas y reserva</p>
-        </div>
+      </div>
+      <div class="header-text">
+        <h1>Reserva Salas de Formación</h1>
+        <p>Consulta la disponibilidad de salas y reserva</p>
       </div>
     </header>
 
