@@ -122,6 +122,34 @@
 function id(el){return document.getElementById(el);}
 window.confirmAction = null;
 
+function normalizeCapacityText(capacidad) {
+  if (capacidad === null || capacidad === undefined) return '';
+  if (typeof capacidad === 'number' && isFinite(capacidad)) {
+    return String(Math.round(capacidad));
+  }
+  const str = String(capacidad).trim();
+  if (!str) return '';
+  const num = Number(str.replace(',', '.'));
+  if (!isNaN(num)) {
+    return String(Math.round(num));
+  }
+  return str;
+}
+
+function extractSalaOptionData(item) {
+  if (item && typeof item === 'object') {
+    const nombre = String(item.nombre || item.Nombre || '').trim();
+    const capacidad = item.capacidad ?? item.Capacidad;
+    return { nombre, capacidad };
+  }
+  return { nombre: String(item || '').trim(), capacidad: '' };
+}
+
+function buildSalaOptionLabel(nombre, capacidad) {
+  const capText = normalizeCapacityText(capacidad);
+  return capText ? `${nombre} (${capText} pax)` : nombre;
+}
+
 function showConfirmModalDisponibilidad(idReserva, accion = 'crear') {
   window.confirmAction = accion;
   const header = document.getElementById('confirmHeaderDisponibilidad');
@@ -235,7 +263,14 @@ const DispApp = {
     if (!centro) return;
     if (typeof showSpinner === 'function') showSpinner();
     google.script.run.withSuccessHandler(ss => {
-      (ss||[]).forEach(s => { const o=document.createElement('option'); o.value=s; o.textContent=s; sel.appendChild(o); });
+      (ss||[]).forEach(s => {
+        const data = extractSalaOptionData(s);
+        if (!data.nombre) return;
+        const o=document.createElement('option');
+        o.value=data.nombre;
+        o.textContent=buildSalaOptionLabel(data.nombre, data.capacidad);
+        sel.appendChild(o);
+      });
       if (typeof hideSpinner === 'function') hideSpinner();
     }).withFailureHandler(err => { if (typeof hideSpinner === 'function') hideSpinner(); console.error(err); alert('Error al cargar salas'); }).getSalas(ciudad, centro);
   },
