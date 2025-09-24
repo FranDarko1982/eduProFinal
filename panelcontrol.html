@@ -44,16 +44,18 @@
             <th>Centro</th>
             <th>Ciudad</th>
             <th>Nombre</th>
-            <th>Capacidad</th>
-            <th>Equipamiento</th>
-            <th>Observaciones</th>
-            <th>Horario</th>
-            <th>Acciones</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
+          <th>Capacidad</th>
+          <th>Equipamiento</th>
+          <th>Observaciones</th>
+          <th>Horario</th>
+          <th>Imagen Sala</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
     </div>
+    <input type="file" id="salaImageInput" accept="image/png" class="hidden" />
   </div>
 
   <!-- ======= Panel Usuarios ======= -->
@@ -136,15 +138,17 @@
             <th>ID Centro</th>
             <th>Nombre Centro</th>
             <th>Direccion Centro</th>
-            <th>Telefono</th>
-            <th>Email</th>
-            <th>Responsable</th>
-            <th>Acciones</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
+          <th>Telefono</th>
+          <th>Email</th>
+          <th>Responsable</th>
+          <th>Imagen Centro</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
     </div>
+    <input type="file" id="centroImageInput" accept="image/png" class="hidden" />
   </div>
 </div>
 
@@ -303,6 +307,10 @@ const PanelAdmin = (() => {
   let currentCiudadImageId = null;
   let currentCiudadImageName = '';
   let currentCentroId = null;
+  let currentCentroImageId = null;
+  let currentCentroImageName = '';
+  let currentSalaImageId = null;
+  let currentSalaImageName = '';
   let deleteSalaId = null;
   let deleteEmail = null;
   let deleteCiudadId = null;
@@ -365,19 +373,34 @@ const PanelAdmin = (() => {
     tableC.classList.remove('hidden');
     tbody.innerHTML = '';
 
-    const cols = ['ID Sala','Centro','Ciudad','Nombre','Capacidad','Equipamiento','Observaciones','Horario'];
+    const cols = ['ID Sala','Centro','Ciudad','Nombre','Capacidad','Equipamiento','Observaciones','Horario','Imagen Sala'];
 
     salas.forEach(r => {
       const tr = document.createElement('tr');
       cols.forEach(k => {
         const td = document.createElement('td');
-        td.textContent = safe(r[k]);
+        if (k === 'Imagen Sala') {
+          const url = safe(r[k] || r['Mapa Sala'] || r.MapaSala);
+          if (url) {
+            const link = document.createElement('a');
+            link.href = url;
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            link.textContent = 'Ver imagen';
+            td.appendChild(link);
+          } else {
+            td.textContent = '—';
+          }
+        } else {
+          td.textContent = safe(r[k]);
+        }
         tr.appendChild(td);
       });
       const tdAct = document.createElement('td');
       tdAct.className = 'actions';
       const id = safe(r['ID Sala']).toString().replace(/"/g,'&quot;');
       tdAct.innerHTML = `
+        <button onclick="PanelAdmin.openSalaImageDialog('${id}')" title="Cargar imagen">🖼️</button>
         <button onclick="PanelAdmin.openSalaEditModal('${id}')" title="Editar">✏️</button>
         <button onclick="PanelAdmin.openSalaDeleteModal('${id}')" title="Eliminar">🗑️</button>
       `;
@@ -415,7 +438,87 @@ const PanelAdmin = (() => {
     qs('#salaHorario').value = safe(s['Horario']);
     qs('#editSalaModal').classList.add('activo');
   }
+  function openSalaImageDialog(idSala) {
+    const sala = salasOriginales.find(x => String(x['ID Sala']) === String(idSala));
+    if (!sala) return;
+    currentSalaImageId = String(idSala);
+    currentSalaImageName = safe(sala['Nombre'] || sala['Nombre Sala']);
+    const input = qs('#salaImageInput');
+    if (!input) return;
+    input.value = '';
+    input.click();
+  }
   function closeSalaEditModal() { qs('#editSalaModal').classList.remove('activo'); }
+
+  function handleSalaImageSelected(e) {
+    const fileInput = e.target;
+    const file = fileInput.files && fileInput.files[0];
+    if (!file) return;
+    if (!currentSalaImageId) {
+      fileInput.value = '';
+      return;
+    }
+
+    const mimeType = (file.type || 'image/png').toLowerCase();
+    if (mimeType && !/^image\/(x-)?png$/.test(mimeType)) {
+      alert('Solo se permiten imágenes en formato PNG.');
+      fileInput.value = '';
+      currentSalaImageId = null;
+      currentSalaImageName = '';
+      return;
+    }
+
+    const reader = new FileReader();
+    if (typeof showSpinner === 'function') showSpinner();
+    reader.onload = function(ev) {
+      try {
+        const buffer = ev.target && ev.target.result;
+        if (!(buffer instanceof ArrayBuffer)) throw new Error('Archivo inválido');
+        const bytes = Array.from(new Uint8Array(buffer));
+
+        google.script.run
+          .withSuccessHandler(() => {
+            if (typeof hideSpinner === 'function') hideSpinner();
+            currentSalaImageId = null;
+            currentSalaImageName = '';
+            fileInput.value = '';
+            cargarSalas();
+            showInfoModal('Imagen de la sala actualizada correctamente.', '¡Imagen actualizada!');
+          })
+          .withFailureHandler(err => {
+            if (typeof hideSpinner === 'function') hideSpinner();
+            currentSalaImageId = null;
+            currentSalaImageName = '';
+            fileInput.value = '';
+            console.error(err);
+            const msg = err && err.message ? err.message : err;
+            alert('Error subiendo la imagen de la sala.' + (msg ? '\n\n' + msg : ''));
+          })
+          .uploadSalaImagen({
+            idSala: currentSalaImageId,
+            nombreSala: currentSalaImageName,
+            fileName: file.name,
+            mimeType: mimeType,
+            bytes: bytes
+          });
+      } catch (error) {
+        if (typeof hideSpinner === 'function') hideSpinner();
+        currentSalaImageId = null;
+        currentSalaImageName = '';
+        fileInput.value = '';
+        console.error(error);
+        alert('No se pudo leer el archivo seleccionado.');
+      }
+    };
+    reader.onerror = function() {
+      if (typeof hideSpinner === 'function') hideSpinner();
+      currentSalaImageId = null;
+      currentSalaImageName = '';
+      fileInput.value = '';
+      alert('No se pudo leer el archivo seleccionado.');
+    };
+    reader.readAsArrayBuffer(file);
+  }
 
   function submitSala(e) {
     e.preventDefault();
@@ -684,15 +787,30 @@ const PanelAdmin = (() => {
     tbody.innerHTML = '';
     list.forEach(c => {
       const tr = document.createElement('tr');
-      ['ID Centro','Nombre Centro','Direccion Centro','Telefono','Email','Responsable'].forEach(k => {
+      ['ID Centro','Nombre Centro','Direccion Centro','Telefono','Email','Responsable','Imagen Centro'].forEach(k => {
         const td = document.createElement('td');
-        td.textContent = safe(c[k]);
+        if (k === 'Imagen Centro') {
+          const url = safe(c[k] || c.PlanoCentro || c['Plano Centro']);
+          if (url) {
+            const link = document.createElement('a');
+            link.href = url;
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            link.textContent = 'Ver imagen';
+            td.appendChild(link);
+          } else {
+            td.textContent = '—';
+          }
+        } else {
+          td.textContent = safe(c[k]);
+        }
         tr.appendChild(td);
       });
       const tdAct = document.createElement('td');
       tdAct.className = 'actions';
       const id = safe(c['ID Centro']).toString().replace(/"/g,'&quot;');
       tdAct.innerHTML = `
+        <button onclick="PanelAdmin.openCentroImageDialog('${id}')" title="Cargar imagen">🖼️</button>
         <button onclick="PanelAdmin.openCentroEditModal('${id}')" title="Editar">✏️</button>
         <button onclick="PanelAdmin.openCentroDeleteModal('${id}')" title="Eliminar">🗑️</button>
       `;
@@ -725,7 +843,87 @@ const PanelAdmin = (() => {
     qs('#centroResponsable').value = safe(c['Responsable']);
     qs('#editCentroModal').classList.add('activo');
   }
+  function openCentroImageDialog(id) {
+    const c = centrosOriginales.find(x => String(x['ID Centro']) === String(id));
+    if (!c) return;
+    currentCentroImageId = String(id);
+    currentCentroImageName = safe(c['Nombre Centro']);
+    const input = qs('#centroImageInput');
+    if (!input) return;
+    input.value = '';
+    input.click();
+  }
   function closeCentroEditModal() { qs('#editCentroModal').classList.remove('activo'); }
+
+  function handleCentroImageSelected(e) {
+    const fileInput = e.target;
+    const file = fileInput.files && fileInput.files[0];
+    if (!file) return;
+    if (!currentCentroImageId) {
+      fileInput.value = '';
+      return;
+    }
+
+    const mimeType = (file.type || 'image/png').toLowerCase();
+    if (mimeType && !/^image\/(x-)?png$/.test(mimeType)) {
+      alert('Solo se permiten imágenes en formato PNG.');
+      fileInput.value = '';
+      currentCentroImageId = null;
+      currentCentroImageName = '';
+      return;
+    }
+
+    const reader = new FileReader();
+    if (typeof showSpinner === 'function') showSpinner();
+    reader.onload = function(ev) {
+      try {
+        const buffer = ev.target && ev.target.result;
+        if (!(buffer instanceof ArrayBuffer)) throw new Error('Archivo inválido');
+        const bytes = Array.from(new Uint8Array(buffer));
+
+        google.script.run
+          .withSuccessHandler(() => {
+            if (typeof hideSpinner === 'function') hideSpinner();
+            currentCentroImageId = null;
+            currentCentroImageName = '';
+            fileInput.value = '';
+            cargarCentros();
+            showInfoModal('Imagen del centro actualizada correctamente.', '¡Imagen actualizada!');
+          })
+          .withFailureHandler(err => {
+            if (typeof hideSpinner === 'function') hideSpinner();
+            currentCentroImageId = null;
+            currentCentroImageName = '';
+            fileInput.value = '';
+            console.error(err);
+            const msg = err && err.message ? err.message : err;
+            alert('Error subiendo la imagen del centro.' + (msg ? '\n\n' + msg : ''));
+          })
+          .uploadCentroImagen({
+            idCentro: currentCentroImageId,
+            nombreCentro: currentCentroImageName,
+            fileName: file.name,
+            mimeType: mimeType,
+            bytes: bytes
+          });
+      } catch (error) {
+        if (typeof hideSpinner === 'function') hideSpinner();
+        currentCentroImageId = null;
+        currentCentroImageName = '';
+        fileInput.value = '';
+        console.error(error);
+        alert('No se pudo leer el archivo seleccionado.');
+      }
+    };
+    reader.onerror = function() {
+      if (typeof hideSpinner === 'function') hideSpinner();
+      currentCentroImageId = null;
+      currentCentroImageName = '';
+      fileInput.value = '';
+      alert('No se pudo leer el archivo seleccionado.');
+    };
+    reader.readAsArrayBuffer(file);
+  }
 
   function submitCentro(e) {
     e.preventDefault();
@@ -978,6 +1176,10 @@ function subirUsuarios() {
     qs('#btnDeleteCiudadOk').addEventListener('click', confirmDeleteCiudad);
     const ciudadInput = qs('#ciudadImageInput');
     if (ciudadInput) ciudadInput.addEventListener('change', handleCiudadImageSelected);
+    const centroInput = qs('#centroImageInput');
+    if (centroInput) centroInput.addEventListener('change', handleCentroImageSelected);
+    const salaInput = qs('#salaImageInput');
+    if (salaInput) salaInput.addEventListener('change', handleSalaImageSelected);
 
     // Centros: botones
     qs('#btnAddCentro').addEventListener('click', openCentroAddModal);
@@ -1003,6 +1205,7 @@ function subirUsuarios() {
     init,
     showTab,
     openSalaEditModal,
+    openSalaImageDialog,
     openSalaDeleteModal,
     openUserEditModal,
     openUserDeleteModal,
@@ -1010,6 +1213,7 @@ function subirUsuarios() {
     openCiudadImageDialog,
     openCiudadDeleteModal,
     openCentroEditModal,
+    openCentroImageDialog,
     openCentroDeleteModal
   };
 })();
