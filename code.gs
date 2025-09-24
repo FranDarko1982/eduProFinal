@@ -372,6 +372,24 @@ function formatSalaCapacityValue(cap) {
   return str;
 }
 
+function normalizePersonas(value) {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'number') {
+    if (!isFinite(value)) return '';
+    const rounded = Math.round(value);
+    return rounded >= 1 ? String(rounded) : '';
+  }
+  const str = String(value).trim();
+  if (!str) return '';
+  const normalized = str.replace(',', '.');
+  const num = Number(normalized);
+  if (!isNaN(num) && isFinite(num)) {
+    const rounded = Math.round(num);
+    return rounded >= 1 ? String(rounded) : '';
+  }
+  return '';
+}
+
 /**
  * 1) Capa común: lectura de Spreadsheet y mapeo a objetos “crudos”
  */
@@ -390,6 +408,7 @@ function fetchReservasData() {
 function mapRowToReserva(headers, row) {
   // Proyecta una fila de 'Reservas' a un objeto con campos tipados.
   const idx = name => headers.indexOf(name);
+  const idxPersonas = idx('Personas');
   return {
     id:      row[idx('ID Reserva')],
     nombre:  row[idx('Nombre')],
@@ -399,6 +418,7 @@ function mapRowToReserva(headers, row) {
     motivo:  row[idx('Motivo')],
     inicio:  row[idx('Fecha inicio')],
     fin:     row[idx('Fecha fin')],
+    personas: idxPersonas > -1 ? row[idxPersonas] : ''
   };
 }
 
@@ -443,7 +463,8 @@ function getReservas(ciudad, centro, nombre) {
         end:   toIso(slot.end),
         extendedProps: {
           usuario: r.usuario,
-          motivo:  r.motivo
+          motivo:  r.motivo,
+          personas: r.personas
         }
       });
     });
@@ -513,15 +534,22 @@ function crearReserva(reserva) {
   // Valida solapamientos, inserta la reserva, notifica por email y crea evento.
   const ss    = SpreadsheetApp.openById(SPREADSHEET_ID);
   let sheet   = ss.getSheetByName(RESERVAS_SHEET);
+  const PERSONAS_HEADER = 'Personas';
   if (!sheet) {
     sheet = ss.insertSheet(RESERVAS_SHEET);
     sheet.appendRow([
-      'ID Reserva','Nombre','Ciudad','Centro','Usuario','Motivo','Fecha inicio','Fecha fin'
+      'ID Reserva','Nombre','Ciudad','Centro','Usuario','Motivo','Fecha inicio','Fecha fin', PERSONAS_HEADER
     ]);
   }
 
   // 1) Leer todas las reservas actuales
-  const { headers, rows } = fetchReservasData();
+  let { headers, rows } = fetchReservasData();
+  if (headers.length && headers.indexOf(PERSONAS_HEADER) === -1) {
+    headers = headers.concat([PERSONAS_HEADER]);
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  }
+  const personasValue = normalizePersonas(reserva.personas);
+  reserva.personas = personasValue;
   const idxId = headers.indexOf('ID Reserva');
   let maxId = 0;
   rows.forEach(r => {
@@ -571,7 +599,8 @@ function crearReserva(reserva) {
     reserva.usuario,
     reserva.motivo,
     reserva.fechaInicio,
-    reserva.fechaFin
+    reserva.fechaFin,
+    reserva.personas
   ]);
 
   // 5) Notificar por email y Calendar
@@ -602,6 +631,7 @@ Tu reserva ha sido registrada con éxito:
 • Inicio:     ${reserva.fechaInicio}
 • Fin:        ${reserva.fechaFin}
 • Motivo:     ${reserva.motivo}
+• Personas:   ${reserva.personas || 'No indicado'}
 
 Gracias por usar el sistema de reservas.
 `;
@@ -632,6 +662,7 @@ Tu reserva ha sido modificada correctamente:
 • Inicio:     ${reserva.fechaInicio}
 • Fin:        ${reserva.fechaFin}
 • Motivo:     ${reserva.motivo}
+• Personas:   ${reserva.personas || 'No indicado'}
 • Motivo de cambio: ${reserva.motivoCambio}
 
 Gracias por usar el sistema de reservas.
@@ -697,7 +728,8 @@ function crearEventoCalendar(reserva, idReserva) {
     start,
     end,
     {
-      description: `Usuario: ${reserva.usuario}\nMotivo: ${reserva.motivo}`,
+      description: `Usuario: ${reserva.usuario}\nMotivo: ${reserva.motivo}` +
+        (reserva.personas ? `\nPersonas: ${reserva.personas}` : ''),
       guests:      `${reserva.usuario},${RESPONSABLE_EMAIL}${backup ? ',' + backup : ''}`,
       sendInvites: true
     }
@@ -815,7 +847,14 @@ function actualizarReserva(reserva) {
   }
   
   const data = sheet.getDataRange().getValues();
-  const headers = data[0].map(h => String(h).trim());
+  let headers = data[0].map(h => String(h).trim());
+  const personasValue = reserva.personas !== undefined
+    ? normalizePersonas(reserva.personas)
+    : undefined;
+  if (personasValue !== undefined && headers.indexOf('Personas') === -1) {
+    headers = headers.concat(['Personas']);
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  }
   const idxId = headers.indexOf('ID Reserva');
   const idxMotivo = headers.indexOf('Motivo');
   const idxInicio = headers.indexOf('Fecha inicio');
@@ -824,6 +863,7 @@ function actualizarReserva(reserva) {
   const idxCiudad = headers.indexOf('Ciudad');
   const idxCentro = headers.indexOf('Centro');
   const idxUsuario = headers.indexOf('Usuario');
+  const idxPersonas = headers.indexOf('Personas');
 
   const reservas = data.slice(1).map(row => mapRowToReserva(headers, row));
   const actual = reservas.find(r => String(r.id) === String(reserva.id));
@@ -856,6 +896,9 @@ function actualizarReserva(reserva) {
       sheet.getRange(row, idxMotivo + 1).setValue(reserva.motivo);
       sheet.getRange(row, idxInicio + 1).setValue(reserva.fechaInicio);
       sheet.getRange(row, idxFin + 1).setValue(reserva.fechaFin);
+      if (idxPersonas > -1 && personasValue !== undefined) {
+        sheet.getRange(row, idxPersonas + 1).setValue(personasValue);
+      }
 
       const cambios = [];
       const tz = Session.getScriptTimeZone();
@@ -867,6 +910,12 @@ function actualizarReserva(reserva) {
       }
       if (new Date(actual.fin).getTime() !== end.getTime()) {
         cambios.push(`Fin: ${Utilities.formatDate(new Date(actual.fin), tz, 'dd/MM/yyyy HH:mm')} -> ${Utilities.formatDate(end, tz, 'dd/MM/yyyy HH:mm')}`);
+      }
+      if (idxPersonas > -1 && personasValue !== undefined) {
+        const actualPersonas = data[i][idxPersonas];
+        if (String(actualPersonas || '') !== String(personasValue || '')) {
+          cambios.push(`Personas: ${actualPersonas || '—'} -> ${personasValue || '—'}`);
+        }
       }
 
       let logSheet = ss.getSheetByName(CAMBIOS_RESERVAS_SHEET);
@@ -893,7 +942,10 @@ function actualizarReserva(reserva) {
         motivo:    reserva.motivo,
         fechaInicio: reserva.fechaInicio,
         fechaFin:    reserva.fechaFin,
-        motivoCambio: reserva.motivoCambio
+        motivoCambio: reserva.motivoCambio,
+        personas: idxPersonas > -1
+          ? (personasValue !== undefined ? personasValue : data[i][idxPersonas])
+          : ''
       };
       enviarMailActualizacion(reservaCompleta);
       return true;
