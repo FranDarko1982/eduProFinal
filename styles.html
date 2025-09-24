@@ -1,1914 +1,1247 @@
-const SPREADSHEET_ID    = '1r7RcpcjfFqFVPvEsHhZX21mNDDDOoZ1LPhWmW8csvnE';
-const USUARIOS_SHEET    = 'Usuarios';
-const SHEET_NAME        = 'Salas';
-const RESERVAS_SHEET    = 'Reservas';
-const CAMBIOS_RESERVAS_SHEET = 'Cambios reservas';
-const CIUDADES_SHEET    = 'Ciudades';
-const CENTROS_SHEET     = 'Centros';
-const CITY_IMAGES_FOLDER_NAME = 'ReservaSalas_Ciudades';
-// Dirección que recibirá copia de cada reserva
-const RESPONSABLE_EMAIL = 'francisco.benavente.salgado@intelcia.com';
-// URL de la webapp para incluir enlaces en los correos
-const WEBAPP_URL       = (ScriptApp.getService && ScriptApp.getService().getUrl) ?
-  ScriptApp.getService().getUrl() : '';
-  
-/**
- * Normaliza un valor (trim + toLowerCase) para comparaciones uniformes.
- */
-function normalize(val) {
-  // Devuelve el valor normalizado (trim + minúsculas) para comparaciones.
-  return String(val || '').trim().toLowerCase();
-}
-
-/**
- * Devuelve la hoja por nombre ignorando mayúsculas/minúsculas y espacios.
- */
-function getSheetByNameIC(ss, name) {
-  // Obtiene una hoja por nombre ignorando mayúsculas/minúsculas y espacios.
-  let sheet = ss.getSheetByName(name);
-  if (sheet) return sheet;
-  const target = String(name).trim().toLowerCase();
-  return ss.getSheets().find(s => s.getName().trim().toLowerCase() === target) || null;
-}
-
-/**
- * Comprueba si el usuario está en la base de datos de usuarios.
- * Devuelve null si no existe, o un objeto con sus datos (email, nombre, rol, etc).
- */
-function getUserData() {
-  // Busca el usuario activo en la hoja 'Usuarios' y devuelve sus datos o null.
-  const email = Session.getActiveUser().getEmail();
-  if (!email) return null;
-
-  const ss    = SpreadsheetApp.openById(SPREADSHEET_ID);
-  const sheet = getSheetByNameIC(ss, USUARIOS_SHEET);
-  const data  = sheet.getDataRange().getValues();
-  const headers = data[0].map(h => normalize(h));
-  const idxEmail = headers.indexOf('email');
-  if (idxEmail === -1) return null;
-
-  for (let i = 1; i < data.length; i++) {
-    if (normalize(data[i][idxEmail]) === normalize(email)) {
-      const usuario = {};
-      headers.forEach((h, j) => usuario[h] = data[i][j]);
-      return usuario;
-    }
-  }
-  return null;
-}
-
-/**
- * Incluye un fragmento HTML por nombre de archivo.
- */
-function include(filename) {
-  // Evalúa el parcial como plantilla y le pasa 'usuario' y 'role'
-  var t = HtmlService.createTemplateFromFile(filename);
-  var u = getUserData();                       // lee tu usuario de la hoja
-  t.usuario = u || {};                         // disponible en el parcial
-  t.role    = normalize((u && u.rol) || 'usuario');
-  return t.evaluate().getContent();            // <-- ahora sí se evalúan <?= ... ?>
-}
-
-
-/**
- * Genera la URL de Gravatar para el usuario activo.
- */
-function getUserAvatarUrl() {
-  // Calcula el hash MD5 del email y construye la URL de Gravatar (64px).
-  const email = Session.getActiveUser().getEmail() || '';
-  const hash = Utilities.computeDigest(
-    Utilities.DigestAlgorithm.MD5,
-    email.trim().toLowerCase()
-  )
-  .map(b => ('0' + (b < 0 ? b + 256 : b).toString(16)).slice(-2))
-  .join('');
-  return `https://www.gravatar.com/avatar/${hash}?d=mp&s=64`;
-}
-
-/**
- * Devuelve el correo del usuario activo.
- */
-function getActiveUserEmail() {
-  // Devuelve el correo del usuario activo (o cadena vacía).
-  return Session.getActiveUser().getEmail() || '';
-}
-
-/**
- * Punto de entrada web: comprueba acceso y pasa el objeto usuario a la plantilla.
- */
-function doGet() {
-  // Punto de entrada de la webapp: valida acceso y renderiza la plantilla con el rol.
-  const user = getUserData();
-  if (!user) { /* …acceso denegado… */ }
-
-  const role = normalize(user.rol || 'usuario');
-  const template = HtmlService.createTemplateFromFile('index');
-  template.usuario = user;
-  template.role    = role;
-  return template
-    .evaluate()
-    .setTitle('Reserva salas')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-}
-
-/** Lee y normaliza toda la hoja de Salas, ignorando filas vacías y cabeceras “raras”. */
-function getAllSalas() {
-  // Lee la hoja 'Salas', detecta cabecera válida, omite filas vacías y devuelve objetos.
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  const name = (typeof SHEET_NAME === 'string' && SHEET_NAME) ? SHEET_NAME : 'Salas';
-  const sh = ss.getSheetByName(name);
-  if (!sh) throw new Error("Hoja '"+ name +"' no encontrada.");
-
-  const lastRow = sh.getLastRow();
-  const lastCol = sh.getLastColumn();
-  if (lastRow < 2 || lastCol < 1) return [];
-
-  // Cogemos todo lo “realmente usado”
-  const values = sh.getRange(1, 1, lastRow, lastCol).getValues();
-
-  // 1) Localiza la primera fila que tenga algo => cabecera
-  const headerIdx = values.findIndex(row => row.some(c => String(c).trim() !== ''));
-  if (headerIdx === -1 || headerIdx >= values.length - 1) return [];
-
-  const headers = values[headerIdx].map(h => String(h).trim());
-
-  // 2) Filtra filas totalmente vacías
-  const dataRows = values
-    .slice(headerIdx + 1)
-    .filter(row => row.some(c => String(c).trim() !== ''));
-
-  // 3) Mapea a objetos {Header: Valor}
-  return dataRows.map(row => {
-    const o = {};
-    headers.forEach((h, i) => { o[h] = row[i]; });
-    return o;
-  });
-}
-
-
-/**
- * Devuelve todos los usuarios de la hoja de Usuarios.
- */
-function getAllUsuarios() {
-  // Lee toda la hoja 'Usuarios' y devuelve una lista de objetos por fila.
-  const ss    = SpreadsheetApp.openById(SPREADSHEET_ID);
-  const sheet = ss.getSheetByName(USUARIOS_SHEET);
-  if (!sheet) throw new Error(`Hoja '${USUARIOS_SHEET}' no encontrada`);
-  const values = sheet.getDataRange().getValues();
-  if (values.length < 2) return [];
-  const headers = values.shift().map(h => String(h).trim());
-  return values.map(row => {
-    const obj = {};
-    headers.forEach((h, i) => obj[h] = row[i]);
-    return obj;
-  });
-}
-
-/** Devuelve todas las ciudades de la hoja 'Ciudades' */
-function getAllCiudades() {
-  const ss    = SpreadsheetApp.openById(SPREADSHEET_ID);
-  const sheet = getSheetByNameIC(ss, CIUDADES_SHEET);
-  if (!sheet) return [];
-  const values = sheet.getDataRange().getValues();
-  if (values.length < 2) return [];
-  const headers = values.shift().map(h => String(h).trim());
-  return values.map(r => {
-    const o = {};
-    headers.forEach((h, i) => o[h] = r[i]);
-    return o;
-  });
-}
-
-/** Devuelve todos los centros de la hoja 'Centros' */
-function getAllCentros() {
-  const ss    = SpreadsheetApp.openById(SPREADSHEET_ID);
-  const sheet = getSheetByNameIC(ss, CENTROS_SHEET);
-  if (!sheet) return [];
-  const values = sheet.getDataRange().getValues();
-  if (values.length < 2) return [];
-  const headers = values.shift().map(h => String(h).trim());
-  return values.map(r => {
-    const o = {};
-    headers.forEach((h, i) => o[h] = r[i]);
-    return o;
-  });
-}
-
-/** Devuelve la lista de roles (columna A de la hoja 'Roles') */
-function getRoles() {
-  // Lee la hoja 'Roles' (columna A) y devuelve la lista única de roles.
-  const ss    = SpreadsheetApp.openById(SPREADSHEET_ID);
-  const sheet = getSheetByNameIC(ss, 'Roles');
-  if (!sheet) return [];
-  return [...new Set(
-    sheet
-      .getRange('A:A')
-      .getValues()
-      .flat()
-      .map(r => String(r).trim())
-      .filter(v => v)
-  )];
-}
-
-/** Actualiza un usuario identificado por email */
-function actualizarUsuario(usuario) {
-  // Actualiza los campos del usuario identificado por email en la hoja 'Usuarios'.
-  const ss    = SpreadsheetApp.openById(SPREADSHEET_ID);
-  const sheet = ss.getSheetByName(USUARIOS_SHEET);
-  if (!sheet) throw new Error(`Hoja '${USUARIOS_SHEET}' no encontrada`);
-
-  const data    = sheet.getDataRange().getValues();
-  const headers = data[0].map(h => String(h).trim());
-  const idxEmail    = headers.indexOf('email');
-  const idxNombre   = headers.indexOf('nombre');
-  const idxRol      = headers.indexOf('rol');
-  const idxCampania = headers.indexOf('Campaña');
-
-  for (let i = 1; i < data.length; i++) {
-    if (normalize(data[i][idxEmail]) === normalize(usuario.originalEmail || usuario.email)) {
-      const row = i + 1;
-      if (idxEmail    !== -1) sheet.getRange(row, idxEmail + 1).setValue(usuario.email);
-      if (idxNombre   !== -1) sheet.getRange(row, idxNombre + 1).setValue(usuario.nombre);
-      if (idxRol      !== -1) sheet.getRange(row, idxRol + 1).setValue(usuario.rol);
-      if (idxCampania !== -1) sheet.getRange(row, idxCampania + 1).setValue(usuario['Campaña']);
-      return true;
-    }
-  }
-  throw new Error('Usuario no encontrado');
-}
-
-/** Crea un nuevo usuario */
-function crearUsuario(usuario) {
-  // Crea un nuevo registro en 'Usuarios' si el email no existe aún.
-  const ss    = SpreadsheetApp.openById(SPREADSHEET_ID);
-  const sheet = ss.getSheetByName(USUARIOS_SHEET);
-  if (!sheet) throw new Error(`Hoja '${USUARIOS_SHEET}' no encontrada`);
-
-  const data    = sheet.getDataRange().getValues();
-  const headers = data[0].map(h => String(h).trim());
-  const idxEmail    = headers.indexOf('email');
-  const idxNombre   = headers.indexOf('nombre');
-  const idxRol      = headers.indexOf('rol');
-  const idxCampania = headers.indexOf('Campaña');
-
-  for (let i = 1; i < data.length; i++) {
-    if (normalize(data[i][idxEmail]) === normalize(usuario.email)) {
-      throw new Error('El usuario ya existe');
-    }
-  }
-
-  const row = headers.map(() => '');
-  if (idxEmail    !== -1) row[idxEmail]    = usuario.email;
-  if (idxNombre   !== -1) row[idxNombre]   = usuario.nombre;
-  if (idxRol      !== -1) row[idxRol]      = usuario.rol;
-  if (idxCampania !== -1) row[idxCampania] = usuario['Campaña'];
-  sheet.appendRow(row);
-  return true;
-}
-
-
-
-/** Elimina un usuario por email */
-function eliminarUsuario(email) {
-  // Elimina el usuario cuyo email coincida; devuelve true/false.
-  const ss    = SpreadsheetApp.openById(SPREADSHEET_ID);
-  const sheet = ss.getSheetByName(USUARIOS_SHEET);
-  if (!sheet) throw new Error(`Hoja '${USUARIOS_SHEET}' no encontrada`);
-
-  const data    = sheet.getDataRange().getValues();
-  const headers = data[0].map(h => String(h).trim());
-  const idxEmail = headers.indexOf('email');
-
-  for (let i = 1; i < data.length; i++) {
-    if (normalize(data[i][idxEmail]) === normalize(email)) {
-      sheet.deleteRow(i + 1);
-      return true;
-    }
-  }
-  return false;
-}
-
-
-/** Devuelve lista única de ciudades */
-function getCiudades() {
-  return getAllCiudades()
-    .map(c => String(c['Nombre Ciudad'] || c.NombreCiudad || c.Nombre || '').trim())
-    .filter(v => v)
-    .sort();
-}
-
-/** Devuelve lista única de centros (sin filtrar por ciudad) */
-function getCentros(ciudad) {
-  // La tabla de centros no está vinculada directamente a ciudades.
-  return getAllCentros()
-    .map(c => String(c['Nombre Centro'] || c.NombreCentro || c.Nombre || '').trim())
-    .filter(v => v)
-    .sort();
-}
-
-/** Devuelve lista única de salas (filtrada por ciudad y centro) */
-function getSalas(ciudad, centro) {
-  // Devuelve nombres de salas únicos filtrando por ciudad/centro.
-  ciudad = normalize(ciudad);
-  centro = normalize(centro);
-  const all = getAllSalas();
-  return [...new Set(
-    all
-      .filter(r => (!ciudad || normalize(r.Ciudad) === ciudad)
-                 && (!centro || normalize(r.Centro) === centro))
-      .map(r => String(r.Nombre || '').trim())
-      .filter(v => v)
-  )].sort();
-}
-
-/**
- * 1) Capa común: lectura de Spreadsheet y mapeo a objetos “crudos”
- */
-function fetchReservasData() {
-  // Lee la hoja 'Reservas' y devuelve {headers, rows} ya separados.
-  const ss    = SpreadsheetApp.openById(SPREADSHEET_ID);
-  const sheet = ss.getSheetByName(RESERVAS_SHEET);
-  if (!sheet) return { headers: [], rows: [] };
-  const data = sheet.getDataRange().getValues();
-  if (data.length < 2) return { headers: [], rows: [] };
-
-  const headers = data.shift().map(h => String(h).trim());
-  return { headers, rows: data };
-}
-
-function mapRowToReserva(headers, row) {
-  // Proyecta una fila de 'Reservas' a un objeto con campos tipados.
-  const idx = name => headers.indexOf(name);
-  return {
-    id:      row[idx('ID Reserva')],
-    nombre:  row[idx('Nombre')],
-    ciudad:  row[idx('Ciudad')],
-    centro:  row[idx('Centro')],
-    usuario: row[idx('Usuario')],
-    motivo:  row[idx('Motivo')],
-    inicio:  row[idx('Fecha inicio')],
-    fin:     row[idx('Fecha fin')],
-  };
-}
-
-/**
- * Función genérica: recibe filtros y formateadores
- */
-function getReservasGeneric({ filterFn, formatFn }) {
-  // Aplica mapeo, filtro y formateo genérico sobre todas las reservas.
-  const { headers, rows } = fetchReservasData();
-  return rows
-    .map(row => mapRowToReserva(headers, row))
-    .filter(filterFn)
-    .map(formatFn);
-}
-
-/**
- * Para el calendario: filtro por ciudad/centro/sala y formateo FullCalendar
- */
-function getReservas(ciudad, centro, nombre) {
-  // Devuelve eventos troceados por día (FullCalendar) para una sala concreta.
-  ciudad = normalize(ciudad);
-  centro = normalize(centro);
-  nombre = normalize(nombre);
-  if (!ciudad || !centro || !nombre) return [];
-
-  const raw = getReservasGeneric({
-    filterFn: r =>
-      normalize(r.ciudad) === ciudad &&
-      normalize(r.centro) === centro &&
-      normalize(r.nombre) === nombre,
-    formatFn: r => r
-  });
-
-  const events = [];
-  raw.forEach(r => {
-    const slots = splitRangeByDay(r.inicio, r.fin);
-    slots.forEach(slot => {
-      events.push({
-        id:    r.id,
-        title: r.motivo || r.usuario,
-        start: toIso(slot.start),
-        end:   toIso(slot.end),
-        extendedProps: {
-          usuario: r.usuario,
-          motivo:  r.motivo
-        }
-      });
-    });
-  });
-
-  return events.filter(ev => ev.start && ev.end);
-}
-
-/**
- * Devuelve todas las reservas en formato de tabla,
- * exactamente igual que getMisReservas() pero sin filtrar por usuario.
- */
-function getTodasReservas() {
-  // Devuelve todas las reservas formateadas para tabla y ordenadas por inicio.
-  return getReservasGeneric({
-    // no filtramos nada, devolvemos todo
-    filterFn: () => true,
-    // mismo formateo plano que en mis reservas
-    formatFn: r => ({
-      ID:      r.id,
-      Sala:    r.nombre,
-      Ciudad:  r.ciudad,
-      Centro:  r.centro,
-      Usuario: r.usuario,
-      Motivo:  r.motivo,
-      Inicio:  formatFecha(r.inicio),
-      Fin:     formatFecha(r.fin)
-    })
-  })
-  // opcional: ordenamos por fecha de inicio ascendente
-  .sort((a, b) => {
-    const pa = a.Inicio.split(' ')[0].split('/').reverse().join('-') + 'T' + a.Inicio.split(' ')[1];
-    const pb = b.Inicio.split(' ')[0].split('/').reverse().join('-') + 'T' + b.Inicio.split(' ')[1];
-    return new Date(pa) - new Date(pb);
-  });
-}
-
-
-/**
- * Para la tabla de “mis reservas”: filtro por usuario y formateo plano
- */
-function getMisReservas(email) {
-  // Devuelve las reservas del usuario indicado (o el actual) formateadas para tabla.
-  const me = normalize(email || getActiveUserEmail());
-  return getReservasGeneric({
-    filterFn: r => normalize(r.usuario) === me,
-    formatFn: r => ({
-      ID:      r.id,
-      Sala:    r.nombre,
-      Ciudad:  r.ciudad,
-      Centro:  r.centro,
-      Motivo:  r.motivo,
-      Inicio:  formatFecha(r.inicio),
-      Fin:     formatFecha(r.fin)
-    })
-  });
-}
-
-
-/**
- * Crea una reserva: la guarda, envía mail y crea evento en Calendar
- */
-/**
- * Crea una reserva: valida solapamientos, la guarda, envía mail y crea evento en Calendar
- */
-function crearReserva(reserva) {
-  // Valida solapamientos, inserta la reserva, notifica por email y crea evento.
-  const ss    = SpreadsheetApp.openById(SPREADSHEET_ID);
-  let sheet   = ss.getSheetByName(RESERVAS_SHEET);
-  if (!sheet) {
-    sheet = ss.insertSheet(RESERVAS_SHEET);
-    sheet.appendRow([
-      'ID Reserva','Nombre','Ciudad','Centro','Usuario','Motivo','Fecha inicio','Fecha fin'
-    ]);
-  }
-
-  // 1) Leer todas las reservas actuales
-  const { headers, rows } = fetchReservasData();
-  const idxId = headers.indexOf('ID Reserva');
-  let maxId = 0;
-  rows.forEach(r => {
-    const match = String(r[idxId]).match(/^RE(\d+)$/);
-    if (match) {
-      const num = parseInt(match[1], 10);
-      if (num > maxId) maxId = num;
-    }
-  });
-  const newId = 'RE' + String(maxId + 1).padStart(8, '0');
-
-  const existing = rows
-    .map(row => mapRowToReserva(headers, row))
-    .filter(r =>
-      normalize(r.ciudad) === normalize(reserva.ciudad) &&
-      normalize(r.centro) === normalize(reserva.centro) &&
-      normalize(r.nombre) === normalize(reserva.nombre)
-    );
-  
-  // 2) Parsear fechas de la nueva reserva
-  const newStart = new Date(reserva.fechaInicio);
-  const newEnd   = new Date(reserva.fechaFin);
-  if (newEnd <= newStart) {
-    throw new Error('La fecha fin no puede ser anterior a la fecha inicio.');
-  }
-
-  // 3) Comprobar solapamientos
-  const newSlots = splitRangeByDay(newStart, newEnd);
-  const existingSlots = [];
-  existing.forEach(r => {
-    splitRangeByDay(new Date(r.inicio), new Date(r.fin)).forEach(s => existingSlots.push(s)); 
-  });
-  const overlap = newSlots.some(ns =>
-    existingSlots.some(es => ns.start < es.end && es.start < ns.end)
-  );
-  if (overlap) {
-    throw new Error('La franja elegida ya está reservada en ese rango de fechas.');
-  }
-
-  // 4) Si no hay solapamiento, seguimos con la creación
-  const idReserva = reserva.idReserva ? String(reserva.idReserva) : newId;
-  sheet.appendRow([
-    idReserva,
-    reserva.nombre,
-    reserva.ciudad,
-    reserva.centro,
-    reserva.usuario,
-    reserva.motivo,
-    reserva.fechaInicio,
-    reserva.fechaFin
-  ]);
-
-  // 5) Notificar por email y Calendar
-  if (!reserva.skipMail) {
-    enviarMail(reserva, idReserva);
-  }
-  crearEventoCalendar(reserva, idReserva);
-
-  return idReserva;
-}
-
-
-/**
- * Envía email de confirmación
- */
-function enviarMail(reserva, idReserva) {
-  // Envía un correo de confirmación de reserva al usuario y en copia al responsable.
-  const subject = `Reserva ${idReserva} confirmada: ${reserva.nombre}`;
-  const body    = `
-Hola,
-
-Tu reserva ha sido registrada con éxito:
-
-• ID Reserva: ${idReserva}
-• Sala:       ${reserva.nombre}
-• Ciudad:     ${reserva.ciudad}
-• Centro:     ${reserva.centro}
-• Inicio:     ${reserva.fechaInicio}
-• Fin:        ${reserva.fechaFin}
-• Motivo:     ${reserva.motivo}
-
-Gracias por usar el sistema de reservas.
-`;
-  const backup = getBackupEmail(reserva.usuario);
-  MailApp.sendEmail({
-    to:      reserva.usuario,
-    cc:      [RESPONSABLE_EMAIL, backup].filter(Boolean).join(','),
-    subject: subject,
-    body:    body
-  });
-}
-
-/**
- * Envía email de notificación por actualización de reserva
- */
-function enviarMailActualizacion(reserva) {
-  // Envía correo informando de la modificación de una reserva existente.
-  const subject = `Reserva ${reserva.id} modificada: ${reserva.nombre}`;
-  const body    = `
-Hola,
-
-Tu reserva ha sido modificada correctamente:
-
-• ID Reserva: ${reserva.id}
-• Sala:       ${reserva.nombre}
-• Ciudad:     ${reserva.ciudad}
-• Centro:     ${reserva.centro}
-• Inicio:     ${reserva.fechaInicio}
-• Fin:        ${reserva.fechaFin}
-• Motivo:     ${reserva.motivo}
-• Motivo de cambio: ${reserva.motivoCambio}
-
-Gracias por usar el sistema de reservas.
-`;
-  const backup = getBackupEmail(reserva.usuario);
-  MailApp.sendEmail({
-    to:      reserva.usuario,
-    cc:      [RESPONSABLE_EMAIL, backup].filter(Boolean).join(','),
-    subject: subject,
-    body:    body
-  });
-}
-
-/**
- * Envía un único correo con varias franjas reservadas
- */
-function sendBulkReservationEmail(params) {
-  // Envía un único email con varias franjas de reserva en formato HTML.
-  const emailUsuario = params && params.emailUsuario;
-  const motivo       = params && params.motivo;
-  const reservas     = Array.isArray(params && params.reservas) ? params.reservas : [];
-  const idReservaGlobal = params && params.idReserva;
-  if (!emailUsuario || !reservas.length) return;
-
-  const list = reservas
-    .map(r => {
-      const id = idReservaGlobal || r.idReserva || r.id || '';
-      const rango = `${r.fechaInicio} \u2192 ${r.fechaFin}`;
-      return `<li>${id ? '<b>' + id + '</b>: ' : ''}${rango}</li>`;
-    })
-    .join('');
-
-  const htmlBody = `
-    <p>Hola,</p>
-    <p>Tu reserva ha sido registrada con &eacute;xito para las siguientes franjas:</p>
-    <ul>${list}</ul>
-    <p>Motivo: ${motivo || ''}</p>
-    <p>Gracias por usar el sistema de reservas.</p>
-  `;
-
-  const backup = getBackupEmail(emailUsuario);
-  MailApp.sendEmail({
-    to: emailUsuario,
-    cc: [RESPONSABLE_EMAIL, backup].filter(Boolean).join(','),
-    subject: 'Reservas confirmadas',
-    htmlBody: htmlBody
-  });
-}
-
-/**
- * Crea el evento en Google Calendar
- */
-function crearEventoCalendar(reserva, idReserva) {
-  // Crea un evento en el calendario por defecto con el resumen y los invitados.
-  const perfil = getUserProfile(reserva.usuario);
-  if (perfil && perfil.prefs && perfil.prefs.syncCalendar === false) return;
-  const calendar = CalendarApp.getDefaultCalendar();
-  const start    = new Date(reserva.fechaInicio);
-  const end      = new Date(reserva.fechaFin);
-  const backup   = getBackupEmail(reserva.usuario);
-  calendar.createEvent(
-    `Reserva ${idReserva} – ${reserva.nombre}`,
-    start,
-    end,
-    {
-      description: `Usuario: ${reserva.usuario}\nMotivo: ${reserva.motivo}`,
-      guests:      `${reserva.usuario},${RESPONSABLE_EMAIL}${backup ? ',' + backup : ''}`,
-      sendInvites: true
-    }
-  );
-}
-
-/**
- * Divide un rango de fechas en franjas diarias manteniendo la hora.
- * Devuelve un array de objetos {start:Date, end:Date}.
- */
-function splitRangeByDay(start, end) {
-  // Divide un rango en franjas diarias manteniendo horas/minutos; valida fechas.
-  try {
-    start = start instanceof Date ? new Date(start) : new Date(start);
-    end   = end instanceof Date ? new Date(end)   : new Date(end);
-    if (isNaN(start) || isNaN(end)) return [];
-  } catch(e) {
-    return [];
-  }
-
-  const result = [];
-  const hStart = start.getHours();
-  const mStart = start.getMinutes();
-  const hEnd   = end.getHours();
-  const mEnd   = end.getMinutes();
-
-  const current = new Date(start);
-  current.setHours(0,0,0,0);
-  const last = new Date(end);
-  last.setHours(0,0,0,0);
-
-  while (current <= last) {
-    const s = new Date(current);
-    s.setHours(hStart, mStart, 0, 0);
-    const e = new Date(current);
-    e.setHours(hEnd, mEnd, 0, 0);
-    result.push({ start: s, end: e });
-    current.setDate(current.getDate() + 1);
-  }
-  return result;
-}
-
-/**
- * Convierte fecha a ISO string para FullCalendar
- */
-function toIso(fecha) {
-  // Convierte fechas a ISO local para FullCalendar admitiendo varios formatos.
-  if (!fecha) return null;
-  if (fecha instanceof Date) {
-    return Utilities.formatDate(
-      fecha,
-      Session.getScriptTimeZone(),
-      "yyyy-MM-dd'T'HH:mm:ss"
-    );
-  }
-  const s = String(fecha).trim().replace(/\s+/g,' ');
-  let m = s.match(/^(\d{4}-\d{2}-\d{2}) (\d{1,2}):(\d{2})$/);
-  if (m) {
-    let [_, d, h, mi] = m;
-    h = h.padStart(2,'0');
-    return `${d}T${h}:${mi}:00`;
-  }
-  m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4}) (\d{1,2}):(\d{2})$/);
-  if (m) {
-    let [_, day, mon, yr, h, mi] = m;
-    day = day.padStart(2,'0'); mon = mon.padStart(2,'0');
-    h   = h.padStart(2,'0');
-    return `${yr}-${mon}-${day}T${h}:${mi}:00`;
-  }
-  return (/T\d{2}:\d{2}/.test(s) ? s : null);
-}
-
-/**
- * Formatea para la tabla: '2025-07-05 14:00' → '05/07/2025 14:00'
- */
-function formatFecha(fecha) {
-  // Formatea una fecha a 'dd/MM/yyyy HH:mm' para listados.
-  if (!fecha) return '';
-  try {
-    const d = fecha instanceof Date
-      ? fecha
-      : new Date(fecha.replace(/-/g,'/'));
-    const pad = n => ('0'+n).slice(-2);
-    return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} `
-         + `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  } catch (e) {
-    return fecha;
-  }
-}
-
-
-
-/** Helper: devuelve el correo del usuario activo */
-function getCorreoUsuario() {
-  // Alias de utilidad para obtener el email del usuario activo.
-  return Session.getActiveUser().getEmail() || '';
-}
-
-/**
- * Actualiza una reserva existente a partir de su ID
- */
-function actualizarReserva(reserva) {
-  // Revalida solapamientos y actualiza motivo/fechas de una reserva por ID.
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  const sheet = ss.getSheetByName(RESERVAS_SHEET);
-  if (!sheet) throw new Error('Hoja de reservas no encontrada');
-
-  const start = new Date(reserva.fechaInicio);
-  const end   = new Date(reserva.fechaFin);
-  if (end <= start) {
-    throw new Error('La fecha fin no puede ser anterior a la fecha inicio.');
-  }
-  if (!reserva.motivoCambio) {
-    throw new Error('Debe indicar motivo de la modificación');
-  }
-  
-  const data = sheet.getDataRange().getValues();
-  const headers = data[0].map(h => String(h).trim());
-  const idxId = headers.indexOf('ID Reserva');
-  const idxMotivo = headers.indexOf('Motivo');
-  const idxInicio = headers.indexOf('Fecha inicio');
-  const idxFin = headers.indexOf('Fecha fin');
-  const idxNombre = headers.indexOf('Nombre');
-  const idxCiudad = headers.indexOf('Ciudad');
-  const idxCentro = headers.indexOf('Centro');
-  const idxUsuario = headers.indexOf('Usuario');
-
-  const reservas = data.slice(1).map(row => mapRowToReserva(headers, row));
-  const actual = reservas.find(r => String(r.id) === String(reserva.id));
-  if (!actual) {
-    throw new Error('Reserva no encontrada');
-  }
-
-  const otros = reservas.filter(r =>
-    String(r.id) !== String(reserva.id) &&
-    normalize(r.ciudad) === normalize(actual.ciudad) &&
-    normalize(r.centro) === normalize(actual.centro) &&
-    normalize(r.nombre) === normalize(actual.nombre)
-  );
-
-  const newSlots = splitRangeByDay(start, end);
-  const existingSlots = [];
-  otros.forEach(r => {
-    splitRangeByDay(new Date(r.inicio), new Date(r.fin)).forEach(s => existingSlots.push(s));
-  });
-  const overlap = newSlots.some(ns =>
-    existingSlots.some(es => ns.start < es.end && es.start < ns.end)
-  );
-  if (overlap) {
-    throw new Error('La franja elegida ya está reservada en ese rango de fechas.');
-  }
-
-  for (let i = 1; i < data.length; i++) {
-    if (String(data[i][idxId]) === String(reserva.id)) {
-      const row = i + 1;
-      sheet.getRange(row, idxMotivo + 1).setValue(reserva.motivo);
-      sheet.getRange(row, idxInicio + 1).setValue(reserva.fechaInicio);
-      sheet.getRange(row, idxFin + 1).setValue(reserva.fechaFin);
-
-      const cambios = [];
-      const tz = Session.getScriptTimeZone();
-      if (String(actual.motivo) !== String(reserva.motivo)) {
-        cambios.push(`Motivo: ${actual.motivo} -> ${reserva.motivo}`);
-      }
-      if (new Date(actual.inicio).getTime() !== start.getTime()) {
-        cambios.push(`Inicio: ${Utilities.formatDate(new Date(actual.inicio), tz, 'dd/MM/yyyy HH:mm')} -> ${Utilities.formatDate(start, tz, 'dd/MM/yyyy HH:mm')}`);
-      }
-      if (new Date(actual.fin).getTime() !== end.getTime()) {
-        cambios.push(`Fin: ${Utilities.formatDate(new Date(actual.fin), tz, 'dd/MM/yyyy HH:mm')} -> ${Utilities.formatDate(end, tz, 'dd/MM/yyyy HH:mm')}`);
-      }
-
-      let logSheet = ss.getSheetByName(CAMBIOS_RESERVAS_SHEET);
-      if (!logSheet) {
-        logSheet = ss.insertSheet(CAMBIOS_RESERVAS_SHEET);
-      }
-      if (logSheet.getLastRow() === 0) {
-        logSheet.appendRow(['Fecha modificación', 'ID Reserva', 'Cambios', 'Motivo modificación', 'Usuario']);
-      }
-      logSheet.appendRow([
-        new Date(),
-        reserva.id,
-        cambios.join('; '),
-        reserva.motivoCambio,
-        Session.getActiveUser().getEmail()
-      ]);
-
-      const reservaCompleta = {
-        id:        reserva.id,
-        nombre:    data[i][idxNombre],
-        ciudad:    data[i][idxCiudad],
-        centro:    data[i][idxCentro],
-        usuario:   data[i][idxUsuario],
-        motivo:    reserva.motivo,
-        fechaInicio: reserva.fechaInicio,
-        fechaFin:    reserva.fechaFin,
-        motivoCambio: reserva.motivoCambio
-      };
-      enviarMailActualizacion(reservaCompleta);
-      return true;
-    }
-  }
-  throw new Error('Reserva no encontrada');
-}
-
-/**
- * Elimina una reserva por ID
- */
-function eliminarReserva(id) {
-  // Elimina una reserva por su ID; devuelve true/false.
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  const sheet = ss.getSheetByName(RESERVAS_SHEET);
-  if (!sheet) throw new Error('Hoja de reservas no encontrada');
-
-  const data = sheet.getDataRange().getValues();
-  const headers = data[0].map(h => String(h).trim());
-  const idxId = headers.indexOf('ID Reserva');
-
-  for (let i = 1; i < data.length; i++) {
-    if (String(data[i][idxId]) === String(id)) {
-      sheet.deleteRow(i + 1);
-      return true;
-    }
-  }
-  return false;
-}
-
-/** Devuelve los datos completos de una reserva por ID */
-function getReservaPorId(id) {
-  // Recupera un objeto-reserva completo a partir de su ID o null.
-  const { headers, rows } = fetchReservasData();
-  const res = rows.map(r => mapRowToReserva(headers, r))
-    .find(r => String(r.id) === String(id));
-  return res || null;
-}
-
-/**
- * Convierte lista de reservas a CSV
- */
-function _reservasToCsv(list) {
-  // Serializa una lista de objetos reserva a CSV con cabeceras.
-  if (!Array.isArray(list) || !list.length) return '';
-  const headers = Object.keys(list[0]);
-  const esc = v => '"' + String(v == null ? '' : v).replace(/"/g,'""') + '"';
-  const lines = [headers.join(',')];
-  list.forEach(r => {
-    lines.push(headers.map(h => esc(r[h])).join(','));
-  });
-  return lines.join('\n');
-}
-
-/**
- * Exporta todas las reservas en formato CSV
- */
-function exportTodasReservasCsv() {
-  // Exporta todas las reservas en CSV (usa _reservasToCsv).
-  return _reservasToCsv(getTodasReservas());
-}
-
-/**
- * Exporta las reservas del usuario actual en formato CSV
- */
-function exportMisReservasCsv() {
-  // Exporta solo las reservas del usuario actual en CSV.
-  return _reservasToCsv(getMisReservas());
-}
-
-function _parseFecha(str) {
-  // Parsea 'dd/MM/yyyy HH:mm' o deja que Date interprete la cadena.
-  if (!str) return null;
-  const m = str.match(/(\d{1,2})\/(\d{1,2})\/(\d{4}) (\d{2}):(\d{2})/);
-  if (m) {
-    const [,d,M,y,h,mi] = m;
-    return new Date(`${y}-${(''+M).padStart(2,'0')}-${(''+d).padStart(2,'0')}T${h}:${mi}:00`);
-  }
-  return new Date(str);
-}
-
-function _formatIcsDate(d) {
-  // Formatea una Date a formato UTC iCalendar (DTSTAMP/DTSTART/DTEND).
-  return Utilities.formatDate(d, 'UTC', "yyyyMMdd'T'HHmmss'Z'");
-}
-
-function _reservasToIcs(list) {
-  // Convierte una lista de reservas a un texto .ics (VCALENDAR/VEVENT).
-  if (!Array.isArray(list) || !list.length) return '';
-  const lines = ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//ReservaSalas//EN'];
-  list.forEach(r => {
-    const start = _parseFecha(r.Inicio);
-    const end   = _parseFecha(r.Fin);
-    lines.push('BEGIN:VEVENT');
-    lines.push('UID:' + r.ID);
-    lines.push('SUMMARY:' + (r.Sala || ''));
-    if (start) lines.push('DTSTART:' + _formatIcsDate(start));
-    if (end)   lines.push('DTEND:' + _formatIcsDate(end));
-    if (r.Motivo) lines.push('DESCRIPTION:' + r.Motivo);
-    lines.push('END:VEVENT');
-  });
-  lines.push('END:VCALENDAR');
-  return lines.join('\n');
-}
-
-function exportTodasReservasIcs() {
-  // Exporta todas las reservas a iCalendar (.ics).
-  return _reservasToIcs(getTodasReservas());
-}
-
-function exportMisReservasIcs() {
-  // Exporta las reservas del usuario actual a iCalendar (.ics).
-  return _reservasToIcs(getMisReservas());
-}
-
-/** Devuelve las salas libres para un rango y filtros opcionales */
-function buscarSalasDisponibles(filtro) {
-  // Devuelve las salas que no presentan solapamiento en el rango solicitado.
-  const start = new Date(filtro && filtro.fechaInicio);
-  const end   = new Date(filtro && filtro.fechaFin);
-  if (isNaN(start) || isNaN(end) || end <= start) {
-    throw new Error('Rango de fechas inválido');
-  }
-
-  let salas = getAllSalas();
-  if (filtro && filtro.ciudad) {
-    const c = normalize(filtro.ciudad);
-    salas = salas.filter(s => normalize(s.Ciudad) === c);
-  }
-  if (filtro && filtro.centro) {
-    const ce = normalize(filtro.centro);
-    salas = salas.filter(s => normalize(s.Centro) === ce);
-  }
-  if (filtro && filtro.sala) {
-    const sa = normalize(filtro.sala);
-    salas = salas.filter(s => normalize(s.Nombre) === sa);
-  }
-
-  const { headers, rows } = fetchReservasData();
-  const reservas = rows.map(r => mapRowToReserva(headers, r));
-
-  function overlap(a1, a2, b1, b2) {
-    return a1 < b2 && b1 < a2;
-  }
-
-  return salas.filter(room => {
-    const resSala = reservas.filter(r =>
-      normalize(r.ciudad) === normalize(room.Ciudad) &&
-      normalize(r.centro) === normalize(room.Centro) &&
-      normalize(r.nombre) === normalize(room.Nombre)
-    );
-    return !resSala.some(res => overlap(start, end, new Date(res.inicio), new Date(res.fin)));
-  });
-}
-
-/**
- * Devuelve todas las salas (según filtros) y para cada una si está ocupada o disponible en ese rango.
- * Formato: [{Nombre, Ciudad, Centro, Capacidad, estado}]
- */
-function buscarTodasSalasConEstado(filtro) {
-  // Lista todas las salas (con filtros) marcando 'ocupada' o 'disponible'.
-  const start = new Date(filtro && filtro.fechaInicio);
-  const end   = new Date(filtro && filtro.fechaFin);
-  if (isNaN(start) || isNaN(end) || end <= start) {
-    throw new Error('Rango de fechas inválido');
-  }
-
-  let salas = getAllSalas();
-  if (filtro && filtro.ciudad) {
-    const c = normalize(filtro.ciudad);
-    salas = salas.filter(s => normalize(s.Ciudad) === c);
-  }
-  if (filtro && filtro.centro) {
-    const ce = normalize(filtro.centro);
-    salas = salas.filter(s => normalize(s.Centro) === ce);
-  }
-  if (filtro && filtro.sala) {
-    const sa = normalize(filtro.sala);
-    salas = salas.filter(s => normalize(s.Nombre) === sa);
-  }
-
-  const { headers, rows } = fetchReservasData();
-  const reservas = rows.map(r => mapRowToReserva(headers, r));
-
-  function overlap(a1, a2, b1, b2) {
-    return a1 < b2 && b1 < a2;
-  }
-
-  return salas.map(room => {
-    const resSala = reservas.filter(r =>
-      normalize(r.ciudad) === normalize(room.Ciudad) &&
-      normalize(r.centro) === normalize(room.Centro) &&
-      normalize(r.nombre) === normalize(room.Nombre)
-    );
-    const ocupada = resSala.some(res => overlap(start, end, new Date(res.inicio), new Date(res.fin)));
-    return {
-      ...room, // <-- esto mete TODOS los campos de la sala automáticamente
-      estado: ocupada ? "ocupada" : "disponible"
-    };
-  }); // <-- El cierre del map es aquí, y no hay punto y coma dentro del return
-}
-
-/**
- * Envía una solicitud de uso de una sala ocupada al responsable.
- * Recibe: { sala, centro, ciudad, horario, motivo }
- */
-function enviarSolicitudUso(datos) {
-  // Envía email al responsable para solicitar uso de una sala ocupada y registra log.
-  // 1. Obtener email del responsable (ajusta a tu lógica real)
-  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  var sheet = ss.getSheetByName(USUARIOS_SHEET);
-  var data = sheet.getDataRange().getValues();
-  var headersUsuarios = data[0].map(h => normalize(h));
-  var idxCentro = headersUsuarios.indexOf('centro');
-  var idxRol = headersUsuarios.indexOf('rol');
-  var idxEmail = headersUsuarios.indexOf('email');
-
-  // Busca responsable de ese centro
-  var responsableEmail = RESPONSABLE_EMAIL; // Valor por defecto si no encuentra otro
-
-  for (let i = 1; i < data.length; i++) {
-    if (
-      normalize(data[i][idxCentro]) === normalize(datos.centro) &&
-      normalize(data[i][idxRol]) === 'responsable'
-    ) {
-      responsableEmail = data[i][idxEmail];
-      break;
-    }
-  }
-
-  // Emails de administradores
-  const adminEmails = data
-    .slice(1)
-    .filter(r => normalize(r[idxRol]) === 'admin')
-    .map(r => r[idxEmail])
-    .filter(e => e);
-    
-  // 2. Buscar la reserva existente que solapa con las fechas indicadas
-  const { headers: reservaHeaders, rows } = fetchReservasData();
-  const reservas = rows.map(r => mapRowToReserva(reservaHeaders, r));
-  const reservaSolapada = reservas.find(r =>
-    normalize(r.ciudad) === normalize(datos.ciudad) &&
-    normalize(r.centro) === normalize(datos.centro) &&
-    normalize(r.nombre) === normalize(datos.sala) &&
-    new Date(r.inicio) < new Date(datos.fechaFin) &&
-    new Date(datos.fechaInicio) < new Date(r.fin)
-  );
-  const idSolapada = reservaSolapada ? reservaSolapada.id : '';
-  const ownerEmail = reservaSolapada ? reservaSolapada.usuario : responsableEmail;
-
-  // 3. Componer email HTML con botón para liberar la reserva
-  const solicitante = Session.getActiveUser().getEmail() || '-';
-  const backupSolicitante = getBackupEmail(solicitante);
-  const cuerpoHtml = `
-    <p>Nueva solicitud de uso de sala ocupada:</p>
-    <ul>
-      <li><b>Sala:</b> ${datos.sala}</li>
-      <li><b>Centro:</b> ${datos.centro}</li>
-      <li><b>Ciudad:</b> ${datos.ciudad}</li>
-      <li><b>Horario sala:</b> ${datos.horario || ''}</li>
-      <li><b>Fecha/hora solicitadas:</b> ${datos.fechaInicio || '-'} a ${datos.fechaFin || '-'}</li>
-      <li><b>Motivo:</b> ${datos.motivo}</li>
-      <li><b>Fecha/Hora solicitud:</b> ${Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm')}</li>
-      <li><b>Solicitante:</b> ${solicitante}</li>
-    </ul>
-    ${idSolapada && WEBAPP_URL ? '<a href="' + WEBAPP_URL + '?edit=' + idSolapada + '#mybookings" style="display:inline-block;margin-top:10px;padding:8px 14px;background:#bc348b;color:#fff;text-decoration:none;border-radius:4px">Liberar reserva</a>' : ''}
-  `;
-
-  const mensaje =
-    "Nueva solicitud de uso de sala ocupada:\n\n" +
-    "Sala: " + datos.sala + "\n" +
-    "Centro: " + datos.centro + "\n" +
-    "Ciudad: " + datos.ciudad + "\n" +
-    "Horario sala: " + (datos.horario || '') + "\n" +
-    "Fecha/hora solicitadas: " + (datos.fechaInicio || '-') + " a " + (datos.fechaFin || '-') + "\n" +
-    "Motivo: " + datos.motivo + "\n" +
-    "Fecha/Hora solicitud: " + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy HH:mm") + "\n" +
-    "Solicitante: " + solicitante;
-
-  MailApp.sendEmail({
-    to: ownerEmail,
-    subject: 'Solicitud de uso de sala ocupada (' + datos.sala + ')',
-    body: mensaje,
-    htmlBody: cuerpoHtml
-  });
-
-  MailApp.sendEmail({
-    to: solicitante,
-    cc: backupSolicitante || '',
-    subject: 'Copia de solicitud de uso (' + datos.sala + ')',
-    body: mensaje,
-    htmlBody: cuerpoHtml
-  });
-
-  if (adminEmails.length) {
-    MailApp.sendEmail({
-      to: adminEmails.join(','),
-      subject: 'Solicitud de uso de sala ocupada (' + datos.sala + ')',
-      body: mensaje,
-      htmlBody: cuerpoHtml
-    });
-  }
-
-  // 3. (Opcional) Guarda la solicitud en una hoja de registro
-  var sheetLog = ss.getSheetByName('SolicitudesUso');
-  if (!sheetLog) {
-    sheetLog = ss.insertSheet('SolicitudesUso');
-    sheetLog.appendRow([
-    'Fecha solicitud', 'Sala', 'Centro', 'Ciudad',
-    'Horario sala', 'Motivo', 'Responsable',
-    'Fecha inicio', 'Fecha fin', 'Solicitante'
-  ]);
-  }
-  sheetLog.appendRow([
-    new Date(), datos.sala, datos.centro, datos.ciudad,
-    datos.horario, datos.motivo, responsableEmail,
-    datos.fechaInicio || '', datos.fechaFin || '', solicitante
-  ]);
-
-  // Registrar notificación
-  let notifSheet = ss.getSheetByName('Notificaciones');
-  if (!notifSheet) {
-    notifSheet = ss.insertSheet('Notificaciones');
-    notifSheet.appendRow(['id','timestamp','type','actorEmail','reservaId','sala','centro','ciudad','fechaInicio','fechaFin','ownerEmail','message','link','status']);
-  }
-  const notifId = generarIdNotificacion(notifSheet);
-  const fmt = d => d ? Utilities.formatDate(new Date(d), Session.getScriptTimeZone(), 'dd/MM HH:mm') : '';
-  const msgNotif = `Solicitud de uso para ${datos.sala} el ${fmt(datos.fechaInicio)}–${fmt(datos.fechaFin)}`;
-  const link = WEBAPP_URL ? `${WEBAPP_URL}#reservas?id=${idSolapada}` : `#reservas?id=${idSolapada}`;
-  notifSheet.appendRow([
-    notifId,
-    new Date().toISOString(),
-    'solicitud_uso',
-    solicitante,
-    idSolapada,
-    datos.sala,
-    datos.centro,
-    datos.ciudad,
-    datos.fechaInicio || '',
-    datos.fechaFin || '',
-    ownerEmail,
-    msgNotif,
-    link,
-    'open'
-  ]);
-}
-
-function generarIdNotificacion(sheet) {
-  const lastRow = sheet.getLastRow();
-  let next = 1;
-  if (lastRow >= 2) {
-    const lastId = String(sheet.getRange(lastRow, 1).getValue() || '');
-    const match = /NTF-(\d+)/.exec(lastId);
-    if (match) next = Number(match[1]) + 1;
-  }
-  return 'NTF-' + String(next).padStart(6, '0');
-}
-
-/**
- * Lee la hoja "Notificaciones" y devuelve las filas con fechas normalizadas a ISO.
- * - Abre el spreadsheet por ID (evita ActiveSpreadsheet nulo o libros equivocados).
- * - Convierte timestamp, fechaInicio y fechaFin a ISO 8601 seguro.
- * - Ordena por timestamp descendente.
- */
-function getAllNotifications() {
-  const SPREADSHEET_ID = '1r7RcpcjfFqFVPvEsHhZX21mNDDDOoZ1LPhWmW8csvnE';
-  const SHEET_NAME = 'Notificaciones';
-  const EXPECTED_HEADERS = [
-    'id','timestamp','type','actorEmail','reservaId','sala','centro','ciudad',
-    'fechaInicio','fechaFin','ownerEmail','message','link','status'
-  ];
-
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  const sh = ss.getSheetByName(SHEET_NAME);
-  if (!sh) return [];
-
-  const range = sh.getDataRange();
-  const values = range.getValues();
-  if (values.length < 2) return []; // solo cabeceras o vacío
-
-  // 1) Cabeceras reales en la hoja
-  const headers = values[0].map(h => String(h).trim());
-  // 2) Crea un índice cabecera->col
-  const idx = {};
-  headers.forEach((h, i) => (idx[h] = i));
-
-  // 3) Mapeo de filas a objetos con claves esperadas
-  const rows = values.slice(1).filter(r => r.some(c => c !== '' && c !== null));
-
-  const data = rows.map(r => {
-    // Helper para coger un campo por nombre de cabecera; si no existe, devuelve ''
-    const get = (name) => {
-      const i = idx[name];
-      return (i == null) ? '' : r[i];
-    };
-
-    // Normaliza fechas a ISO seguro
-    const tsISO   = toISO(get('timestamp'));    // puede venir como Date, ISO, o texto
-    const iniISO  = toISO(get('fechaInicio'));
-    const finISO  = toISO(get('fechaFin'));
-
-    return {
-      id:          String(get('id') || '').trim(),
-      timestamp:   tsISO,
-      type:        String(get('type') || '').trim(),
-      actorEmail:  String(get('actorEmail') || '').trim(),
-      reservaId:   String(get('reservaId') || '').trim(),
-      sala:        String(get('sala') || '').trim(),
-      centro:      String(get('centro') || '').trim(),
-      ciudad:      String(get('ciudad') || '').trim(),
-      fechaInicio: iniISO,
-      fechaFin:    finISO,
-      ownerEmail:  String(get('ownerEmail') || '').trim(),
-      message:     String(get('message') || '').trim(),
-      link:        String(get('link') || '').trim(),
-      status:      String(get('status') || '').trim(),
-    };
-  });
-
-  // 4) Ordenar por timestamp descendente (lo más reciente primero)
-  data.sort((a, b) => {
-    const ta = Date.parse(a.timestamp || '') || 0;
-    const tb = Date.parse(b.timestamp || '') || 0;
-    return tb - ta;
-  });
-
-  // Log opcional para debug (ver en Ejecuciones)
-  // Logger.log(JSON.stringify(data, null, 2));
-
-  return data;
-
-  /**
-   * Convierte un valor (Date, string ISO, "YYYY-MM-DD HH:mm", número de Sheets) a ISO 8601.
-   * Si no puede parsearse, devuelve cadena vacía.
-   */
-  function toISO(val) {
-    if (val == null || val === '') return '';
-
-    // Si ya es un objeto Date (Google Sheets entrega Date cuando la celda tiene formato fecha)
-    if (val instanceof Date) {
-      const d = val;
-      // Asegura milisegundos para consistencia
-      return new Date(d.getTime()).toISOString();
-    }
-
-    // Si es número (serial de Sheets convertido a número)
-    if (typeof val === 'number') {
-      // En Apps Script los valores de fecha ya llegan como Date, pero por si acaso…
-      const millis = Math.round((val - 25569) * 86400 * 1000); // Excel epoch → ms
-      return new Date(millis).toISOString();
-    }
-
-    // Si es string
-    let s = String(val).trim();
-
-    // Caso: ya es ISO válido
-    // Date.parse reconoce bien 'YYYY-MM-DDTHH:mm:ss.sssZ'
-    if (/^\d{4}-\d{2}-\d{2}T/.test(s)) {
-      const t = Date.parse(s);
-      return isNaN(t) ? '' : new Date(t).toISOString();
-    }
-
-    // Caso: 'YYYY-MM-DD HH:mm' o 'YYYY-MM-DD HH:mm:ss'
-    // → convierto a 'YYYY-MM-DDTHH:mm(:ss)' y dejo que el motor lo trate como local
-    if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}(:\d{2})?$/.test(s)) {
-      s = s.replace(' ', 'T');
-      const t = Date.parse(s);
-      return isNaN(t) ? '' : new Date(t).toISOString();
-    }
-
-    // Caso: solo fecha 'YYYY-MM-DD'
-    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
-      const t = Date.parse(s + 'T00:00:00');
-      return isNaN(t) ? '' : new Date(t).toISOString();
-    }
-
-    // Último intento: Date.parse genérico
-    const t = Date.parse(s);
-    return isNaN(t) ? '' : new Date(t).toISOString();
-  }
-}
-
-
-/** ========= CRUD SALAS (por 'ID Sala') ========= **/
-
-function _getSalasSheet_() {
-  // Devuelve el objeto Sheet de 'Salas' validando su existencia.
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  const sheet = getSheetByNameIC(ss, SHEET_NAME); // SHEET_NAME = 'Salas'
-  if (!sheet) throw new Error(`Hoja '${SHEET_NAME}' no encontrada`);
-  return sheet;
-}
-
-function _readSalasTable_() {
-  // Lee la tabla completa de 'Salas' y separa cabecera/filas.
-  const sheet = _getSalasSheet_();
-  const values = sheet.getDataRange().getValues();
-  if (values.length < 2) return { headers: [], rows: [], sheet };
-  const headers = values.shift().map(h => String(h).trim());
-  return { headers, rows: values, sheet };
-}
-
-function _indexOfHeader_(headers, name) {
-  // Devuelve el índice de una cabecera (nombre exacto).
-  return headers.indexOf(String(name).trim());
-}
-
-/** Crea una nueva sala. Si no envías idSala, genero 'S' + timestamp. */
-function crearSala(sala) {
-  // Inserta una nueva sala (genera ID si falta) respetando el orden de cabeceras.
-  const { headers, sheet } = _readSalasTable_();
-  const h = (n) => _indexOfHeader_(headers, n);
-
-  const idxId           = h('ID Sala');
-  const idxCentro       = h('Centro');
-  const idxCiudad       = h('Ciudad');
-  const idxNombre       = h('Nombre');
-  const idxCapacidad    = h('Capacidad');
-  const idxEquipamiento = h('Equipamiento');
-  const idxObs          = h('Observaciones');
-  const idxHorario      = h('Horario');
-
-  // ID (si viene vacío, generamos uno)
-  const idSala = sala.idSala && String(sala.idSala).trim() ? String(sala.idSala).trim() : 'S' + Date.now();
-
-  // Evitar duplicado por ID
-  const { rows } = _readSalasTable_();
-  for (let i = 0; i < rows.length; i++) {
-    if (idxId !== -1 && String(rows[i][idxId]).trim() === idSala) {
-      throw new Error('Ya existe una sala con ese ID.');
-    }
-  }
-
-  // Construir fila según el orden de headers
-  const row = headers.map(() => '');
-  if (idxId           !== -1) row[idxId]           = idSala;
-  if (idxCentro       !== -1) row[idxCentro]       = sala.Centro || '';
-  if (idxCiudad       !== -1) row[idxCiudad]       = sala.Ciudad || '';
-  if (idxNombre       !== -1) row[idxNombre]       = sala.Nombre || '';
-  if (idxCapacidad    !== -1) row[idxCapacidad]    = sala.Capacidad || '';
-  if (idxEquipamiento !== -1) row[idxEquipamiento] = sala.Equipamiento || '';
-  if (idxObs          !== -1) row[idxObs]          = sala.Observaciones || '';
-  if (idxHorario      !== -1) row[idxHorario]      = sala.Horario || '';
-
-  sheet.appendRow(row);
-  return idSala;
-}
-
-/** Actualiza una sala existente por ID Sala */
-function actualizarSala(sala) {
-  // Actualiza los campos de una sala existente identificada por 'ID Sala'.
-  const { headers, rows, sheet } = _readSalasTable_();
-  const h = (n) => _indexOfHeader_(headers, n);
-
-  const idxId           = h('ID Sala');
-  const idxCentro       = h('Centro');
-  const idxCiudad       = h('Ciudad');
-  const idxNombre       = h('Nombre');
-  const idxCapacidad    = h('Capacidad');
-  const idxEquipamiento = h('Equipamiento');
-  const idxObs          = h('Observaciones');
-  const idxHorario      = h('Horario');
-
-  if (idxId === -1) throw new Error("No se encuentra la columna 'ID Sala'.");
-
-  const targetId = String(sala.idSala || sala['ID Sala'] || '').trim();
-  if (!targetId) throw new Error('ID Sala no especificado.');
-
-  for (let i = 0; i < rows.length; i++) {
-    if (String(rows[i][idxId]).trim() === targetId) {
-      const rowNumber = i + 2; // +1 por cabecera y +1 para 1-based
-      if (idxCentro       !== -1) sheet.getRange(rowNumber, idxCentro + 1).setValue(sala.Centro || '');
-      if (idxCiudad       !== -1) sheet.getRange(rowNumber, idxCiudad + 1).setValue(sala.Ciudad || '');
-      if (idxNombre       !== -1) sheet.getRange(rowNumber, idxNombre + 1).setValue(sala.Nombre || '');
-      if (idxCapacidad    !== -1) sheet.getRange(rowNumber, idxCapacidad + 1).setValue(sala.Capacidad || '');
-      if (idxEquipamiento !== -1) sheet.getRange(rowNumber, idxEquipamiento + 1).setValue(sala.Equipamiento || '');
-      if (idxObs          !== -1) sheet.getRange(rowNumber, idxObs + 1).setValue(sala.Observaciones || '');
-      if (idxHorario      !== -1) sheet.getRange(rowNumber, idxHorario + 1).setValue(sala.Horario || '');
-      return true;
-    }
-  }
-  throw new Error('Sala no encontrada.');
-}
-
-/** Elimina una sala por ID Sala */
-function eliminarSala(idSala) {
-  // Elimina una sala por su 'ID Sala'; devuelve true/false.
-  const { headers, rows, sheet } = _readSalasTable_();
-  const idxId = _indexOfHeader_(headers, 'ID Sala');
-  if (idxId === -1) throw new Error("No se encuentra la columna 'ID Sala'.");
-
-  const targetId = String(idSala || '').trim();
-  if (!targetId) throw new Error('ID Sala no especificado.');
-
-  for (let i = 0; i < rows.length; i++) {
-    if (String(rows[i][idxId]).trim() === targetId) {
-      sheet.deleteRow(i + 2); // +1 cabecera +1 base-1
-      return true;
-    }
-  }
-  return false;
-}
-
-/** ========= CRUD CIUDADES ========= **/
-
-function _getCiudadesSheet_() {
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  const sheet = getSheetByNameIC(ss, CIUDADES_SHEET);
-  if (!sheet) throw new Error(`Hoja '${CIUDADES_SHEET}' no encontrada`);
-  return sheet;
-}
-
-function _readCiudadesTable_() {
-  const sheet = _getCiudadesSheet_();
-  const lastRow = sheet.getLastRow();
-  const lastCol = sheet.getLastColumn();
-  if (lastRow < 1 || lastCol < 1) {
-    return { headers: [], rows: [], sheet };
-  }
-  const values = sheet.getRange(1, 1, lastRow, lastCol).getValues();
-  if (!values.length) return { headers: [], rows: [], sheet };
-  const headers = values.shift().map(h => String(h).trim());
-  const rows = values;
-  _ensureCiudadImagenColumn_(sheet, headers, rows);
-  return { headers, rows, sheet };
-}
-
-function _ensureCiudadImagenColumn_(sheet, headers, rows) {
-  if (!Array.isArray(headers)) return -1;
-  let idx = _indexOfHeader_(headers, 'Imagen Ciudad');
-  if (idx !== -1) return idx;
-  if (!headers.length) {
-    sheet.getRange(1, 1).setValue('Imagen Ciudad');
-    headers.push('Imagen Ciudad');
-    if (Array.isArray(rows)) rows.forEach(r => r.push(''));
-    return 0;
-  }
-  const colPosition = headers.length;
-  sheet.insertColumnAfter(colPosition);
-  const newCol = colPosition + 1;
-  sheet.getRange(1, newCol).setValue('Imagen Ciudad');
-  const lastRow = sheet.getLastRow();
-  if (lastRow > 1) {
-    sheet.getRange(2, newCol, lastRow - 1).clearContent();
-  }
-  headers.push('Imagen Ciudad');
-  if (Array.isArray(rows)) rows.forEach(r => r.push(''));
-  return headers.length - 1;
-}
-
-function crearCiudad(ciudad) {
-  const { headers, sheet } = _readCiudadesTable_();
-  const h = (n) => _indexOfHeader_(headers, n);
-  const idxId = h('ID Ciudad');
-  const idxNombre = h('Nombre Ciudad');
-  const idxImagen = h('Imagen Ciudad');  
-  const id = ciudad.idCiudad && String(ciudad.idCiudad).trim() ? String(ciudad.idCiudad).trim() : 'C' + Date.now();
-  const { rows } = _readCiudadesTable_();
-  if (rows.some(r => idxId !== -1 && String(r[idxId]).trim() === id)) throw new Error('Ya existe una ciudad con ese ID.');
-  const row = headers.map(() => '');
-  if (idxId !== -1) row[idxId] = id;
-  if (idxNombre !== -1) row[idxNombre] = ciudad.NombreCiudad || ciudad.nombre || '';
-  if (idxImagen !== -1) row[idxImagen] = ciudad['Imagen Ciudad'] || ciudad.ImagenCiudad || ciudad.imagen || '';
-  sheet.appendRow(row);
-  return id;
-}
-
-function actualizarCiudad(ciudad) {
-  const { headers, rows, sheet } = _readCiudadesTable_();
-  const h = (n) => _indexOfHeader_(headers, n);
-  const idxId = h('ID Ciudad');
-  const idxNombre = h('Nombre Ciudad');
-  const idxImagen = h('Imagen Ciudad');
-  if (idxId === -1) throw new Error("No se encuentra la columna 'ID Ciudad'.");
-  const id = String(ciudad.idCiudad || ciudad['ID Ciudad'] || '').trim();
-  for (let i = 0; i < rows.length; i++) {
-    if (String(rows[i][idxId]).trim() === id) {
-      const row = i + 2;
-      if (idxNombre !== -1) sheet.getRange(row, idxNombre + 1).setValue(ciudad.NombreCiudad || ciudad.nombre || '');
-      if (idxImagen !== -1 && (ciudad['Imagen Ciudad'] || ciudad.ImagenCiudad || ciudad.imagen)) {
-        sheet.getRange(row, idxImagen + 1).setValue(ciudad['Imagen Ciudad'] || ciudad.ImagenCiudad || ciudad.imagen || '');
-      }
-      return true;
-    }
-  }
-  throw new Error('Ciudad no encontrada.');
-}
-
-function eliminarCiudad(idCiudad) {
-  const { headers, rows, sheet } = _readCiudadesTable_();
-  const idxId = _indexOfHeader_(headers, 'ID Ciudad');
-  const idxImagen = _indexOfHeader_(headers, 'Imagen Ciudad');
-  if (idxId === -1) throw new Error("No se encuentra la columna 'ID Ciudad'.");
-  const id = String(idCiudad || '').trim();
-  for (let i = 0; i < rows.length; i++) {
-    if (String(rows[i][idxId]).trim() === id) {
-      if (idxImagen !== -1) {
-        const prev = String(rows[i][idxImagen] || '').trim();
-        const fileId = _extractDriveFileId_(prev);
-        if (fileId) {
-          try { DriveApp.getFileById(fileId).setTrashed(true); } catch (err) { Logger.log('No se pudo eliminar la imagen de ciudad: ' + err); }
-        }
-      }
-      sheet.deleteRow(i + 2);
-      return true;
-    }
-  }
-  return false;
-}
-
-function _getCiudadImagesFolder_() {
-  const folders = DriveApp.getFoldersByName(CITY_IMAGES_FOLDER_NAME);
-  if (folders.hasNext()) return folders.next();
-  return DriveApp.createFolder(CITY_IMAGES_FOLDER_NAME);
-}
-
-function _extractDriveFileId_(url) {
-  if (!url) return '';
-  const str = String(url);
-  const idParam = str.indexOf('id=') !== -1 ? str.split('id=')[1].split('&')[0] : '';
-  if (idParam) return decodeURIComponent(idParam);
-  const match = str.match(/[-\w]{25,}/);
-  return match ? match[0] : '';
-}
-
-function uploadCiudadImagen(data) {
-  if (!data || !data.idCiudad) throw new Error('ID de ciudad no proporcionado.');
-
-  const allowedMimes = ['image/png', 'image/x-png'];
-  let mime = String(data.mimeType || '').toLowerCase();
-  if (mime && allowedMimes.indexOf(mime) === -1) throw new Error('Solo se permiten imágenes PNG.');
-  if (!mime) mime = 'image/png';
-
-  const { headers, rows, sheet } = _readCiudadesTable_();
-  const idxId = _indexOfHeader_(headers, 'ID Ciudad');
-  const idxImagen = _indexOfHeader_(headers, 'Imagen Ciudad');
-  if (idxId === -1 || idxImagen === -1) throw new Error('Estructura de la tabla de ciudades no válida.');
-
-  const id = String(data.idCiudad).trim();
-  const rowIndex = rows.findIndex(r => String(r[idxId]).trim() === id);
-  if (rowIndex === -1) throw new Error('Ciudad no encontrada.');
-
-  let bytes = [];
-  if (Array.isArray(data.bytes) && data.bytes.length) {
-    bytes = data.bytes;
-  } else if (data.bytes && typeof data.bytes.length === 'number') {
-    bytes = Array.from(data.bytes);
-  } else if (Array.isArray(data.content) && data.content.length) {
-    bytes = data.content;
-  } else if (data.dataUrl) {
-    let base64 = String(data.dataUrl);
-    const base64Index = base64.indexOf('base64,');
-    if (base64Index !== -1) {
-      base64 = base64.substring(base64Index + 7);
-    }
-    base64 = base64.trim();
-    if (!base64) throw new Error('Datos de imagen inválidos.');
-    bytes = Utilities.base64Decode(base64);
-  } else {
-    throw new Error('Imagen no proporcionada.');
-  }
-
-  if (bytes instanceof Uint8Array) {
-    bytes = Array.from(bytes);
-  }
-  if (!bytes || !bytes.length) throw new Error('Datos de imagen inválidos.');
-
-  const fileNameRaw = data.fileName && String(data.fileName).trim() ? String(data.fileName).trim() : `${id}.png`;
-  const fileName = fileNameRaw.toLowerCase().endsWith('.png') ? fileNameRaw : `${fileNameRaw}.png`;
-  const folder = _getCiudadImagesFolder_();
-  const blob = Utilities.newBlob(bytes, 'image/png', fileName);
-  const file = folder.createFile(blob);
-  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-
-  const prevUrl = String(rows[rowIndex][idxImagen] || '').trim();
-  const prevId = _extractDriveFileId_(prevUrl);
-  if (prevId) {
-    try { DriveApp.getFileById(prevId).setTrashed(true); } catch (err) { Logger.log('No se pudo eliminar la imagen anterior de la ciudad: ' + err); }
-  }
-
-  const viewUrl = `https://drive.google.com/thumbnail?sz=w5000&id=${file.getId()}`;
-  sheet.getRange(rowIndex + 2, idxImagen + 1).setValue(viewUrl);
-  return viewUrl;
-}
-
-/** ========= CRUD CENTROS ========= **/
-
-function _getCentrosSheet_() {
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  const sheet = getSheetByNameIC(ss, CENTROS_SHEET);
-  if (!sheet) throw new Error(`Hoja '${CENTROS_SHEET}' no encontrada`);
-  return sheet;
-}
-
-function _readCentrosTable_() {
-  const sheet = _getCentrosSheet_();
-  const values = sheet.getDataRange().getValues();
-  if (values.length < 2) return { headers: [], rows: [], sheet };
-  const headers = values.shift().map(h => String(h).trim());
-  return { headers, rows: values, sheet };
-}
-
-function crearCentro(centro) {
-  const { headers, sheet } = _readCentrosTable_();
-  const h = (n) => _indexOfHeader_(headers, n);
-  const idxId   = h('ID Centro');
-  const idxNom  = h('Nombre Centro');
-  const idxDir  = h('Direccion Centro');
-  const idxTel  = h('Telefono');
-  const idxEmail= h('Email');
-  const idxResp = h('Responsable');
-  const id = centro.idCentro && String(centro.idCentro).trim() ? String(centro.idCentro).trim() : 'CT' + Date.now();
-  const { rows } = _readCentrosTable_();
-  if (rows.some(r => idxId !== -1 && String(r[idxId]).trim() === id)) throw new Error('Ya existe un centro con ese ID.');
-  const row = headers.map(() => '');
-  if (idxId   !== -1) row[idxId]   = id;
-  if (idxNom  !== -1) row[idxNom]  = centro.NombreCentro || centro.nombre || '';
-  if (idxDir  !== -1) row[idxDir]  = centro.DireccionCentro || centro['Direccion Centro'] || '';
-  if (idxTel  !== -1) row[idxTel]  = centro.Telefono || '';
-  if (idxEmail!== -1) row[idxEmail]= centro.Email || '';
-  if (idxResp !== -1) row[idxResp] = centro.Responsable || '';
-  sheet.appendRow(row);
-  return id;
-}
-
-function actualizarCentro(centro) {
-  const { headers, rows, sheet } = _readCentrosTable_();
-  const h = (n) => _indexOfHeader_(headers, n);
-  const idxId   = h('ID Centro');
-  const idxNom  = h('Nombre Centro');
-  const idxDir  = h('Direccion Centro');
-  const idxTel  = h('Telefono');
-  const idxEmail= h('Email');
-  const idxResp = h('Responsable');
-  if (idxId === -1) throw new Error("No se encuentra la columna 'ID Centro'.");
-  const id = String(centro.idCentro || centro['ID Centro'] || '').trim();
-  for (let i = 0; i < rows.length; i++) {
-    if (String(rows[i][idxId]).trim() === id) {
-      const row = i + 2;
-      if (idxNom  !== -1) sheet.getRange(row, idxNom  + 1).setValue(centro.NombreCentro || centro.nombre || '');
-      if (idxDir  !== -1) sheet.getRange(row, idxDir  + 1).setValue(centro.DireccionCentro || centro['Direccion Centro'] || '');
-      if (idxTel  !== -1) sheet.getRange(row, idxTel  + 1).setValue(centro.Telefono || '');
-      if (idxEmail!== -1) sheet.getRange(row, idxEmail+ 1).setValue(centro.Email || '');
-      if (idxResp !== -1) sheet.getRange(row, idxResp + 1).setValue(centro.Responsable || '');
-      return true;
-    }
-  }
-  throw new Error('Centro no encontrado.');
-}
-
-function eliminarCentro(idCentro) {
-  const { headers, rows, sheet } = _readCentrosTable_();
-  const idxId = _indexOfHeader_(headers, 'ID Centro');
-  if (idxId === -1) throw new Error("No se encuentra la columna 'ID Centro'.");
-  const id = String(idCentro || '').trim();
-  for (let i = 0; i < rows.length; i++) {
-    if (String(rows[i][idxId]).trim() === id) {
-      sheet.deleteRow(i + 2);
-      return true;
-    }
-  }
-  return false;
-}
-
-
-/**
- * Devuelve el perfil del usuario por email.
- */
-function getUserProfile(email) {
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  const sh = ss.getSheetByName(USUARIOS_SHEET);
-  if (!sh) return null;
-  const data = sh.getDataRange().getValues();
-  if (data.length < 2) return null;
-  const headers = data[0].map(h => String(h).trim().toLowerCase());
-  const idxEmail = headers.indexOf('email');
-  const idxNombre = headers.indexOf('nombre');
-  const idxRol = headers.indexOf('rol');
-  const idxCamp = headers.indexOf('campaña');
-  const idxPrefs = headers.indexOf('prefs_json');
-  const idxBackup = headers.indexOf('backup_email');
-  const idxLast = headers.indexOf('last_login');
-  for (let i = 1; i < data.length; i++) {
-    if (normalize(data[i][idxEmail]) === normalize(email)) {
-      return {
-        email: data[i][idxEmail],
-        nombre: data[i][idxNombre],
-        rol: data[i][idxRol],
-        campaña: data[i][idxCamp],
-        prefs: idxPrefs > -1 && data[i][idxPrefs] ? JSON.parse(data[i][idxPrefs]) : {},
-        backup_email: idxBackup > -1 ? data[i][idxBackup] : '',
-        last_login: idxLast > -1 ? data[i][idxLast] : '',
-        avatar: getUserAvatarUrl()
-      };
-    }
-  }
-  return null;
-}
-
-/** Obtiene el correo de backup de un usuario */
-function getBackupEmail(email) {
-  const prof = getUserProfile(email);
-  return prof && prof.backup_email ? prof.backup_email : '';
-}
-
-/**
- * Actualiza nombre, campaña y preferencias del usuario actual.
- */
-function updateUserProfile(data) {
-  const email = Session.getActiveUser().getEmail();
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  const sh = ss.getSheetByName(USUARIOS_SHEET);
-  const values = sh.getDataRange().getValues();
-  const headers = values[0].map(h => String(h).trim().toLowerCase());
-
-  const idxEmail   = headers.indexOf('email');
-  const idxNombre  = headers.indexOf('nombre');
-  const idxCamp    = headers.indexOf('campaña');       // o 'campana' si tu hoja no lleva tilde
-  const idxPrefs   = headers.indexOf('prefs_json');
-  const idxBackup  = headers.indexOf('backup_email');  // <- ¡declarado!
-  // (opcional) const idxLast = headers.indexOf('last_login');
-
-  for (let i = 1; i < values.length; i++) {
-    if (normalize(values[i][idxEmail]) === normalize(email)) {
-      const row = i + 1;
-
-      if (idxNombre > -1) sh.getRange(row, idxNombre + 1).setValue(data.nombre || '');
-      if (idxCamp   > -1) sh.getRange(row, idxCamp   + 1).setValue(data.campaña || data.campana || '');
-      if (idxPrefs  > -1) sh.getRange(row, idxPrefs  + 1).setValue(JSON.stringify(data.prefs || {}));
-      if (idxBackup > -1) sh.getRange(row, idxBackup + 1).setValue(data.backup_email || '');
-
-      return true;
-    }
-  }
-  return false;
-}
-
-/**
- * Devuelve las últimas acciones del usuario.
- */
-function getUserActivity(email) {
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  const sh = ss.getSheetByName(CAMBIOS_RESERVAS_SHEET);
-  if (!sh) return [];
-
-  const values = sh.getDataRange().getValues();
-  if (values.length < 2) return [];
-
-  // Cabeceras reales en "Cambios reservas"
-  const headers = values[0].map(h => String(h).trim().toLowerCase());
-  const idxUsuario = headers.indexOf('usuario');               // existe en tu log
-  const idxCambios = headers.indexOf('cambios');               // lo mapeamos a 'accion'
-  const idxFechaMod = headers.indexOf('fecha modificación');   // lo mapeamos a 'fecha'
-  if (idxUsuario === -1 || idxCambios === -1 || idxFechaMod === -1) return [];
-
-  const rows = values
-    .slice(1)
-    .filter(r => normalize(r[idxUsuario]) === normalize(email))
-    .map(r => ({ accion: r[idxCambios] || '', fecha: r[idxFechaMod] || '' }))
-    .slice(-10);
-
-  return rows;
-}
-
-
-/**
- * Devuelve métricas personales del usuario.
- */
-function getUserMetrics(email) {
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  const sh = ss.getSheetByName(RESERVAS_SHEET);
-  if (!sh) return {};
-
-  const values = sh.getDataRange().getValues();
-  if (values.length < 2) return {};
-
-  // Cabeceras reales en “Reservas”
-  const headers = values[0].map(h => String(h).trim().toLowerCase());
-  const idxUsuario = headers.indexOf('usuario');          // << antes: 'email' (no existe)
-  const idxInicio  = headers.indexOf('fecha inicio');     // << antes: 'inicio' (no existe)
-  const idxFin     = headers.indexOf('fecha fin');        // << antes: 'fin' (no existe)
-  if (idxUsuario === -1 || idxInicio === -1 || idxFin === -1) return {};
-
-  // Si el activo es admin, no filtramos por email
-  const user = getUserData(); // lee de la hoja Usuarios
-  const isAdmin = user && normalize(user.rol) === 'admin';
-
-  const now = new Date();
-  let res30 = 0, res90 = 0, horas = 0;
-
-  values.slice(1).forEach(r => {
-    if (!isAdmin && normalize(r[idxUsuario]) !== normalize(email)) return;
-
-    const inicio = new Date(r[idxInicio]);
-    const fin    = new Date(r[idxFin]);
-    if (inicio instanceof Date && !isNaN(inicio) && fin instanceof Date && !isNaN(fin)) {
-      const diffH = (fin - inicio) / 36e5;
-      if (!isNaN(diffH)) horas += diffH;
-      if (now - inicio <= 30 * 24 * 60 * 60 * 1000) res30++;
-      if (now - inicio <= 90 * 24 * 60 * 60 * 1000) res90++;
-    }
-  });
-
-  return { res30, res90, horas: Math.round(horas) };
-}
-
-function importarUsuariosDesdeExcel(data) {
-  // 1. Crear archivo temporal en Drive
-  const blob = Utilities.newBlob(data.content, MimeType.MICROSOFT_EXCEL, data.name);
-  const file = DriveApp.createFile(blob);
-
-  // 2. Convertir Excel a Google Sheets con la API de Drive (v3)
-  const resource = {
-    name: "TEMP_Usuarios_" + new Date().toISOString(),
-    mimeType: "application/vnd.google-apps.spreadsheet"
-  };
-  const newFile = Drive.Files.copy(resource, file.getId());
-  const tempSS = SpreadsheetApp.openById(newFile.id);
-
-  // 3. Leer la primera pestaña (asumimos que ahí está la tabla de usuarios)
-  const hojaOrigen = tempSS.getSheets()[0];
-  const datos = hojaOrigen.getDataRange().getValues();
-  if (datos.length < 2) throw new Error("El archivo no contiene datos suficientes.");
-
-  // 4. Obtener cabeceras
-  const headers = datos[0].map(h => String(h).trim().toLowerCase());
-  if (headers.indexOf("email") === -1) throw new Error("Falta la columna 'email' en el archivo.");
-  if (headers.indexOf("nombre") === -1) throw new Error("Falta la columna 'nombre' en el archivo.");
-  if (headers.indexOf("rol") === -1) throw new Error("Falta la columna 'rol' en el archivo.");
-
-  // 5. Insertar los usuarios en la hoja 'Usuarios'
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  const hojaDestino = ss.getSheetByName(USUARIOS_SHEET);
-  if (!hojaDestino) throw new Error("Hoja 'Usuarios' no encontrada");
-
-  let nuevos = 0, duplicados = 0;
-
-  for (let i = 1; i < datos.length; i++) {
-    const row = datos[i];
-    if (!row.some(v => String(v).trim() !== "")) continue; // saltar filas vacías
-
-    const usuario = {
-      email: row[headers.indexOf("email")] || "",
-      nombre: row[headers.indexOf("nombre")] || "",
-      rol: row[headers.indexOf("rol")] || "",
-      campaña: (headers.indexOf("campaña") !== -1
-                  ? row[headers.indexOf("campaña")]
-                  : headers.indexOf("campana") !== -1
-                    ? row[headers.indexOf("campana")]
-                    : "")
-    };
-
-    if (usuario.email) {
-      try {
-        crearUsuario(usuario); // usas tu función ya existente
-        nuevos++;
-      } catch (e) {
-        duplicados++;
-        Logger.log("Usuario ya existente: " + usuario.email);
-      }
-    }
-  }
-
-  // 6. Limpiar archivos temporales
-  DriveApp.getFileById(newFile.id).setTrashed(true);
-  file.setTrashed(true);
-
-  return `Importación completada. Nuevos: ${nuevos}, ya existentes: ${duplicados}`;
+<!-- styles.html -->
+<style>
+:root {
+/* Definición de variables CSS para colores principales y neutros */
+--rosa-principal: #ea297c;
+--rosa-claro: #f5a1c4;
+--rosa-pastel: #f7c7df;
+--gris-suave: #f6f9fc;
+--gris-claro: #ececec;
+--negro: #333;
+--blanco: #fff;
+}
+
+/* Estilos generales para el body */
+body {
+font-family: 'Roboto', sans-serif;
+margin: 0;
+padding: 1.5rem;
+background-color: var(--gris-suave);
+color: var(--negro);
+min-height: 100vh;
+display: flex;
+flex-direction: column;
+}
+
+/* Cabecera principal */
+.main-header {
+background: linear-gradient(90deg, var(--rosa-principal) 80%, #e03e8c 100%);
+color: var(--blanco);
+padding: 0.15rem 1rem;
+border-radius: 12px;
+margin-bottom: 1rem;
+box-shadow: 0 3px 14px -8px var(--rosa-claro);
+font-size: 0.95em;
+position: relative;
+min-height: 55px;
+display: flex;
+align-items: center;
+justify-content: center;   /* 👈 centra el contenido */
+text-align: center;        /* centra texto dentro */
+}
+
+/* Estilos para el título h1 dentro de la cabecera */
+.header-text h1 {
+margin: 0;
+font-size: 1.45rem;      /* Mucho más pequeño */
+font-weight: 900;
+font-family: 'Roboto', Arial, sans-serif;
+color: #fff;
+letter-spacing: 0.02em;
+line-height: 1.08;
+text-shadow: 0 2px 8px #ea297c55;
+}
+
+/* Estilos para el texto descriptivo en la cabecera */
+.header-text p {
+margin: 0;
+font-size: 0.96rem;     /* Más pequeña */
+color: #ffeaf6;
+font-weight: 500;
+letter-spacing: 0.01em;
+text-shadow: 0 1px 5px #ea297c33;
+}
+
+/* Barra de pestañas de navegación */
+.tabs {
+display: flex;
+align-items: center;
+gap: 0.45rem;               /* Reducido */
+margin-bottom: 0.5rem;
+border-bottom: 2px solid var(--rosa-claro);
+background: var(--blanco);
+border-radius: 10px 10px 0 0;
+padding:  0.18rem 0.8rem;
+position: relative;
+z-index: 10;
+}
+
+.tabs-logo {
+height: 40px;
+width: auto;
+max-width: 180px;
+object-fit: contain;
+margin-right: 2.5rem;
+}
+
+.tab {
+background: var(--gris-claro);    /* Gris clarito de tu paleta */
+color: var(--rosa-principal);
+border: none;
+border-bottom: 3px solid transparent;
+font-weight: 900;
+font-family: 'Roboto', Arial, sans-serif;
+letter-spacing: 0.02em;
+font-size: 0.95rem;
+padding: 0.37rem 0.9rem;   /* Menos padding arriba y abajo */
+cursor: pointer;
+border-radius: 10px 10px 0 0;
+box-shadow: 0 2px 6px 0 rgba(234,41,124,0.04);
+position: relative;
+transition: background 0.3s, color 0.3s, border-color 0.3s;
 }
+
+.tab:hover {
+color: var(--blanco);
+background: var(--rosa-claro);
+box-shadow: 0 4px 14px -4px var(--rosa-claro);
+}
+
+.tab.active {
+background: var(--rosa-principal);
+color: var(--blanco);
+border-bottom: 3px solid var(--rosa-principal);
+position: relative;
+z-index: 2;
+box-shadow: 0 8px 18px -6px var(--rosa-claro);
+}
+
+
+.divider {
+width: 100%;
+height: 1px;
+background: linear-gradient(90deg, #fff 0%, var(--rosa-claro) 60%, #fff 100%);
+margin-bottom: 1.5rem;
+opacity: 0.8;
+}
+
+/* Bloque para los iconos de usuario y notificaciones alineados a la derecha */
+.tabs-icons {
+margin-left: auto;
+display: flex;
+align-items: center;
+gap: 1.2rem;
+}
+
+.tabs-icons .icon-user {
+font-size: 1.2rem;  /* O incluso 2.2rem si quieres más grande */
+margin-left: 0.1rem;
+}
+
+
+/* Botón base para iconos */
+.icon-button {
+background: none;
+border: none;
+cursor: pointer;
+padding: 0.2rem;
+display: flex;
+align-items: center;
+justify-content: center;
+font-size: 1.45rem;
+color: #111;
+transition: background 0.16s, color 0.16s;
+border-radius: 8px;
+}
+
+.icon-button:hover {
+background: var(--gris-claro);
+color: var(--rosa-principal);
+}
+
+.icon-button svg {
+display: block;
+}
+
+/* Estilos para campos de entrada */
+input {
+padding: 0.5rem;
+margin: 0.5rem 0;
+border-radius: 4px;
+border: 1px solid var(--rosa-claro);
+width: 100%;
+max-width: 300px;
+box-sizing: border-box;
+font-size: 1em;
+}
+
+/* Estilos para botones */
+button, .button-destacado {
+padding: 0.5rem 1.1rem;
+background-color: var(--rosa-principal);
+color: var(--blanco);
+border: none;
+border-radius: 4px;
+cursor: pointer;
+font-weight: 600;
+margin-top: 0.3rem;
+font-size: 1em;
+box-shadow: 0 1px 5px -2px var(--rosa-claro);
+transition: background 0.2s;
+}
+
+button:hover, .button-destacado:hover {
+background-color: var(--rosa-claro);
+color: var(--negro);
+}
+
+.footer {
+margin-top: auto;
+text-align: center;
+font-size: 0.75em;
+color: #888;
+background: rgba(255,255,255,0.8);
+padding: 0.1rem 0;
+border-top: 1px solid #ececec;
+position: sticky;
+bottom: 0;
+left: 0; right: 0;
+z-index: 10;
+}
+
+.respuesta {
+margin-top: 1rem;
+font-weight: bold;
+color: var(--rosa-principal);
+}
+
+#spinner-cargando {
+position: fixed;
+top: 0; left: 0;
+width: 100vw; height: 100vh;
+background: rgba(255,255,255,0.6);
+display: flex;
+flex-direction: column;
+justify-content: center;
+align-items: center;
+z-index: 99;
+}
+
+.spinner {
+border: 6px solid #f3f3f3;
+border-top: 6px solid var(--rosa-principal);
+border-radius: 50%;
+width: 48px;
+height: 48px;
+animation: spin 1s linear infinite;
+margin-bottom: 1rem;
+}
+
+@keyframes spin {
+0% { transform: rotate(0deg); }
+100% { transform: rotate(360deg); }
+}
+
+.spinner-text {
+color: var(--negro);
+font-size: 1.15em;
+font-weight: bold;
+letter-spacing: 0.04em;
+}
+
+@media (max-width: 900px) {
+.main-header { font-size: 1em; padding: 0.8rem 0.5rem; }
+.header-text h1 { font-size: 1.5rem; }
+.tabs-logo { height: 34px; }
+}
+
+@media (max-width: 650px) {
+body { padding: 0.5rem; }
+.main-header { padding: 0.6rem 0.2rem; }
+.tabs { gap: 0.3rem; font-size: 0.93em; padding: 0.2rem 0.4rem; }
+.tab { font-size: 0.75rem; padding: 0.5rem; }
+.tabs-logo { height: 28px; max-width: 100px; }
+}
+
+/* TODO LO ANTERIOR A SACO */
+
+/* =================== FILTROS GENERALES =================== */
+.filter-style {
+display: flex;
+gap: 1rem;
+margin-bottom: 1rem;
+flex-wrap: wrap;
+align-items: center;
+}
+.filter-style .filter label {
+font-weight: 600;
+margin-right: 0.5rem;
+color: #444;
+font-size: 0.85rem;
+}
+.filter-style .filter select,
+.filter-style .filter input[type="text"] {
+border: 1px solid #bc348b;
+border-radius: 6px;
+padding: 2px 6px;
+background: #fff;
+color: #444;
+font-size: 0.85rem;
+width: 140px;
+height: 28px;
+}
+.filter-style .filter select {
+cursor: pointer;
+}
+.filter-style .filter select:hover,
+.filter-style .filter select:focus,
+.filter-style .filter input[type="text"]:hover,
+.filter-style .filter input[type="text"]:focus {
+border-color: #a1226d;
+outline: none;
+}
+.filter-style .btn-filters-clear {
+background: #f2f3f6;
+color: #ea297c;
+border: none;
+padding: 4px 10px;
+border-radius: 6px;
+font-size: 0.85rem;
+font-weight: 600;
+cursor: pointer;
+transition: background 0.16s;
+}
+.filter-style .btn-filters-clear:hover {
+background: #e1e1e1;
+}
+
+/* ======= Salas (cards) ======= */
+.salas-grid { display: grid; gap: 1rem; }
+@media (max-width: 639px) { .salas-grid { grid-template-columns: repeat(1, 1fr); } }
+@media (min-width: 640px) and (max-width: 1023px) { .salas-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 1024px) { .salas-grid { grid-template-columns: repeat(4, 1fr); } }
+  .salas-grid.salas-rooms { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-flow: row; }
+  @media (max-width: 639px) { .salas-grid.salas-rooms { grid-template-columns: repeat(1, minmax(0, 1fr)); } }
+.sala-card { cursor: pointer; outline: none; }
+.sala-card:hover { box-shadow: 0 0 0 2px var(--rosa-claro); }
+.sala-card:focus { box-shadow: 0 0 0 2px var(--rosa-principal); }
+.sala-card .sala-badges { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-left: auto; }
+.sala-badge { background: var(--gris-claro); color: #111; padding: 0 6px; border-radius: 8px; font-size: 0.75rem; }
+.sala-card .sala-detalles { display: none; margin-top: 0.5rem; font-size: 0.85rem; color: #444; }
+.sala-card.expanded .sala-detalles { display: block; }
+.sala-card.selected { box-shadow: 0 0 0 2px var(--rosa-principal); }
+.sala-city-card { display: flex; flex-direction: column; gap: 0.75rem; }
+.sala-city-head { margin-bottom: 0.25rem; }
+.sala-city-title { margin: 0; font-size: 1.4rem; font-weight: 800; color: var(--negro); }
+.sala-city-centers { display: flex; flex-direction: column; gap: 0.75rem; }
+.sala-city-center { border-radius: 12px; padding: 0.65rem 0.75rem; box-shadow: inset 0 0 0 0px rgba(234, 41, 124, 0.08); display: flex; flex-direction: column; gap: 0.45rem; }
+.sala-city-center-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.sala-city-center-name { font-weight: 700; color: #861f55; font-size: 1rem; }
+.sala-city-center-count { background: var(--rosa-pastel); color: #861f55; font-weight: 600; font-size: 0.75rem; padding: 0.15rem 0.6rem; border-radius: 999px; }
+.sala-city-center-address { display: flex; gap: 0.55rem; align-items: center; font-size: 0.9rem; color: #444; line-height: 1.35; }
+.sala-city-icon { flex-shrink: 0; width: 1.7rem; height: 1.7rem; border-radius: 10px; background: var(--blanco); display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.11); padding: 0.3rem; }
+.sala-city-icon-img { width: 100%; height: 100%; object-fit: contain; }
+.sala-city-address-text { flex: 1; word-break: break-word; }
+.sala-skeleton { height: 150px; background: var(--gris-claro); animation: pulse 1.5s ease-in-out infinite; }
+.salas-layout { display: flex; gap: 1rem; }
+.salas-rooms { flex: 1; }
+.salas-centers-layout { display: flex; gap: 1.5rem; align-items: stretch; }
+.salas-centers-list { flex: 0.5 1 0; min-width: 0; display: flex; flex-direction: column; gap: 1rem; }
+.salas-centers-divider {
+flex: 0 0 1px;
+align-self: stretch;
+background: transparent;
+border-radius: 999px;
+margin: 0 0.75rem;
+}
+.sala-center-card { width: 100%; cursor: pointer; }
+.sala-center-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.sala-center-body { display: flex; flex-direction: column; gap: 1rem; margin-top: 0.9rem; }
+.sala-center-info { display: flex; flex-direction: column; gap: 0.30rem; }
+.sala-center-row { display: flex; gap: 0.75rem; align-items: center; font-size: 0.9rem; color: #444; }
+.sala-center-icon { flex-shrink: 0; width: 2rem; height: 2rem; border-radius: 10px; background: transparent; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06); padding: 0.3rem; }
+.sala-center-icon-img { width: 100%; height: 100%; object-fit: contain; }
+.sala-center-text { flex: 1; word-break: break-word; }
+.sala-center-rooms-section { border-top: 1px solid var(--gris-claro); padding-top: 0.75rem; display: flex; flex-direction: column; gap: 0.55rem; }
+.sala-center-section-title { font-weight: 600; font-size: 0.92rem; color: var(--negro); text-transform: none; }
+.sala-center-rooms { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.45rem; }
+.sala-center-room { display: flex; justify-content: space-between; gap: 0.75rem; font-size: 0.9rem; color: #444; }
+.sala-center-room-name { font-weight: 500; }
+.sala-center-room-capacity { color: var(--rosa-principal); font-weight: 600; white-space: nowrap; }
+.sala-room-card { width: 100%; }
+.sala-room-head { margin-bottom: 0.25rem; }
+.sala-room-title { margin: 0; font-size: 1.1rem; font-weight: 800; color: var(--negro); }
+.sala-room-body { display: flex; flex-direction: column; gap: 0.75rem; margin-top: 0.75rem; }
+.sala-room-info { display: flex; flex-direction: column; gap: 0.5rem; }
+.sala-room-row { align-items: center; }
+.sala-room-text { font-size: 0.9rem; color: #444; line-height: 1.35; }
+.salas-city-visual { flex: 1 1 0; min-width: 0; background: var(--blanco); border-radius: 14px; padding: 1rem; display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 18px -10px rgba(0,0,0,0.25); }
+.salas-city-image { width: 100%; height: 100%; object-fit: contain; border-radius: 12px; box-shadow: 0 4px 14px -6px rgba(0,0,0,0.25); }
+.salas-city-image-empty { text-align: center; font-size: 0.9rem; color: #666; padding: 1rem; }
+@media (max-width: 900px) {
+.salas-centers-layout { flex-direction: column; }
+.salas-centers-divider {
+flex: 0 0 auto;
+align-self: auto;
+width: 100%;
+height: 1px;
+margin: 0.75rem 0 1rem;
+background: transparent;
+}
+.salas-centers-list,
+.salas-city-visual { flex: 1 1 auto; width: 100%; }
+}
+.sala-info-panel { flex: 1; display: flex; flex-direction: column; gap: 1rem; }
+.sala-plan { max-width: 100%; border-radius: 8px; }
+.sala-info-text { background: var(--blanco); padding: 1rem; border-radius: 8px; }
+.btn-back { margin-bottom: 1rem; }
+@keyframes pulse { 0% { opacity: .6; } 50% { opacity: 1; } 100% { opacity: .6; } }
+.salas-empty { margin-top: 1rem; color: #bc348b; }
+
+/* =================== MODAL DE RESERVA =================== */
+.modal-reserva-bg {
+display: none;
+position: fixed;
+inset: 0;
+z-index: 1000;
+background: rgba(0,0,0,0.18);
+align-items: center;
+justify-content: center;
+font-family: Calibri, Arial, sans-serif !important;
+}
+.modal-reserva-bg.activo { display: flex; }
+.modal-reserva {
+background: #fff;
+border-radius: 20px;
+padding: 2.6rem 2.5rem 2.1rem;
+max-width: 540px;
+width: 98%;
+margin: auto;
+box-shadow: 0 8px 40px #bc348b30;
+display: flex;
+flex-direction: column;
+font-family: Calibri, Arial, sans-serif !important;
+box-sizing: border-box;
+}
+.modal-reserva-titulo { color: #bc348b; font-size: 1.25em; font-weight: bold; margin-bottom: 1.1em; letter-spacing: 0.2px; }
+.modal-reserva-input {
+width: 100%; padding: 0.7em 1em; border: 2px solid #bc348b; border-radius: 8px;
+font-size: 1.08em; margin-bottom: 1.1em; background: #fff; outline: none;
+}
+.modal-reserva-input:focus { border-color: #4c759a; box-shadow: 0 0 0 2px #c7d7f6a6; }
+
+.modal-reserva-fechas { display: flex; gap: 14px; margin-bottom: 1.1em; flex-wrap: wrap; }
+.modal-reserva-fechas > div { flex: 1 1 0px; min-width: 0; }
+.modal-reserva-label { font-weight: bold; color: #444; font-size: 0.97em; }
+
+.modal-reserva-datetime {
+width: 100%; padding: 0.53em 0.6em; border: 2px solid #bc348b; border-radius: 8px;
+background: #fff; font-size: 1.03em; letter-spacing: 0.01em;
+}
+.modal-reserva-datetime[type="datetime-local"] { padding-right: 0.3em !important; }
+@media screen and (-webkit-min-device-pixel-ratio:0) {
+.modal-reserva-datetime[type="datetime-local"]::-webkit-datetime-edit-fields-wrapper { padding-right: 0.05em !important; }
+.modal-reserva-datetime[type="datetime-local"]::-webkit-clear-button,
+.modal-reserva-datetime[type="datetime-local"]::-webkit-calendar-picker-indicator { margin-left: 0; margin-right: 0; }
+}
+.modal-reserva-datetime:focus { border-color: #4c759a; box-shadow: 0 0 0 2px #c7d7f6a6; outline: none; }
+
+.modal-reserva-botones { display: flex; gap: 18px; justify-content: flex-end; margin-top: 8px; }
+.modal-reserva-btn-cancelar {
+background: #f2f3f6; color: #222; border: none; padding: 0.67em 1.6em; border-radius: 8px;
+font-weight: 600; cursor: pointer; transition: background 0.16s;
+}
+.modal-reserva-btn-cancelar:hover { background: #e1e1e1; }
+
+.modal-reserva-btn-guardar {
+background: #bc348b; color: #fff; border: none; padding: 0.67em 1.7em; border-radius: 8px;
+font-weight: bold; cursor: pointer; transition: background 0.16s;
+}
+.modal-reserva-btn-guardar:hover { background: #a1226d; }
+
+.modal-reserva-btn-borrar {
+background: none;
+border: none;
+color: #bc348b;
+font-size: 1.3rem;
+cursor: pointer;
+line-height: 1;
+}
+
+@media (max-width: 500px) {
+.modal-reserva { padding: 1rem !important; max-width: 98vw !important; }
+.modal-reserva-fechas { flex-direction: column; gap: 10px; }
+}
+
+/* === FLATPICKR ESTILO ROSA === */
+.flatpickr-calendar { font-family: Calibri, Arial, sans-serif !important; }
+.flatpickr-day.selected,
+.flatpickr-day.startRange,
+.flatpickr-day.endRange,
+.flatpickr-day.selected.inRange,
+.flatpickr-day.startRange.inRange,
+.flatpickr-day.endRange.inRange,
+.flatpickr-day.today.selected,
+.flatpickr-day.today.startRange,
+.flatpickr-day.today.endRange,
+.flatpickr-day:hover, .flatpickr-day:focus {
+background: #bc348b !important; border-color: #bc348b !important; color: #fff !important;
+}
+.flatpickr-day.today { border-color: #bc348b !important; }
+.flatpickr-months .flatpickr-month { color: #bc348b; }
+.flatpickr-months .flatpickr-prev-month,
+.flatpickr-months .flatpickr-next-month { color: #bc348b !important; }
+.flatpickr-current-month input.cur-year { color: #bc348b !important; font-weight: bold; }
+.flatpickr-time input,
+.flatpickr-time .flatpickr-am-pm {
+border: 1px solid #bc348b !important; color: #bc348b !important; border-radius: 6px;
+}
+.flatpickr-time input:focus { outline: 2px solid #bc348b !important; }
+
+/* === MODAL DE CONFIRMACIÓN === */
+.modal-overlay {
+position: fixed; inset: 0; z-index: 1200; background: rgba(0,0,0,0.14);
+display: none; align-items: center; justify-content: center;
+}
+.modal-overlay[style*="display: flex"] { display: flex !important; }
+.modal {
+background: #fff; border-radius: 18px; padding: 2rem 2.3rem 1.5rem;
+box-shadow: 0 6px 36px #bc348b30; display: flex; flex-direction: column; align-items: center;
+}
+.modal-header { color: #bc348b; font-size: 1.18em; font-weight: bold; margin-bottom: 1em; }
+.modal-footer { margin-top: 1.5em; }
+
+#btnConfirmOk,
+#btnErrorOk,
+#btnInfoOk {
+font-size: 1.16em;
+font-weight: bold;
+padding: 0.9em 2.3em;
+border-radius: 12px;
+background: #bc348b;
+color: #fff;
+border: none;
+cursor: pointer;
+transition: background 0.18s, box-shadow 0.18s;
+box-shadow: 0 2px 10px #bc348b28;
+}
+#btnConfirmOk:hover,
+#btnErrorOk:hover,
+#btnInfoOk:hover {
+background: #a1226d;
+}
+
+/* === Lista de notificaciones === */
+.notifications-list { list-style: none; padding: 0; max-height: 300px; overflow-y: auto; }
+.notifications-list li { margin-bottom: .5rem; }
+
+/* Cabecera de días con gris más oscuro */
+.fc .fc-col-header-cell,
+.fc .fc-day-header,
+.fc .fc-daygrid-day-top { background: #e4e6ea !important; }
+
+/* === Contenedor para tablas de salas (sin estilos de tabla) === */
+.salas-table-container { overflow-x: auto; margin-top: 1rem; }
+
+/* === Estilo genérico para todas las tablas === */
+.table-style {
+width: 100%;
+border-collapse: separate;
+border-spacing: 0;
+background: #fff;
+border-radius: 16px;
+overflow: hidden;
+box-shadow: 0 2px 16px #bc348b16;
+margin-bottom: 1.25rem;
+font-size: 1rem;
+text-align: left;
+}
+.table-style th,
+.table-style td {
+padding: 14px 18px;
+color: #222;
+}
+.table-style th {
+background: #bc348b;
+color: #fff;
+font-weight: bold;
+font-size: 1.08rem;
+}
+.table-style tr:nth-child(even) td {
+background: #fbe6f5;
+}
+.table-style tr:nth-child(odd) td {
+background: #fff;
+}
+/* Hover: iluminar fila al pasar el ratón */
+.table-style tbody tr:hover td {
+background-color: #f5f5f5 !important;
+}
+@media (max-width: 800px) {
+.table-style th,
+.table-style td {
+padding: 8px 6px;
+font-size: 0.93rem;
+}
+}
+
+/* Botones de acción en tablas */
+.actions button {
+background: none;
+border: none;
+cursor: pointer;
+font-size: 1.1rem;
+margin-right: 4px;
+}
+
+/* --------- Panel de control --------- */
+.panel-admin-container {
+width: 100%;
+max-width: none;
+margin: 48px 0 0 0;
+background: none;
+padding: 0 24px;
+}
+@media (max-width: 600px) {
+.panel-admin-container { padding: 0 10px; }
+}
+
+.panel-admin-title {
+font-size: 2.5rem;
+font-weight: 900;
+color: #111;
+margin-bottom: 8px;
+margin-top: 0;
+}
+.panel-admin-desc {
+color: #4b779b;
+font-size: 1.1rem;
+margin-bottom: 32px;
+}
+.panel-admin-tabs {
+display: flex;
+border-bottom: 1.5px solid #cfdde8;
+gap: 38px;
+margin-bottom: 12px;
+}
+.panel-admin-tab {
+font-weight: bold;
+font-size: 1rem;
+border: none;
+background: none;
+padding: 10px 0 14px 0;
+border-bottom: 3px solid transparent;
+color: #4b779b;
+cursor: pointer;
+outline: none;
+transition: all 0.18s;
+}
+.panel-admin-tab.active {
+color: #111;
+border-bottom: 3px solid #0f7fdb;
+}
+.panel-admin-panel { display: none; }
+.panel-admin-panel.active { display: block; }
+.panel-admin-center {
+display: flex;
+flex-direction: column;
+align-items: center;
+gap: 24px;
+min-height: 320px;
+}
+.panel-admin-img {
+border-radius: 1.1em;
+max-width: 330px;
+width: 95%;
+aspect-ratio: 16/9;
+object-fit: cover;
+background: #f5f6fa;
+margin-bottom: 8px;
+}
+.panel-admin-title2 {
+font-size: 1.23rem;
+font-weight: bold;
+color: #111;
+text-align: center;
+margin-bottom: 4px;
+}
+.panel-admin-desc2 {
+font-size: 1rem;
+color: #444;
+text-align: center;
+}
+.panel-admin-btn {
+background: #e7eef3;
+color: #111;
+font-weight: bold;
+font-size: 1rem;
+border: none;
+border-radius: 32px;
+padding: 10px 30px;
+cursor: pointer;
+box-shadow: 0 1px 4px #dde7ef20;
+transition: background 0.16s;
+}
+.panel-admin-btn:hover { background: #d0dbe3; }
+
+/* ==== Campana notificaciones ==== */
+
+/* Punto de notificación (oculto si no tiene la clase) */
+.icon-button.has-notifications::after {
+content: '';
+position: absolute;
+top: 6px;
+right: 6px;
+width: 8px;
+height: 8px;
+background-color: #ea297c;
+border-radius: 50%;
+animation: pop 0.3s ease-out;
+}
+
+/* Animación "pop" al aparecer el puntito */
+@keyframes pop {
+from { transform: scale(0); }
+to   { transform: scale(1); }
+}
+
+.icon-button:hover {
+color: #ea297c;              /* trazo SVG */
+background-color: transparent; /* sigue sin fondo */
+
+}
+
+/* ==== Utilidades ==== */
+.hidden { display: none !important; }  /* ← Nueva regla para ocultar elementos */
+
+/* --------- Ajustes para la vista Buscar disponibilidad --------- */
+
+/* Contenedor general centrado y SIN márgenes grandes arriba */
+.busca-dispo-container {
+max-width: 1800px;
+margin: 0.5rem auto 0 auto !important;  /* Pegadito al menú */
+padding: 0 1vw;
+background: none;
+}
+
+.busca-dispo-filtros {
+display: flex;
+flex-wrap: wrap;
+gap: 1.5rem 2.5rem;
+align-items: flex-end;
+margin-bottom: 0.7rem;
+}
+.busca-dispo-filtros > div {
+min-width: 120px;
+flex-shrink: 0;
+}
+.busca-dispo-filtros label {
+font-weight: 600;
+color: #444;
+font-size: 0.91rem;
+margin-bottom: 3px;
+display: inline-block;
+}
+.busca-dispo-filtros input,
+.busca-dispo-filtros select {
+width: 180px !important;
+min-width: 120px;
+max-width: 220px;
+}
+.salas-table-container {
+overflow-x: auto;
+margin-top: 0.0rem;
+}
+.table-style {
+width: 100%;
+min-width: 1100px;
+}
+
+
+/* Estilo botones dentro de la tabla de disponibilidad */
+.reservar-btn {
+background: none;
+color: #bc348b;  /* Color corporativo para el + */
+border: none;
+padding: 4px 10px;
+border-radius: 7px;
+font-weight: bold;
+font-size: 1.25em;
+cursor: pointer;
+transition: color 0.16s, background 0.16s;
+box-shadow: none;
+}
+.reservar-btn:hover {
+color: #a1226d;
+background: #f8e7f4;
+}
+
+.solicitar-btn {
+background: #fff;
+color: #bc348b;
+border: 1.5px solid #bc348b;
+padding: 4px 10px;
+border-radius: 7px;
+font-weight: bold;
+font-size: 1em;
+cursor: pointer;
+transition: background 0.15s, color 0.15s;
+}
+.solicitar-btn:hover { background: #f8e7f4; color: #a1226d; }
+
+/* Modal específico de motivo y confirmación: centrados y adaptables */
+#motivoModal .modal-reserva,
+#confirmOverlayDisponibilidad .modal,
+#solicitudOverlay .modal {
+max-width: 350px;
+width: 98vw;
+padding: 1.7rem 1.2rem 1.5rem;
+}
+
+@media (max-width: 900px) {
+.busca-dispo-container { max-width: 99vw; }
+.table-style { min-width: 680px; font-size: 0.93em; }
+.busca-dispo-filtros input,
+.busca-dispo-filtros select { width: 135px !important; }
+}
+@media (max-width: 700px) {
+.busca-dispo-filtros { flex-direction: column; gap: 1rem; align-items: stretch; }
+.table-style { min-width: 530px; }
+}
+
+
+/* Tamaño de letra reducido para tablas de Mis Reservas, Reservas, Salas, Disponibilidad, Notificaciones y Panel de Control */
+#misReservasTable th,
+#misReservasTable td,
+#allReservasTable th,
+#allReservasTable td,
+#salasTable th,
+#salasTable td,
+#dispoTable th,
+#dispoTable td,
+#notificationsTable th,
+#notificationsTable td,
+#panelSalasTable th,
+#panelSalasTable td,
+#usuariosTable th,
+#usuariosTable td {
+font-size: 0.9rem;
+}
+
+/* ======== Panel de control: tablas sin scroll horizontal ======== */
+
+/* 1) Dar más aire al panel y permitir que las tablas ocupen todo el ancho */
+.panel-admin-container {
+max-width: none;            /* antes 740px */
+}
+
+/* 2) Solo en el panel de control: anular min-width y fijar layout */
+.panel-admin-panel .salas-table-container {
+overflow-x: visible;          /* ya no necesitamos scroll */
+margin-top: 0;                /* acercar tabla a las pestañas */
+}
+
+.panel-admin-panel .table-style {
+min-width: 0 !important;      /* anula el min-width global de 1100px */
+table-layout: fixed;          /* columnas fijas -> ellipsis funciona */
+width: 100%;
+}
+
+/* 3) Tipografía y paddings un poco más compactos en esta vista */
+.panel-admin-panel .table-style th,
+.panel-admin-panel .table-style td {
+padding: 10px 12px;
+font-size: 0.92rem;
+white-space: nowrap;
+overflow: hidden;
+text-overflow: ellipsis;      /* … cuando no quepa */
+}
+
+/* 4) Anchos recomendados por columna — SALAS */
+#panelSalasTable th:nth-child(1),
+#panelSalasTable td:nth-child(1) { width: 96px; }   /* ID Sala */
+#panelSalasTable th:nth-child(2),
+#panelSalasTable td:nth-child(2) { width: 140px; }  /* Centro */
+#panelSalasTable th:nth-child(3),
+#panelSalasTable td:nth-child(3) { width: 120px; }  /* Ciudad */
+#panelSalasTable th:nth-child(4),
+#panelSalasTable td:nth-child(4) { width: 180px; }  /* Nombre */
+#panelSalasTable th:nth-child(5),
+#panelSalasTable td:nth-child(5) { width: 110px; }  /* Capacidad */
+#panelSalasTable th:nth-child(6),
+#panelSalasTable td:nth-child(6) { width: 190px; }  /* Equipamiento */
+#panelSalasTable th:nth-child(7),
+#panelSalasTable td:nth-child(7) { width: 220px; }  /* Observaciones */
+#panelSalasTable th:nth-child(8),
+#panelSalasTable td:nth-child(8) { width: 150px; }  /* Horario */
+/* Columna 9: Acciones (Salas) */
+#panelSalasTable th:nth-child(9),
+#panelSalasTable td:nth-child(9) {
+width: 96px;
+text-align: center;
+}
+
+/* Botones de acción de la tabla */
+.table-style td.actions button {
+background: none !important;
+border: none !important;
+cursor: pointer;
+font-size: 1.1rem;
+margin: 0 6px;
+box-shadow: none !important;
+padding: 0;
+}
+.table-style td.actions button:hover {
+transform: scale(1.05);
+}
+
+
+/* 5) Anchos recomendados por columna — USUARIOS */
+#usuariosTable th:nth-child(1),
+#usuariosTable td:nth-child(1) { width: 30%; }      /* Email */
+#usuariosTable th:nth-child(2),
+#usuariosTable td:nth-child(2) { width: 22%; }      /* Nombre */
+#usuariosTable th:nth-child(3),
+#usuariosTable td:nth-child(3) { width: 14%; }      /* Rol */
+#usuariosTable th:nth-child(4),
+#usuariosTable td:nth-child(4) { width: 22%; }      /* Campaña */
+#usuariosTable th:nth-child(5),
+#usuariosTable td:nth-child(5) {
+width: 80px;                                      /* Acciones */
+text-align: center;
+}
+
+/* 6) En pantallas pequeñas, compactar aún más y ocultar columnas largas */
+@media (max-width: 900px) {
+.panel-admin-panel .table-style th,
+.panel-admin-panel .table-style td {
+padding: 8px 8px;
+font-size: 0.88rem;
+}
+/* Oculta Observaciones en Salas para caber mejor en tablets */
+#panelSalasTable th:nth-child(7),
+#panelSalasTable td:nth-child(7) { display: none; }
+}
+
+@media (max-width: 700px) {
+/* En móvil, ocultar también Equipamiento para que no rompa */
+#panelSalasTable th:nth-child(6),
+#panelSalasTable td:nth-child(6) { display: none; }
+}
+
+/* ====== Reservas: cabeceras ordenables ====== */
+.table-style th[data-sort]{
+cursor: pointer;
+user-select: none;
+position: relative;
+padding-right: 18px; /* hueco para el indicador ▲▼ */
+}
+/* Indicador neutro */
+.table-style th[data-sort]::after{
+content: "▲▼";
+position: absolute;
+right: 6px;
+top: 50%;
+transform: translateY(-50%);
+font-size: .72em;
+opacity: .35;
+}
+/* Columna activa */
+.table-style th[data-sort].sort-asc::after{
+content: "▲";
+opacity: 1;
+}
+.table-style th[data-sort].sort-desc::after{
+content: "▼";
+opacity: 1;
+}
+
+/* Opcional: acciones centradas y sin salto */
+#allReservasTable td.actions{
+text-align: center;
+white-space: nowrap;
+}
+
+/* ====== Botón del modal de información (id con sufijo All) ====== */
+#btnConfirmOk,
+#btnErrorOk,
+#btnInfoOk,
+#btnInfoOkAll {
+font-size: 1.16em;
+font-weight: bold;
+padding: 0.9em 2.3em;
+border-radius: 12px;
+background: #bc348b;
+color: #fff;
+border: none;
+cursor: pointer;
+transition: background 0.18s, box-shadow 0.18s;
+box-shadow: 0 2px 10px #bc348b28;
+}
+#btnConfirmOk:hover,
+#btnErrorOk:hover,
+#btnInfoOk:hover,
+#btnInfoOkAll:hover {
+background: #a1226d;
+}
+
+/* =================== PERFIL DE USUARIO =================== */
+.profile-grid {
+display: grid;
+grid-template-columns: repeat(2, 1fr);
+gap: 1rem;
+}
+.profile-grid .card {
+background: #fff;
+padding: 1rem;
+border-radius: 8px;
+box-shadow: 0 2px 4px #bc348b22;
+}
+.profile-info { display:flex; gap:1rem; align-items:center; }
+.profile-info .avatar { width:72px; height:72px; border-radius:50%; }
+.chip { background:#4c759a; color:#fff; padding:0.2rem 0.6rem; border-radius:9999px; font-size:0.8rem; display:inline-block; }
+.chips .chip { background:#bc348b; margin:0.2rem; cursor:pointer; }
+.metric-card { background:#f2f3f6; padding:0.4rem 0.8rem; border-radius:6px; margin:0.2rem; display:inline-block; }
+.toggle { display:block; margin:0.4rem 0; }
+.toggle input { margin-right:0.3rem; }
+@media (max-width: 768px) { .profile-grid { grid-template-columns:1fr; } }
+
+/* ===== Dashboard / Tarjetas ===== */
+.dashboard { margin-top: .5rem; }
+.dash-title{ margin:0; font-size:1.35rem; font-weight:800; color:#333; }
+.dash-sub{ margin:.15rem 0 1rem; color:#6b7280; }
+
+.grid{ display:grid; gap:1rem; }
+.kpi-grid{ grid-template-columns: repeat(12,1fr); }
+.content-grid{ grid-template-columns: repeat(12,1fr); margin-top:1rem; }
+
+.card{
+background: #fff;
+border: 1px solid #f1e1ea;
+border-radius: 16px;
+padding: 1rem 1.25rem;
+box-shadow: 0 6px 22px -12px rgba(188,52,139,.35);
+}
+.card-head{ display:flex; align-items:baseline; gap:.5rem; margin-bottom:.35rem; }
+.card-head h3{ margin:0; }
+.card-head small{ color:#6b7280; }
+
+/* KPI cards */
+.kpi{ position:relative; overflow:hidden; }
+.kpi-title{ margin:0 0 .15rem; font-size:.95rem; color:#7a2c4a; font-weight:700; }
+.kpi-value{ font-size:2.2rem; font-weight:900; line-height:1.1; color:#ba0e6a; }
+.kpi-sub{ color:#6b7280; }
+
+/* Responsive columns */
+@media (max-width: 639px){
+.kpi{ grid-column: span 12; }
+.content-grid > .card{ grid-column: span 12; }
+}
+@media (min-width: 640px) and (max-width: 1023px){
+.kpi{ grid-column: span 6; }
+.content-grid > .card:first-child{ grid-column: span 12; }
+.content-grid > .card:last-child{ grid-column: span 12; }
+}
+@media (min-width: 1024px){
+.kpi{ grid-column: span 3; }
+.content-grid > .card:first-child{ grid-column: span 6; }
+.content-grid > .card:last-child{ grid-column: span 6; }
+}
+
+/* Tabla moderna */
+.table-wrap{ overflow:auto; }
+.table-modern{
+width:100%;
+border-collapse:separate;
+border-spacing:0;
+font-size:.95rem;
+}
+.table-modern thead th{
+text-align:left;
+padding:.6rem .7rem;
+background:#fff1f7;
+color:#7a2c4a;
+border-bottom:1px solid #f1e1ea;
+position:sticky; top:0; z-index:1;
+}
+.table-modern tbody td{ padding:.55rem .7rem; border-bottom:1px solid #f6e8f1; }
+.table-modern tbody tr:hover{ background:#fff7fb; }
+.td-center{ text-align:center; color:#6b7280; }
+
+/* Chart area */
+.chart-wrapper{ position:relative; min-height:300px; }
+.abs-center{ position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); }
+
+/* Mini spinner para KPIs/tabla */
+.mini-spinner{
+display:inline-block; width:18px; height:18px;
+border:3px solid #f3f3f3; border-top-color:#bc348b; border-radius:50%;
+animation: spin .9s linear infinite;
+}
+@keyframes spin{ to{ transform: rotate(360deg); } }
+
+/* ====== Variables de layout ====== */
+:root{
+--sidebar-w: 56px;
+--header-h: 88px; /* se recalcula con JS en runtime */
+}
+
+/* ====== Sidebar de iconos ====== */
+.sidebar-icons {
+position: fixed;
+top: calc(var(--header-h) + 1.5rem); /* baja lo mismo que el margin-bottom de la cabecera */
+left: 0;
+width: var(--sidebar-w);
+height: calc(100vh - var(--header-h) - 1.5rem); /* ajusta la altura total */
+background: #fff;
+border-right: 1px solid #f1e1ea;
+display: flex;
+flex-direction: column;
+align-items: center;
+padding: .5rem 0 !important;
+gap: .35rem;
+z-index: 30;
+overflow-y: auto;
+-webkit-overflow-scrolling: touch;
+padding-bottom: calc(env(safe-area-inset-bottom, 0px) + .5rem);
+}
+
+.sidebar-icons .tabs-logo {
+width: calc(var(--sidebar-w) - 16px);
+max-width: 100%;
+height: auto;
+margin: .5rem 0 .75rem;
+display: block;
+}
+
+/* Logo Intelcia dentro de la cabecera */
+.header-logo-intelcia {
+max-height: 90px;      /* controla el alto máximo en escritorio */
+height: auto;          /* mantiene proporción */
+width: auto;
+object-fit: contain;   /* asegura que se ajuste sin deformar */
+display: block;        /* evita huecos inline */
+flex-shrink: 0;
+margin-right: 1.5rem;
+position: static;      /* se quita el absolute */
+top: auto;
+left: auto;
+transform: none;
+filter: none;          /* sin sombra flotante */
+}
+
+/* Contenedor interior de la cabecera */
+.header-content {
+display: flex;
+align-items: center;    /* centra verticalmente logo + texto */
+justify-content: flex-start;
+gap: 1.5rem;
+}
+
+/* Responsive: ajustar logo en pantallas pequeñas */
+@media (max-width: 900px) {
+.header-logo-intelcia {
+max-height: 70px;     /* tablet */
+margin-right: 1rem;
+}
+}
+@media (max-width: 650px) {
+.header-logo-intelcia {
+max-height: 55px;     /* móvil */
+margin-right: 0.6rem;
+}
+.header-text h1 {
+font-size: 1.2rem;
+}
+.header-text p {
+font-size: 0.8rem;
+}
+}
+
+
+/* El contenedor del sidebar no necesita estilos de la barra de tabs horizontal */
+.sidebar-icons.tabs{
+border-bottom: 0 !important;
+background: transparent !important;
+padding: .5rem 0 !important;
+}
+
+/* ====== Botón base del sidebar: .tab y .icon-button ====== */
+.sidebar-icons .tab,
+.sidebar-icons .icon-button{
+width: 44px;
+height: 44px;
+border-radius: 12px;
+border: 1px solid transparent;
+background: transparent;
+display: grid;
+place-items: center;
+cursor: pointer;
+transition: background .15s ease, border .15s ease, box-shadow .15s ease;
+outline: none;
+text-decoration: none;
+}
+
+/* === RESET de .tab heredada de la barra horizontal === */
+.sidebar-icons .tab{
+padding: 0 !important;
+border-bottom: 0 !important;
+box-shadow: none !important;
+color: inherit !important;
+font: inherit !important;
+}
+
+/* Icono Material */
+.sidebar-icons .tab .material-symbols-outlined,
+.sidebar-icons .icon-button .material-symbols-outlined{
+display: block;          /* evita baseline raro */
+font-size: 24px;
+line-height: 1;          /* quita aire vertical extra */
+color: #9a234f;          /* magenta oscuro */
+}
+
+/* Hover / Active */
+.sidebar-icons .tab:hover,
+.sidebar-icons .icon-button:hover{
+background: #fff4f9;
+border-color: #f1c7de;
+}
+.sidebar-icons .tab.active,
+.sidebar-icons .icon-button.active{
+background: #ffe7f2;
+border-color: #f1c7de;
+box-shadow: 0 6px 22px -12px rgba(188,52,139,.35);
+}
+.sidebar-icons .tab.active .material-symbols-outlined,
+.sidebar-icons .icon-button.active .material-symbols-outlined{
+color: #bc348b;          /* magenta principal */
+font-variation-settings: 'wght' 700;
+}
+
+/* Separadores */
+.sidebar-sep{ width: 28px; height: 1px; background: #f1e1ea; margin: .5rem 0; }
+.sidebar-spacer{ flex: 1; }
+
+/* Empujar contenido para no quedar debajo del sidebar */
+.content, .app-content, .main-container, body > .container{
+margin-left: var(--sidebar-w);
+}
+
+/* Cabecera por encima del sidebar si tiene sombras/posicionamiento */
+.main-header{ z-index: 40; position: relative; }
+
+/* Ajuste Material Symbols por defecto */
+.material-symbols-outlined{
+font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
+/* Responsive: ocultar sidebar en móviles si quieres */
+@media (max-width: 640px){
+.sidebar-icons{ display:none; }
+.content, .app-content, .main-container, body > .container{ margin-left: 0; }
+}
+
+
+
+
+</style>
