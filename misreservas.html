@@ -1,17 +1,43 @@
 <!-- misreservas.html -->
 <div class="reservas-container">
   <div class="reservas-header" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem;">
+
+    <div class="filter-style">
+      <div class="filter">
+        <label for="filterCiudadMis">Ciudad:</label>
+        <select id="filterCiudadMis">
+          <option value="">— Elige Ciudad —</option>
+        </select>
+      </div>
+
+      <div class="filter">
+        <label for="filterCentroMis">Centro:</label>
+        <select id="filterCentroMis" disabled>
+          <option value="">— Elige Centro —</option>
+        </select>
+      </div>
+
+      <div class="filter">
+        <label for="filterSalaMis">Sala:</label>
+        <select id="filterSalaMis" disabled>
+          <option value="">— Elige Sala —</option>
+        </select>
+      </div>
+
+      <div class="filter">
+        <label for="filterFechaMis">Fecha:</label>
+        <input id="filterFechaMis" type="text" placeholder="Selecciona fecha" />
+      </div>
+
+      <button type="button" id="mis-clear-filters" class="btn-filters-clear">Quitar filtros</button>
+      <button type="button" id="mis-reservas-reload" class="btn-filters-clear" style="margin-left:.5rem;">Recargar datos</button>
+    </div>
+
     <div class="filter-style" style="margin-bottom:0;">
       <div class="filter">
         <label for="searchIdMis">Buscar por ID Reserva:</label>
         <input id="searchIdMis" type="text" placeholder="Introduce ID Reserva…" />
       </div>
-      <div class="filter">
-        <label for="searchDateMis">Fecha:</label>
-        <input id="searchDateMis" type="text" placeholder="Selecciona fecha" readonly />
-      </div>
-      <button type="button" id="mis-clear-filters" class="btn-filters-clear">Quitar filtros</button>
-      <button type="button" id="mis-reservas-reload" class="btn-filters-clear" style="margin-left:.5rem;">Recargar datos</button>
       <button type="button" id="mis-export-csv" class="btn-filters-clear">Exportar CSV</button>
     </div>
   </div>
@@ -114,23 +140,18 @@
     setTimeout(() => { document.body.removeChild(link); URL.revokeObjectURL(link.href); }, 150);
   }
 
-  // ---- Flatpickr para filtrar por rango de fechas ----
-  let selectedRange = [];
-  window.searchDateMisFlatpickr = null;
+  // ---- Flatpickr para filtros y edición ----
+  window.fp_filterFechaMis = null;
   window.fp_editFechaInicio = null;
   window.fp_editFechaFin = null;
   window.fp_editHoraInicio = null;
   window.fp_editHoraFin = null;
   document.addEventListener('DOMContentLoaded', function() {
-    window.searchDateMisFlatpickr = flatpickr('#searchDateMis', {
-      mode: 'range',
+    window.fp_filterFechaMis = flatpickr('#filterFechaMis', {
+      enableTime: false,
       dateFormat: 'Y-m-d',
       locale: 'es',
-      allowInput: true,
-      onChange: function(selectedDates, dateStr) {
-        selectedRange = dateStr ? dateStr.split(' a ') : [];
-        App.applyFiltersAndRender();
-      }
+      onChange: () => App.applyFiltersAndRender()
     });
     window.fp_editFechaInicio = flatpickr('#editFechaInicio', {
       enableTime: false,
@@ -176,6 +197,7 @@
         .withSuccessHandler(reservas => {
           if (typeof hideSpinner === 'function') hideSpinner();
           this.state.misReservas = Array.isArray(reservas) ? reservas : [];
+          this.poblarCiudades();
           this.applyFiltersAndRender();
         })
         .withFailureHandler(err => {
@@ -188,28 +210,31 @@
 
     getFilters() {
       const term = document.getElementById('searchIdMis').value.toLowerCase().trim();
-      const [start, end] = (selectedRange && selectedRange.length === 2) ? selectedRange : [null, null];
-      return { term, start, end };
+      const ciudad = document.getElementById('filterCiudadMis').value;
+      const centro = document.getElementById('filterCentroMis').value;
+      const sala = document.getElementById('filterSalaMis').value;
+      const fecha = document.getElementById('filterFechaMis').value;
+      return { term, ciudad, centro, sala, fecha };
     },
 
     applyFiltersAndRender() {
-      const { term, start, end } = this.getFilters();
+      const { term, ciudad, centro, sala, fecha } = this.getFilters();
       let data = this.state.misReservas;
 
+      if (ciudad) {
+        data = data.filter(r => (r.Ciudad?.trim() || '') === ciudad);
+      }
+      if (centro) {
+        data = data.filter(r => (r.Centro?.trim() || '') === centro);
+      }
+      if (sala) {
+        data = data.filter(r => (r.Sala?.trim() || '') === sala);
+      }
+      if (fecha) {
+        data = data.filter(r => this.splitDateTime(r.Inicio).date === fecha);
+      }
       if (term) {
         data = data.filter(r => String(r.ID || '').toLowerCase().includes(term));
-      }
-      if (start && end) {
-        data = data.filter(r => {
-          // r.Inicio es 'dd/MM/yyyy HH:mm'
-          const d = this.parseFechaDMY(r.Inicio);
-          if (!d) return false;
-          const y = d.getFullYear();
-          const m = String(d.getMonth()+1).padStart(2,'0');
-          const day = String(d.getDate()).padStart(2,'0');
-          const iso = `${y}-${m}-${day}`;
-          return iso >= start && iso <= end;
-        });
       }
 
       // Ordenación
@@ -218,6 +243,59 @@
 
       // Render
       this.renderTable(data, '#misReservasTable tbody', 'No tienes reservas');
+    },
+
+    poblarCiudades() {
+      const selCiudad = document.getElementById('filterCiudadMis');
+      const selCentro = document.getElementById('filterCentroMis');
+      const selSala = document.getElementById('filterSalaMis');
+
+      selCiudad.innerHTML = '<option value="">— Elige Ciudad —</option>';
+      [...new Set(this.state.misReservas.map(r => r.Ciudad?.trim()).filter(Boolean))]
+        .sort()
+        .forEach(c => selCiudad.insertAdjacentHTML('beforeend', `<option value="${c}">${c}</option>`));
+      selCiudad.disabled = false;
+
+      selCentro.innerHTML = '<option value="">— Elige Centro —</option>';
+      selSala.innerHTML = '<option value="">— Elige Sala —</option>';
+    },
+
+    poblarCentros() {
+      const ciudad = document.getElementById('filterCiudadMis').value;
+      const sel = document.getElementById('filterCentroMis');
+      sel.innerHTML = '<option value="">— Elige Centro —</option>';
+      let datos = this.state.misReservas;
+      if (ciudad) datos = datos.filter(r => (r.Ciudad?.trim() || '') === ciudad);
+      [...new Set(datos.map(r => r.Centro?.trim()).filter(Boolean))]
+        .sort()
+        .forEach(c => sel.insertAdjacentHTML('beforeend', `<option value="${c}">${c}</option>`));
+      sel.disabled = false;
+    },
+
+    poblarSalas() {
+      const ciudad = document.getElementById('filterCiudadMis').value;
+      const centro = document.getElementById('filterCentroMis').value;
+      const sel = document.getElementById('filterSalaMis');
+      sel.innerHTML = '<option value="">— Elige Sala —</option>';
+      let datos = this.state.misReservas;
+      if (ciudad) datos = datos.filter(r => (r.Ciudad?.trim() || '') === ciudad);
+      if (centro) datos = datos.filter(r => (r.Centro?.trim() || '') === centro);
+      [...new Set(datos.map(r => r.Sala?.trim()).filter(Boolean))]
+        .sort()
+        .forEach(s => sel.insertAdjacentHTML('beforeend', `<option value="${s}">${s}</option>`));
+      sel.disabled = false;
+    },
+
+    limpiarFiltros() {
+      document.getElementById('filterCiudadMis').value = '';
+      this.poblarCentros();
+      document.getElementById('filterCentroMis').value = '';
+      this.poblarSalas();
+      document.getElementById('filterSalaMis').value = '';
+      document.getElementById('filterFechaMis').value = '';
+      if (window.fp_filterFechaMis) window.fp_filterFechaMis.clear();
+      document.getElementById('searchIdMis').value = '';
+      this.applyFiltersAndRender();
     },
 
     /* ================= ORDENACIÓN ================= */
@@ -258,6 +336,18 @@
       const iso = `${y}-${m}-${d}T${hora}`;
       const dte = new Date(iso);
       return isNaN(dte) ? null : dte;
+    },
+
+    splitDateTime(str) {
+      const [fecha, hora] = String(str ?? '').split(' ');
+      const time = (hora ?? '').trim();
+      if (!fecha || !time) return { date: '', time: '' };
+      const [d, m, y] = fecha.split('/').map(part => part?.trim?.() || '');
+      if (!d || !m || !y) return { date: '', time: '' };
+      return {
+        date: `${String(y).padStart(4,'0')}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`,
+        time
+      };
     },
 
     _sortValue(row, key) {
@@ -441,19 +531,29 @@
 
     /* ================== INIT ================== */
     init() {
-      // Filtro por ID y por fecha
-      document.getElementById('searchIdMis')
-        .addEventListener('input', this.applyFiltersAndRender.bind(this));
-      document.getElementById('searchDateMis')
-        .addEventListener('input', this.applyFiltersAndRender.bind(this)); // por si escribe a mano
-
-      document.getElementById('mis-clear-filters')
-        .addEventListener('click', () => {
-          document.getElementById('searchIdMis').value = '';
-          if (window.searchDateMisFlatpickr) window.searchDateMisFlatpickr.clear();
-          selectedRange = [];
+      // Filtros
+      document.getElementById('filterCiudadMis')
+        .addEventListener('change', () => {
+          this.poblarCentros();
+          this.poblarSalas();
           this.applyFiltersAndRender();
         });
+      document.getElementById('filterCentroMis')
+        .addEventListener('change', () => {
+          this.poblarSalas();
+          this.applyFiltersAndRender();
+        });
+      document.getElementById('filterSalaMis')
+        .addEventListener('change', this.applyFiltersAndRender.bind(this));
+      document.getElementById('filterFechaMis')
+        .addEventListener('change', this.applyFiltersAndRender.bind(this));
+      document.getElementById('filterFechaMis')
+        .addEventListener('input', this.applyFiltersAndRender.bind(this));
+      document.getElementById('searchIdMis')
+        .addEventListener('input', this.applyFiltersAndRender.bind(this));
+
+      document.getElementById('mis-clear-filters')
+        .addEventListener('click', () => this.limpiarFiltros());
 
       document.getElementById('mis-reservas-reload')
         .addEventListener('click', this.loadMisReservas.bind(this));
