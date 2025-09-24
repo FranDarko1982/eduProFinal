@@ -405,8 +405,15 @@
     });
     if (s) {
       current.sala = String(s.Nombre || s['Nombre Sala'] || '');
-      if (s.MapaSala || s['Mapa Sala']) {
-        img.src = s.MapaSala || s['Mapa Sala'];
+      const salaImage =
+        s['Imagen Sala'] ||
+        s.ImagenSala ||
+        s.MapaSala ||
+        s['Mapa Sala'] ||
+        '';
+      if (salaImage) {
+        img.src = salaImage;
+        img.alt = `Plano de la sala ${current.sala}`;
         img.classList.remove('hidden');
       } else {
         img.classList.add('hidden');
@@ -415,14 +422,32 @@
     } else {
       current.sala = null;
       const base = currentRooms[0] || {};
-      const plano = base.UbicacionCentro || base.PlanoCentro || base['Ubicacion Centro'] || '';
+      const centroInfo = obtenerCentroInfo(current.centro) || {};
+      const plano =
+        centroInfo['Imagen Centro'] ||
+        centroInfo.ImagenCentro ||
+        centroInfo.PlanoCentro ||
+        centroInfo['Plano Centro'] ||
+        base.UbicacionCentro ||
+        base.PlanoCentro ||
+        base['Ubicacion Centro'] ||
+        '';
       if (plano) {
         img.src = plano;
+        img.alt = `Plano del centro ${current.centro || ''}`.trim() || 'Plano del centro';
         img.classList.remove('hidden');
       } else {
         img.classList.add('hidden');
       }
-      info.textContent = base.InformacionCentro || base.InfoCentro || base['Informacion Centro'] || '';
+      const infoCentro =
+        centroInfo['Informacion Centro'] ||
+        centroInfo.InformacionCentro ||
+        centroInfo.InfoCentro ||
+        base.InformacionCentro ||
+        base.InfoCentro ||
+        base['Informacion Centro'] ||
+        '';
+      info.textContent = infoCentro;
     }
   }
 
