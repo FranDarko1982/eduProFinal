@@ -1,4 +1,16 @@
 <!-- salas.html -->
+<style>
+  /* Mantiene la separación entre la lista de salas y el panel derecho */
+  #salas-layout .sala-info-panel {
+    margin-left: clamp(1.75rem, 4vw, 3rem);
+  }
+
+  @media (max-width: 960px) {
+    #salas-layout .sala-info-panel {
+      margin-left: 0;
+    }
+  }
+</style>
 
 <button id="salas-back" class="hidden btn-back">← Volver</button>
 
