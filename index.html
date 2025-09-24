@@ -13,6 +13,59 @@
     <?!= include('styles'); ?>
     <?!= include('calendar-styles'); ?>
 
+    <style>
+      .main-header {
+        background-color: #fff;
+        padding: 1.5rem 2rem;
+        box-shadow: 0 6px 18px rgba(12, 30, 58, 0.08);
+      }
+
+      .main-header .header-content {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+      }
+
+      .main-header .header-logo-intelcia {
+        display: block;
+        height: clamp(48px, 9vw, 72px);
+        width: auto;
+        flex-shrink: 0;
+        background-color: #fff;
+        padding: 0.5rem 0.75rem;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(12, 30, 58, 0.08);
+      }
+
+      .main-header .header-text {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+      }
+
+      .main-header .header-text h1,
+      .main-header .header-text p {
+        margin: 0;
+      }
+
+      @media (max-width: 768px) {
+        .main-header {
+          padding: 1.25rem;
+        }
+
+        .main-header .header-content {
+          flex-direction: column;
+          text-align: center;
+          gap: 1rem;
+        }
+
+        .main-header .header-logo-intelcia {
+          height: 56px;
+          padding: 0.35rem 0.65rem;
+        }
+      }
+    </style>
+    
     <script>
       window.USER_ROLE  = '<?= usuario.rol ?>'.toLowerCase();
       window.USER_EMAIL = '<?= getActiveUserEmail() ?>';
