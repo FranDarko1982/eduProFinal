@@ -62,8 +62,16 @@
     <div class="modal-reserva">
       <h2 class="modal-reserva-titulo">Crear Reserva</h2>
       <form id="formReserva" autocomplete="off">
-        <input id="motivoReserva" type="text" placeholder="Motivo de la reserva"
-               class="modal-reserva-input" required />
+        <div style="display:flex; gap:12px; align-items:flex-start; margin-bottom:1.1em; flex-wrap:wrap;">
+          <div style="flex:1 1 220px; min-width:220px;">
+            <input id="motivoReserva" type="text" placeholder="Motivo de la reserva"
+                   class="modal-reserva-input" style="margin-bottom:0;" required />
+          </div>
+          <div style="width:140px; flex:0 0 auto;">
+            <input id="personasReserva" type="number" min="1" step="1" inputmode="numeric"
+                   placeholder="Personas" class="modal-reserva-input" style="margin-bottom:0;" />
+          </div>
+        </div>
         <div class="modal-reserva-fechas">
           <div>
             <label for="fechaInicio" class="modal-reserva-label">Fecha inicio</label><br>
@@ -191,13 +199,19 @@
   let deleteId = null;
   let confirmAction = null;
   let activeEmail = '';
-  function showModalReserva(start, end, motivo = '', id = null) {
+  function showModalReserva(start, end, motivo = '', id = null, personas = '') {
     document.getElementById('modalReserva').classList.add('activo');
     fpFechaInicio.setDate(start, true, 'Y-m-d');
     fpFechaFin.setDate(end, true, 'Y-m-d');
     fpHoraInicio.setDate(start, true, 'H:i');
     fpHoraFin.setDate(end, true, 'H:i');
     document.getElementById('motivoReserva').value = motivo;
+    const personasInput = document.getElementById('personasReserva');
+    if (personasInput) {
+      personasInput.value = (personas !== undefined && personas !== null && personas !== '')
+        ? String(personas)
+        : '';
+    }
     editReservaId = id;
     deleteId = id;
     document.getElementById('btnEliminarReserva').style.display = id ? 'inline-block' : 'none';
@@ -209,6 +223,8 @@
     editReservaId = null;
     deleteId = null;
     document.getElementById('btnEliminarReserva').style.display = 'none';
+    const personasInput = document.getElementById('personasReserva');
+    if (personasInput) personasInput.value = '';
   }
 
   /* ========= MODAL CONFIRMACIÓN ========= */
@@ -375,7 +391,19 @@
         const fechaFin    = document.getElementById('fechaFin').value;
         const horaInicio  = document.getElementById('horaInicio').value;
         const horaFin     = document.getElementById('horaFin').value;
+        const personasInput = document.getElementById('personasReserva');
+        const personasRaw = personasInput ? personasInput.value.trim() : '';
+        let personas = '';
         if (!motivo) { document.getElementById('motivoReserva').focus(); return; }
+        if (personasRaw) {
+          const numPersonas = Number(personasRaw);
+          if (!Number.isFinite(numPersonas) || numPersonas < 1) {
+            showErrorModal('Indica un número válido de personas (1 o más).');
+            if (personasInput) personasInput.focus();
+            return;
+          }
+          personas = Math.round(numPersonas);
+        }
         const startDate = new Date(`${fechaInicio}T${horaInicio}`);
         const endDate   = new Date(`${fechaFin}T${horaFin}`);
         if (endDate <= startDate) {
@@ -403,7 +431,8 @@
               id: idReserva,
               motivo,
               fechaInicio: formatDateTime(startDate),
-              fechaFin:    formatDateTime(endDate)
+              fechaFin:    formatDateTime(endDate),
+              personas:    personas
             });
         } else {
           const ciudad = document.getElementById('filter-city').value;
@@ -428,7 +457,8 @@
                 usuario: email,
                 motivo,
                 fechaInicio: startStr,
-                fechaFin:    endStr
+                fechaFin:    endStr,
+                personas:    personas
               });
           }).withFailureHandler(function(err){
               hideCalendarSpinner();
@@ -598,7 +628,8 @@
         const usuario = (ev.extendedProps && ev.extendedProps.usuario || '').toLowerCase();
         if (usuario === activeEmail) {
           const motivo = (ev.extendedProps && ev.extendedProps.motivo) || ev.title;
-          showModalReserva(ev.start, ev.end, motivo, ev.id);
+          const personas = (ev.extendedProps && ev.extendedProps.personas);
+          showModalReserva(ev.start, ev.end, motivo, ev.id, personas);
         }
       },
 
@@ -610,6 +641,7 @@
         const fechaInicio = formatDateTime(ev.start);
         const fechaFin    = formatDateTime(ev.end);
         const motivo      = (ev.extendedProps && ev.extendedProps.motivo) || ev.title;
+        const personas    = ev.extendedProps && ev.extendedProps.personas;
         google.script.run
           .withSuccessHandler(function(){
               hideCalendarSpinner();
@@ -625,7 +657,8 @@
             id: ev.id,
             motivo: motivo,
             fechaInicio: fechaInicio,
-            fechaFin: fechaFin
+            fechaFin: fechaFin,
+            personas: personas
           });
       },
 
@@ -637,6 +670,7 @@
         const fechaInicio = formatDateTime(ev.start);
         const fechaFin    = formatDateTime(ev.end);
         const motivo      = (ev.extendedProps && ev.extendedProps.motivo) || ev.title;
+        const personas    = ev.extendedProps && ev.extendedProps.personas;
         google.script.run
           .withSuccessHandler(function(){
               hideCalendarSpinner();
@@ -652,7 +686,8 @@
             id: ev.id,
             motivo: motivo,
             fechaInicio: fechaInicio,
-            fechaFin: fechaFin
+            fechaFin: fechaFin,
+            personas: personas
           });
       },
 
@@ -693,7 +728,8 @@
         const ev = events.find(e => String(e.id) === String(window.OPEN_EDIT_ID));
         if (ev) {
           const motivo = (ev.extendedProps && ev.extendedProps.motivo) || ev.title;
-          showModalReserva(ev.start, ev.end, motivo, ev.id);
+          const personas = ev.extendedProps && ev.extendedProps.personas;
+          showModalReserva(ev.start, ev.end, motivo, ev.id, personas);
           window.OPEN_EDIT_ID = null;
         }
       }
