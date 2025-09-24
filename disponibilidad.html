@@ -60,6 +60,7 @@
     <h2 class="modal-reserva-titulo">Confirmar Reserva</h2>
     <form id="motivoForm" autocomplete="off">
       <input id="motivoInput" type="text" class="modal-reserva-input" placeholder="Motivo de la reserva" required />
+      <input id="personasMotivoInput" type="number" min="1" step="1" inputmode="numeric" class="modal-reserva-input" placeholder="Personas" />
       <div class="modal-reserva-botones">
         <button type="button" id="motivoCancel" class="modal-reserva-btn-cancelar">Cancelar</button>
         <button type="submit" id="motivoOk" class="modal-reserva-btn-guardar">Reservar</button>
@@ -339,6 +340,8 @@ const DispApp = {
   },
   openMotivoModal() {
     id('motivoInput').value = '';
+    const personasInput = document.getElementById('personasMotivoInput');
+    if (personasInput) personasInput.value = '';
     document.getElementById('motivoModal').style.display = 'flex';
     setTimeout(() => id('motivoInput').focus(), 60);
   },
@@ -392,7 +395,26 @@ const DispApp = {
     document.querySelectorAll('.reservar-btn').forEach(btn => btn.disabled = true);
 
     const motivo = id('motivoInput').value.trim();
-    if (!motivo) { id('motivoInput').focus(); this.reservaEnCurso = false; return; }
+    if (!motivo) {
+      id('motivoInput').focus();
+      this.reservaEnCurso = false;
+      document.querySelectorAll('.reservar-btn').forEach(btn => btn.disabled = false);
+      return;
+    }
+    const personasInput = document.getElementById('personasMotivoInput');
+    const personasRaw = personasInput ? personasInput.value.trim() : '';
+    let personas = '';
+    if (personasRaw) {
+      const numPersonas = Number(personasRaw);
+      if (!Number.isFinite(numPersonas) || numPersonas < 1) {
+        alert('Indica un número válido de personas (1 o más).');
+        if (personasInput) personasInput.focus();
+        this.reservaEnCurso = false;
+        document.querySelectorAll('.reservar-btn').forEach(btn => btn.disabled = false);
+        return;
+      }
+      personas = Math.round(numPersonas);
+    }
     const inicio = id('dispoInicio').value;
     const fin    = id('dispoFin').value;
     const r = this.selectedRoom;
@@ -410,7 +432,7 @@ const DispApp = {
         alert('Error al crear la reserva: '+err.message);
         this.reservaEnCurso = false;
         document.querySelectorAll('.reservar-btn').forEach(btn => btn.disabled = false);
-      }).crearReserva({ ciudad:r.Ciudad, centro:r.Centro, nombre:r.Nombre, usuario:email, motivo, fechaInicio:inicio, fechaFin:fin });
+      }).crearReserva({ ciudad:r.Ciudad, centro:r.Centro, nombre:r.Nombre, usuario:email, motivo, fechaInicio:inicio, fechaFin:fin, personas });
     }).withFailureHandler(err => {
       if (typeof hideSpinner === 'function') hideSpinner();
       alert('Error: '+err.message);
