@@ -311,20 +311,8 @@ function getCiudades() {
   )].sort();
 }
 
-/** Devuelve lista única de centros (sin filtrar por ciudad) */
+/** Devuelve lista única de centros filtrados por ciudad desde la hoja 'Salas' */
 function getCentros(ciudad) {
-  // La tabla de centros no está vinculada directamente a ciudades.
-  const centrosDesdeTabla = getAllCentros()
-    .map(c => String(c['Nombre Centro'] || c.NombreCentro || c.Nombre || '').trim())
-    .filter(v => v)
-    .sort();
-
-  if (centrosDesdeTabla.length) {
-    return centrosDesdeTabla;
-  }
-
-  // Fallback: si no hay datos en la hoja de centros, derivamos la lista
-  // desde la hoja de salas, filtrando opcionalmente por ciudad.
   const ciudadNormalizada = normalize(ciudad);
   return [...new Set(
     getAllSalas()
