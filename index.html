@@ -275,13 +275,19 @@
         function showSection(tabBtn) {
           const target = tabBtn.getAttribute('data-id');
           showSectionById(target);
-          if (target === 'calendar') initOrResizeCalendar();
         }
 
         function showSectionById(id) {
           qsa('.section').forEach(sec => {
             sec.style.display = (sec.id === id ? 'block' : 'none');
           });
+          if (id === 'calendar') {
+            initOrResizeCalendar();
+          } else if (id === 'rooms') {
+            if (window.SalasApp && typeof window.SalasApp.resetToCities === 'function') {
+              window.SalasApp.resetToCities();
+            }
+          }
         }
 
         // Perfil de usuario
