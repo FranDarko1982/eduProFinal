@@ -697,6 +697,17 @@
     return card;
   }
 
+  function resetSalasView() {
+    current.ciudad = null;
+    current.centro = null;
+    current.sala = null;
+    if (Array.isArray(salasOriginales) && salasOriginales.length) {
+      renderCities();
+    } else {
+      cargarCiudades();
+    }
+  }
+
   function toggleViews(view) {
     document.getElementById('salas-skeleton').classList.add('hidden');
     document.getElementById('salas-back').classList.toggle('hidden', view === 'cities');
@@ -707,4 +718,8 @@
     if (view !== 'rooms') current.sala = null;
     if (view !== 'centers') current.centro = view === 'rooms' ? current.centro : null;
   }
+
+  window.SalasApp = Object.assign(window.SalasApp || {}, {
+    resetToCities: resetSalasView
+  });
 </script>
