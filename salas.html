@@ -24,6 +24,27 @@
       row-gap: clamp(1rem, 4vw, 1.75rem);
     }
   }
+
+  #salas-spinner {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(255, 255, 255, 0.65);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    z-index: 120;
+  }
+
+  #salas-spinner .spinner-text {
+    color: var(--negro, #111);
+    font-weight: 600;
+    letter-spacing: 0.05em;
+  }
 </style>
 
 <button id="salas-back" class="hidden btn-back">← Volver</button>
@@ -50,6 +71,11 @@
 
 <div id="salas-empty" class="salas-empty hidden">No hay datos.</div>
 
+<div id="salas-spinner" class="hidden" role="status" aria-live="assertive">
+  <div class="spinner" aria-hidden="true"></div>
+  <div class="spinner-text">Cargando…</div>
+</div>
+
 <script>
   const userRole = (window.USER_ROLE || '').toLowerCase();
   let salasOriginales = [];
@@ -57,6 +83,16 @@
   let ciudadesInfo = Object.create(null);
   let current = { ciudad: null, centro: null, sala: null };
   let currentRooms = [];
+
+  const salasSpinner = document.getElementById('salas-spinner');
+  function showSalasSpinner() {
+    if (salasSpinner) salasSpinner.classList.remove('hidden');
+  }
+
+  function hideSalasSpinner() {
+    if (!salasSpinner) return;
+    requestAnimationFrame(() => salasSpinner.classList.add('hidden'));
+  }
 
   const CENTER_ICONS = {
     ubicacion: {
@@ -149,12 +185,14 @@
   }
 
   document.addEventListener('DOMContentLoaded', () => {
+    showSalasSpinner();
     showSkeletons(4);
     cargarCiudades();
     document.getElementById('salas-back').addEventListener('click', handleBack);
   });
 
   function cargarCiudades() {
+    showSalasSpinner();
     google.script.run
       .withSuccessHandler(ciudades => {
         ciudadesInfo = Object.create(null);
@@ -175,6 +213,7 @@
   }
 
   function cargarCentros() {
+    showSalasSpinner();
     google.script.run
       .withSuccessHandler(centros => {
         centrosInfo = Object.create(null);
@@ -189,6 +228,7 @@
   }
 
   function cargarSalas() {
+    showSalasSpinner();
     google.script.run
       .withSuccessHandler(salas => {
         salasOriginales = Array.isArray(salas) ? salas : [];
@@ -202,6 +242,7 @@
     console.error(err);
     document.getElementById('salas-skeleton').classList.add('hidden');
     document.getElementById('salas-empty').classList.remove('hidden');
+    hideSalasSpinner();
   }
 
   function showSkeletons(n) {
@@ -228,6 +269,7 @@
   }
 
   function renderCities() {
+    showSalasSpinner();
     const cont = document.getElementById('salas-cities');
     cont.innerHTML = '';
     const ciudades = [...new Set(
@@ -261,6 +303,7 @@
       cont.appendChild(crearCiudadCard(ciudad, centros));
     });
     toggleViews('cities');
+    hideSalasSpinner();
   }
 
   function crearCiudadCard(ciudad, centros) {
@@ -333,6 +376,7 @@
   }
 
   function renderCentros() {
+    showSalasSpinner();
     const cont = document.getElementById('salas-centers-list');
     cont.innerHTML = '';
 
@@ -384,6 +428,7 @@
 
     renderCiudadImagen();
     toggleViews('centers');
+    hideSalasSpinner();
   }
 
   function renderCiudadImagen() {
@@ -410,6 +455,7 @@
   }
 
   function renderSalas() {
+    showSalasSpinner();
     const cont = document.getElementById('salas-rooms');
     cont.innerHTML = '';
     currentRooms = salasOriginales
@@ -420,6 +466,7 @@
     currentRooms.forEach(s => cont.appendChild(crearSalaCard(s)));
     renderSalaInfo(null);
     toggleViews('rooms');
+    hideSalasSpinner();
   }
 
   function renderSalaInfo(s) {
