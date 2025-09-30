@@ -927,9 +927,11 @@ const PanelAdmin = (() => {
 
   function submitCentro(e) {
     e.preventDefault();
+    const nombreCentro = qs('#centroNombre').value.trim();
     const payload = {
       idCentro: qs('#centroId').value.trim(),
-      'Nombre Centro': qs('#centroNombre').value.trim(),
+      NombreCentro: nombreCentro,
+      'Nombre Centro': nombreCentro,
       'Direccion Centro': qs('#centroDireccion').value.trim(),
       Telefono: qs('#centroTelefono').value.trim(),
       Email: qs('#centroEmail').value.trim(),
