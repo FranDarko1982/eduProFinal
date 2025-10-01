@@ -617,99 +617,164 @@ function crearReserva(reserva) {
  * Envía email de confirmación
  */
 function enviarMail(reserva, idReserva) {
-  // Envía un correo de confirmación de reserva al usuario y en copia al responsable.
-  const subject = `Reserva ${idReserva} confirmada: ${reserva.nombre}`;
-  const body    = `
-Hola,
-
-Tu reserva ha sido registrada con éxito:
-
-• ID Reserva: ${idReserva}
-• Sala:       ${reserva.nombre}
-• Ciudad:     ${reserva.ciudad}
-• Centro:     ${reserva.centro}
-• Inicio:     ${reserva.fechaInicio}
-• Fin:        ${reserva.fechaFin}
-• Motivo:     ${reserva.motivo}
-• Personas:   ${reserva.personas || 'No indicado'}
-
-Gracias por usar el sistema de reservas.
+const tz = Session.getScriptTimeZone();
+const hoy = new Date();
+const fechaLarga = `Madrid, a ${Utilities.formatDate(hoy, tz, 'd')} de
+${getNombreMes(hoy.getMonth())} de ${hoy.getFullYear()}`;
+const subject = `Reserva ${idReserva} confirmada: ${reserva.nombre}`;
+const body = `
+<div style="font-family: Calibri, Arial, sans-serif; max-width:650px; margin:0 auto;
+background:#fff;">
+<div style="width:100%; text-align:center; margin:24px 0 32px;">
+<img src="https://drive.google.com/uc?
+export=view&id=1vNS8n_vYYJL9VQKx7jZxjZmMXUz0uECG" alt="Intelcia" style="width:100%;
+max-width:500px; border-radius:8px;">
+</div>
+<div style="color:#222; font-size:16px; margin-bottom:24px;">
+En ${fechaLarga}
+</div>
+<div style="margin-bottom:16px;">
+Desde <span style="color:#C9006C; font-weight:bold;">Intelcia Spanish Region</span> te
+informamos que tu reserva ha sido confirmada. Estos son los detalles:
+</div>
+<ul style="color:#C9006C; font-size:16px; margin-left:32px;">
+<li><b>ID Reserva:</b> ${idReserva}</li>
+<li><b>Sala:</b> ${reserva.nombre}</li>
+<li><b>Ciudad:</b> ${reserva.ciudad}</li>
+<li><b>Centro:</b> ${reserva.centro}</li>
+<li><b>Inicio:</b> ${reserva.fechaInicio}</li>
+<li><b>Fin:</b> ${reserva.fechaFin}</li>
+<li><b>Motivo:</b> ${reserva.motivo}</li>
+<li><b>Personas:</b> ${reserva.personas || 'No indicado'}</li>
+</ul>
+<div style="font-size:15px; margin:14px 0 16px; color:#222;">
+Puedes consultar y gestionar tus reservas desde la aplicación
+<span style="color:#C9006C; font-weight:bold;">Reserva de salas</span>
+<a href="${WEBAPP_URL}" style="color:#C9006C; text-decoration:underline;">(enlace a la
+aplicación)</a>.
+</div>
+<div style="margin-top:24px; font-size:15px;">Gracias</div>
+</div>
 `;
-  const backup = getBackupEmail(reserva.usuario);
-  MailApp.sendEmail({
-    to:      reserva.usuario,
-    cc:      [RESPONSABLE_EMAIL, backup].filter(Boolean).join(','),
-    subject: subject,
-    body:    body
-  });
+const backup = getBackupEmail(reserva.usuario);
+MailApp.sendEmail({
+to: reserva.usuario,
+cc: [RESPONSABLE_EMAIL, backup].filter(Boolean).join(','),
+subject: subject,
+htmlBody: body
+});
 }
 
 /**
  * Envía email de notificación por actualización de reserva
  */
 function enviarMailActualizacion(reserva) {
-  // Envía correo informando de la modificación de una reserva existente.
-  const subject = `Reserva ${reserva.id} modificada: ${reserva.nombre}`;
-  const body    = `
-Hola,
-
-Tu reserva ha sido modificada correctamente:
-
-• ID Reserva: ${reserva.id}
-• Sala:       ${reserva.nombre}
-• Ciudad:     ${reserva.ciudad}
-• Centro:     ${reserva.centro}
-• Inicio:     ${reserva.fechaInicio}
-• Fin:        ${reserva.fechaFin}
-• Motivo:     ${reserva.motivo}
-• Personas:   ${reserva.personas || 'No indicado'}
-• Motivo de cambio: ${reserva.motivoCambio}
-
-Gracias por usar el sistema de reservas.
+const tz = Session.getScriptTimeZone();
+const hoy = new Date();
+const fechaLarga = `Madrid, a ${Utilities.formatDate(hoy, tz, 'd')} de
+${getNombreMes(hoy.getMonth())} de ${hoy.getFullYear()}`;
+const subject = `Reserva ${reserva.id} modificada: ${reserva.nombre}`;
+const body = `
+<div style="font-family: Calibri, Arial, sans-serif; max-width:650px; margin:0 auto;
+background:#fff;">
+<div style="width:100%; text-align:center; margin:24px 0 32px;">
+<img src="https://drive.google.com/uc?
+export=view&id=1vNS8n_vYYJL9VQKx7jZxjZmMXUz0uECG"
+alt="Intelcia" style="width:100%; max-width:500px; border-radius:8px;">
+</div>
+<div style="color:#222; font-size:16px; margin-bottom:24px;">
+En ${fechaLarga}
+</div>
+<div style="margin-bottom:16px;">
+Desde <span style="color:#C9006C; font-weight:bold;">Intelcia Spanish Region</span>
+te informamos que tu reserva ha sido <b>modificada</b>. Estos son los nuevos detalles:
+</div>
+<ul style="color:#C9006C; font-size:16px; margin-left:32px;">
+<li><b>ID Reserva:</b> ${reserva.id}</li>
+<li><b>Sala:</b> ${reserva.nombre}</li>
+<li><b>Ciudad:</b> ${reserva.ciudad}</li>
+<li><b>Centro:</b> ${reserva.centro}</li>
+<li><b>Inicio:</b> ${reserva.fechaInicio}</li>
+<li><b>Fin:</b> ${reserva.fechaFin}</li>
+<li><b>Motivo:</b> ${reserva.motivo}</li>
+<li><b>Personas:</b> ${reserva.personas || 'No indicado'}</li>
+<li><b>Motivo de cambio:</b> ${reserva.motivoCambio || 'No indicado'}</li>
+</ul>
+<div style="font-size:15px; margin:14px 0 16px; color:#222;">
+Puedes consultar y gestionar tus reservas desde la aplicación
+<span style="color:#C9006C; font-weight:bold;">Reserva de salas</span>
+<a href="${WEBAPP_URL}" style="color:#C9006C; text-decoration:underline;">(enlace a la
+aplicación)</a>.
+</div>
+<div style="margin-top:24px; font-size:15px;">Gracias</div>
+</div>
 `;
-  const backup = getBackupEmail(reserva.usuario);
-  MailApp.sendEmail({
-    to:      reserva.usuario,
-    cc:      [RESPONSABLE_EMAIL, backup].filter(Boolean).join(','),
-    subject: subject,
-    body:    body
-  });
+const backup = getBackupEmail(reserva.usuario);
+MailApp.sendEmail({
+to: reserva.usuario,
+cc: [RESPONSABLE_EMAIL, backup].filter(Boolean).join(','),
+subject: subject,
+htmlBody: body
+});
 }
 
 /**
  * Envía un único correo con varias franjas reservadas
  */
 function sendBulkReservationEmail(params) {
-  // Envía un único email con varias franjas de reserva en formato HTML.
-  const emailUsuario = params && params.emailUsuario;
-  const motivo       = params && params.motivo;
-  const reservas     = Array.isArray(params && params.reservas) ? params.reservas : [];
-  const idReservaGlobal = params && params.idReserva;
-  if (!emailUsuario || !reservas.length) return;
+const emailUsuario = params && params.emailUsuario;
+const motivo = params && params.motivo;
+const reservas = Array.isArray(params && params.reservas) ? params.reservas : [];
+const idReservaGlobal = params && params.idReserva;
+if (!emailUsuario || !reservas.length) return;
+const tz = Session.getScriptTimeZone();
+const hoy = new Date();
+const fechaLarga = `Madrid, a ${Utilities.formatDate(hoy, tz, 'd')} de
+${getNombreMes(hoy.getMonth())} de ${hoy.getFullYear()}`;
+// Construimos la lista de franjas reservadas
+const listItems = reservas.map(r => {
+const id = idReservaGlobal || r.idReserva || r.id || '';
+const rango = `${r.fechaInicio} → ${r.fechaFin}`;
+return `<li>${id ? '<b>' + id + '</b>: ' : ''}${rango}</li>`;
+}).join('');
+const subject = 'Reservas confirmadas';
+const body = `
+<div style="font-family: Calibri, Arial, sans-serif; max-width:650px; margin:0 auto;
+background:#fff;">
+<div style="width:100%; text-align:center; margin:24px 0 32px;">
+<img src="https://drive.google.com/uc?
+export=view&id=1vNS8n_vYYJL9VQKx7jZxjZmMXUz0uECG"
+alt="Intelcia" style="width:100%; max-width:500px; border-radius:8px;">
+</div>
+<div style="color:#222; font-size:16px; margin-bottom:24px;">
+En ${fechaLarga}
+</div>
+<div style="margin-bottom:16px;">
+Desde <span style="color:#C9006C; font-weight:bold;">Intelcia Spanish Region</span>
+te informamos que tu solicitud de reserva ha sido confirmada. Estos son los detalles:
+</div>
+<ul style="color:#C9006C; font-size:16px; margin-left:32px;">
+${listItems}
+</ul>
+${motivo ? `<div style="margin:14px 0; font-size:15px; color:#222;"><b>Motivo:</b>
+${motivo}</div>` : ''}
+<div style="font-size:15px; margin:14px 0 16px; color:#222;">
+Puedes consultar y gestionar tus reservas desde la aplicación
+<span style="color:#C9006C; font-weight:bold;">Reserva de salas</span>
+<a href="${WEBAPP_URL}" style="color:#C9006C; text-decoration:underline;">(enlace a la
+aplicación)</a>.
+</div>
+<div style="margin-top:24px; font-size:15px;">Gracias</div>
+</div>
+`;
+const backup = getBackupEmail(emailUsuario);
+MailApp.sendEmail({
+to: emailUsuario,
+cc: [RESPONSABLE_EMAIL, backup].filter(Boolean).join(','),
 
-  const list = reservas
-    .map(r => {
-      const id = idReservaGlobal || r.idReserva || r.id || '';
-      const rango = `${r.fechaInicio} \u2192 ${r.fechaFin}`;
-      return `<li>${id ? '<b>' + id + '</b>: ' : ''}${rango}</li>`;
-    })
-    .join('');
-
-  const htmlBody = `
-    <p>Hola,</p>
-    <p>Tu reserva ha sido registrada con &eacute;xito para las siguientes franjas:</p>
-    <ul>${list}</ul>
-    <p>Motivo: ${motivo || ''}</p>
-    <p>Gracias por usar el sistema de reservas.</p>
-  `;
-
-  const backup = getBackupEmail(emailUsuario);
-  MailApp.sendEmail({
-    to: emailUsuario,
-    cc: [RESPONSABLE_EMAIL, backup].filter(Boolean).join(','),
-    subject: 'Reservas confirmadas',
-    htmlBody: htmlBody
-  });
+subject: subject,
+htmlBody: body
+});
 }
 
 /**
@@ -1165,7 +1230,6 @@ function enviarSolicitudUso(datos) {
 
   // Busca responsable de ese centro
   var responsableEmail = RESPONSABLE_EMAIL; // Valor por defecto si no encuentra otro
-
   for (let i = 1; i < data.length; i++) {
     if (
       normalize(data[i][idxCentro]) === normalize(datos.centro) &&
@@ -1182,7 +1246,7 @@ function enviarSolicitudUso(datos) {
     .filter(r => normalize(r[idxRol]) === 'admin')
     .map(r => r[idxEmail])
     .filter(e => e);
-    
+
   // 2. Buscar la reserva existente que solapa con las fechas indicadas
   const { headers: reservaHeaders, rows } = fetchReservasData();
   const reservas = rows.map(r => mapRowToReserva(reservaHeaders, r));
@@ -1196,22 +1260,52 @@ function enviarSolicitudUso(datos) {
   const idSolapada = reservaSolapada ? reservaSolapada.id : '';
   const ownerEmail = reservaSolapada ? reservaSolapada.usuario : responsableEmail;
 
-  // 3. Componer email HTML con botón para liberar la reserva
+  // 3. Componer email HTML corporativo
+  const tz = Session.getScriptTimeZone();
+  const hoy = new Date();
+  const fechaLarga = `Madrid, a ${Utilities.formatDate(hoy, tz, 'd')} de ${getNombreMes(hoy.getMonth())} de ${hoy.getFullYear()}`;
+
   const solicitante = Session.getActiveUser().getEmail() || '-';
   const backupSolicitante = getBackupEmail(solicitante);
+
   const cuerpoHtml = `
-    <p>Nueva solicitud de uso de sala ocupada:</p>
-    <ul>
-      <li><b>Sala:</b> ${datos.sala}</li>
-      <li><b>Centro:</b> ${datos.centro}</li>
-      <li><b>Ciudad:</b> ${datos.ciudad}</li>
-      <li><b>Horario sala:</b> ${datos.horario || ''}</li>
-      <li><b>Fecha/hora solicitadas:</b> ${datos.fechaInicio || '-'} a ${datos.fechaFin || '-'}</li>
-      <li><b>Motivo:</b> ${datos.motivo}</li>
-      <li><b>Fecha/Hora solicitud:</b> ${Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm')}</li>
-      <li><b>Solicitante:</b> ${solicitante}</li>
-    </ul>
-    ${idSolapada && WEBAPP_URL ? '<a href="' + WEBAPP_URL + '?edit=' + idSolapada + '#mybookings" style="display:inline-block;margin-top:10px;padding:8px 14px;background:#bc348b;color:#fff;text-decoration:none;border-radius:4px">Liberar reserva</a>' : ''}
+    <div style="font-family: Calibri, Arial, sans-serif; max-width:650px; margin:0 auto; background:#fff;">
+      <div style="width:100%; text-align:center; margin:24px 0 32px;">
+        <img src="https://drive.google.com/uc?export=view&id=1vNS8n_vYYJL9VQKx7jZxjZmMXUz0uECG" 
+             alt="Intelcia" style="width:100%; max-width:500px; border-radius:8px;">
+      </div>
+      <div style="color:#222; font-size:16px; margin-bottom:24px;">
+        En ${fechaLarga}
+      </div>
+      <div style="margin-bottom:16px;">
+        Desde <span style="color:#C9006C; font-weight:bold;">Intelcia Spanish Region</span> 
+        te informamos que se ha registrado una <b>solicitud de uso de sala ocupada</b>. Estos son los detalles:
+      </div>
+      <ul style="color:#C9006C; font-size:16px; margin-left:32px;">
+        <li><b>Sala:</b> ${datos.sala}</li>
+        <li><b>Centro:</b> ${datos.centro}</li>
+        <li><b>Ciudad:</b> ${datos.ciudad}</li>
+        <li><b>Horario sala:</b> ${datos.horario || '-'}</li>
+        <li><b>Fecha/hora solicitadas:</b> ${datos.fechaInicio || '-'} a ${datos.fechaFin || '-'}</li>
+        <li><b>Motivo:</b> ${datos.motivo}</li>
+        <li><b>Fecha/Hora solicitud:</b> ${Utilities.formatDate(new Date(), tz, 'dd/MM/yyyy HH:mm')}</li>
+        <li><b>Solicitante:</b> ${solicitante}</li>
+      </ul>
+      ${idSolapada && WEBAPP_URL ? `
+        <div style="margin-top:20px;">
+          <a href="${WEBAPP_URL}?edit=${idSolapada}#mybookings"
+             style="display:inline-block;padding:10px 16px;background:#bc348b;color:#fff;
+                    text-decoration:none;border-radius:4px;">
+            Liberar reserva
+          </a>
+        </div>` : ''}
+      <div style="font-size:15px; margin:14px 0 16px; color:#222;">
+        Puedes gestionar esta solicitud desde la aplicación 
+        <span style="color:#C9006C; font-weight:bold;">Reserva de salas</span> 
+        <a href="${WEBAPP_URL}" style="color:#C9006C; text-decoration:underline;">(enlace a la aplicación)</a>.
+      </div>
+      <div style="margin-top:24px; font-size:15px;">Gracias</div>
+    </div>
   `;
 
   const mensaje =
@@ -1222,9 +1316,10 @@ function enviarSolicitudUso(datos) {
     "Horario sala: " + (datos.horario || '') + "\n" +
     "Fecha/hora solicitadas: " + (datos.fechaInicio || '-') + " a " + (datos.fechaFin || '-') + "\n" +
     "Motivo: " + datos.motivo + "\n" +
-    "Fecha/Hora solicitud: " + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy HH:mm") + "\n" +
+    "Fecha/Hora solicitud: " + Utilities.formatDate(new Date(), tz, "dd/MM/yyyy HH:mm") + "\n" +
     "Solicitante: " + solicitante;
 
+  // Envío mails
   MailApp.sendEmail({
     to: ownerEmail,
     subject: 'Solicitud de uso de sala ocupada (' + datos.sala + ')',
@@ -1249,15 +1344,15 @@ function enviarSolicitudUso(datos) {
     });
   }
 
-  // 3. (Opcional) Guarda la solicitud en una hoja de registro
+  // 4. Guardar log en hoja "SolicitudesUso"
   var sheetLog = ss.getSheetByName('SolicitudesUso');
   if (!sheetLog) {
     sheetLog = ss.insertSheet('SolicitudesUso');
     sheetLog.appendRow([
-    'Fecha solicitud', 'Sala', 'Centro', 'Ciudad',
-    'Horario sala', 'Motivo', 'Responsable',
-    'Fecha inicio', 'Fecha fin', 'Solicitante'
-  ]);
+      'Fecha solicitud', 'Sala', 'Centro', 'Ciudad',
+      'Horario sala', 'Motivo', 'Responsable',
+      'Fecha inicio', 'Fecha fin', 'Solicitante'
+    ]);
   }
   sheetLog.appendRow([
     new Date(), datos.sala, datos.centro, datos.ciudad,
@@ -1265,14 +1360,14 @@ function enviarSolicitudUso(datos) {
     datos.fechaInicio || '', datos.fechaFin || '', solicitante
   ]);
 
-  // Registrar notificación
+  // 5. Registrar notificación en hoja "Notificaciones"
   let notifSheet = ss.getSheetByName('Notificaciones');
   if (!notifSheet) {
     notifSheet = ss.insertSheet('Notificaciones');
     notifSheet.appendRow(['id','timestamp','type','actorEmail','reservaId','sala','centro','ciudad','fechaInicio','fechaFin','ownerEmail','message','link','status']);
   }
   const notifId = generarIdNotificacion(notifSheet);
-  const fmt = d => d ? Utilities.formatDate(new Date(d), Session.getScriptTimeZone(), 'dd/MM HH:mm') : '';
+  const fmt = d => d ? Utilities.formatDate(new Date(d), tz, 'dd/MM HH:mm') : '';
   const msgNotif = `Solicitud de uso para ${datos.sala} el ${fmt(datos.fechaInicio)}–${fmt(datos.fechaFin)}`;
   const link = WEBAPP_URL ? `${WEBAPP_URL}#reservas?id=${idSolapada}` : `#reservas?id=${idSolapada}`;
   notifSheet.appendRow([
@@ -1292,6 +1387,7 @@ function enviarSolicitudUso(datos) {
     'open'
   ]);
 }
+
 
 function generarIdNotificacion(sheet) {
   const lastRow = sheet.getLastRow();
@@ -2198,3 +2294,104 @@ function importarUsuariosDesdeExcel(data) {
 
   return `Importación completada. Nuevos: ${nuevos}, ya existentes: ${duplicados}`;
 }
+
+/**
+ * Función para chatbot Gradio
+ */
+
+/***** Chatbot local en Apps Script: reglas de ayuda para reservas *****/
+
+/***** LEE FAQ DESDE GOOGLE SHEETS *****/
+function getFaqsFromSheet() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID); // 👈 usamos tu constante
+  const sheet = ss.getSheetByName("FAQ");
+  if (!sheet) throw new Error("No se encontró la hoja FAQ");
+
+  const rows = sheet.getDataRange().getValues();
+  let faqs = [];
+
+  for (let i = 1; i < rows.length; i++) { // saltamos cabecera
+    const pregunta = rows[i][0];  // Columna A
+    const respuesta = rows[i][1]; // Columna B
+    if (pregunta && respuesta) {
+      faqs.push({ q: pregunta.toString(), a: respuesta });
+    }
+  }
+  return faqs;
+}
+
+/***** FUNCIONES DE SIMILITUD (Levenshtein) *****/
+function similarity(s1, s2) {
+  s1 = s1.toLowerCase();
+  s2 = s2.toLowerCase();
+  let longer = s1.length > s2.length ? s1 : s2;
+  let shorter = s1.length > s2.length ? s2 : s1;
+  let longerLength = longer.length;
+  if (longerLength === 0) return 1.0;
+  return (longerLength - editDistance(longer, shorter)) / longerLength;
+}
+
+function editDistance(s1, s2) {
+  s1 = s1.toLowerCase();
+  s2 = s2.toLowerCase();
+
+  let costs = [];
+  for (let i = 0; i <= s1.length; i++) {
+    let lastValue = i;
+    for (let j = 0; j <= s2.length; j++) {
+      if (i === 0) costs[j] = j;
+      else if (j > 0) {
+        let newValue = costs[j - 1];
+        if (s1.charAt(i - 1) !== s2.charAt(j - 1))
+          newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1;
+        costs[j - 1] = lastValue;
+        lastValue = newValue;
+      }
+    }
+    if (i > 0) costs[s2.length] = lastValue;
+  }
+  return costs[s2.length];
+}
+
+/***** CHATBOT RESPONSE CON SIMILITUD *****/
+function getChatbotResponse(pregunta) {
+  if (!pregunta) return "¿Puedes repetir la pregunta?";
+  const faqs = getFaqsFromSheet();
+
+  let mejorCoincidencia = null;
+  let mejorSimilitud = 0;
+
+  for (let f of faqs) {
+    let sim = similarity(pregunta, f.q);
+    if (sim > mejorSimilitud) {
+      mejorSimilitud = sim;
+      mejorCoincidencia = f.a;
+    }
+  }
+
+  // 👇 Ajusta el umbral a tu gusto (0.5 = 50% parecido, 0.7 más exigente)
+  if (mejorSimilitud > 0.5) {
+    return mejorCoincidencia;
+  }
+  return "🤔 No encontré esa respuesta en las FAQs. Intenta con otra palabra clave.";
+}
+
+/***** TEST RAPIDO DESDE SCRIPT EDITOR *****/
+function testChat() {
+  const ejemplos = [
+    "cómo hago una reserva",
+    "quiero anular mi reserva",
+    "hay wifi en la sala"
+  ];
+  ejemplos.forEach(q => Logger.log(q + " → " + getChatbotResponse(q)));
+}
+
+/***** NUEVA FUNCIÓN GET NOMBRE MES *****/
+function getNombreMes(numeroMes) {
+  const meses = [
+    'enero','febrero','marzo','abril','mayo','junio',
+    'julio','agosto','septiembre','octubre','noviembre','diciembre'
+  ];
+  return meses[numeroMes] || '';
+}
+
