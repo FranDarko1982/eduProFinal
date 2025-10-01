@@ -60,7 +60,7 @@
   <!-- MODAL CREAR RESERVA -->
   <div id="modalReserva" class="modal-reserva-bg">
     <div class="modal-reserva">
-      <h2 class="modal-reserva-titulo">Crear Reserva</h2>
+      <h2 id="modalReservaTitulo" class="modal-reserva-titulo">Crear Reserva</h2>
       <form id="formReserva" autocomplete="off">
         <div style="display:flex; gap:12px; align-items:flex-start; margin-bottom:1.1em; flex-wrap:wrap;">
           <div style="flex:1 1 220px; min-width:220px;">
@@ -71,6 +71,10 @@
             <input id="personasReserva" type="number" min="1" step="1" inputmode="numeric"
                    placeholder="Personas" class="modal-reserva-input" style="margin-bottom:0;" />
           </div>
+        </div>
+        <div id="motivoCambioWrapper" style="display:none; margin-bottom:1.1em;">
+          <input id="motivoCambioReserva" type="text" placeholder="Motivo de la modificación"
+                 class="modal-reserva-input" style="margin-bottom:0;" />
         </div>
         <div class="modal-reserva-fechas">
           <div>
@@ -200,12 +204,18 @@
   let confirmAction = null;
   let activeEmail = '';
   function showModalReserva(start, end, motivo = '', id = null, personas = '') {
+    const titulo = document.getElementById('modalReservaTitulo');
+    const motivoCambioWrapper = document.getElementById('motivoCambioWrapper');
+    const motivoCambioInput = document.getElementById('motivoCambioReserva');
     document.getElementById('modalReserva').classList.add('activo');
     fpFechaInicio.setDate(start, true, 'Y-m-d');
     fpFechaFin.setDate(end, true, 'Y-m-d');
     fpHoraInicio.setDate(start, true, 'H:i');
     fpHoraFin.setDate(end, true, 'H:i');
     document.getElementById('motivoReserva').value = motivo;
+    if (motivoCambioInput) {
+      motivoCambioInput.value = '';
+    }
     const personasInput = document.getElementById('personasReserva');
     if (personasInput) {
       personasInput.value = (personas !== undefined && personas !== null && personas !== '')
@@ -215,9 +225,24 @@
     editReservaId = id;
     deleteId = id;
     document.getElementById('btnEliminarReserva').style.display = id ? 'inline-block' : 'none';
+    if (id) {
+      if (titulo) titulo.textContent = 'Editar Reserva';
+      if (motivoCambioWrapper) motivoCambioWrapper.style.display = 'block';
+      if (motivoCambioInput) motivoCambioInput.required = true;
+    } else {
+      if (titulo) titulo.textContent = 'Crear Reserva';
+      if (motivoCambioWrapper) motivoCambioWrapper.style.display = 'none';
+      if (motivoCambioInput) {
+        motivoCambioInput.required = false;
+        motivoCambioInput.value = '';
+      }
+    }
     setTimeout(() => document.getElementById('motivoReserva').focus(), 60);
   }
   function hideModalReserva() {
+    const titulo = document.getElementById('modalReservaTitulo');
+    const motivoCambioWrapper = document.getElementById('motivoCambioWrapper');
+    const motivoCambioInput = document.getElementById('motivoCambioReserva');
     document.getElementById('modalReserva').classList.remove('activo');
     if (calendar) calendar.unselect();
     editReservaId = null;
@@ -225,6 +250,12 @@
     document.getElementById('btnEliminarReserva').style.display = 'none';
     const personasInput = document.getElementById('personasReserva');
     if (personasInput) personasInput.value = '';
+    if (titulo) titulo.textContent = 'Crear Reserva';
+    if (motivoCambioWrapper) motivoCambioWrapper.style.display = 'none';
+    if (motivoCambioInput) {
+      motivoCambioInput.required = false;
+      motivoCambioInput.value = '';
+    }
   }
 
   /* ========= MODAL CONFIRMACIÓN ========= */
@@ -393,6 +424,8 @@
         const horaFin     = document.getElementById('horaFin').value;
         const personasInput = document.getElementById('personasReserva');
         const personasRaw = personasInput ? personasInput.value.trim() : '';
+        const motivoCambioInput = document.getElementById('motivoCambioReserva');
+        const motivoCambio = motivoCambioInput ? motivoCambioInput.value.trim() : '';
         let personas = '';
         if (!motivo) { document.getElementById('motivoReserva').focus(); return; }
         if (personasRaw) {
@@ -413,6 +446,11 @@
         const startStr = formatDateTime(startDate);
         const endStr   = formatDateTime(endDate);
         const idReserva = editReservaId; // guardar antes de cerrar
+        if (idReserva && !motivoCambio) {
+          showErrorModal('Debes indicar el motivo de la modificación.');
+          if (motivoCambioInput) motivoCambioInput.focus();
+          return;
+        }
         hideModalReserva();
         showCalendarSpinner();
 
@@ -432,7 +470,8 @@
               motivo,
               fechaInicio: formatDateTime(startDate),
               fechaFin:    formatDateTime(endDate),
-              personas:    personas
+              personas:    personas,
+              motivoCambio: motivoCambio
             });
         } else {
           const ciudad = document.getElementById('filter-city').value;
