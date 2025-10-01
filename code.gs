@@ -1388,6 +1388,9 @@ function enviarSolicitudUso(datos) {
   ]);
 }
 
+/**
+ * Generar una notificación de necesidad de uso de sala
+ */
 
 function generarIdNotificacion(sheet) {
   const lastRow = sheet.getLastRow();
