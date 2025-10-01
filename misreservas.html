@@ -51,6 +51,7 @@
           <th data-sort="Ciudad">Ciudad</th>
           <th data-sort="Centro">Centro</th>
           <th data-sort="Motivo">Motivo</th>
+          <th data-sort="Personas">Personas</th>
           <th data-sort="Inicio">Inicio</th>
           <th data-sort="Fin">Fin</th>
           <th>Acciones</th>
@@ -392,9 +393,9 @@
       data.forEach(r => {
         const tr = document.createElement('tr');
         tr.dataset.id = String(r.ID);
-        ['ID','Sala','Ciudad','Centro','Motivo','Inicio','Fin'].forEach(f => {
+        ['ID','Sala','Ciudad','Centro','Motivo','Personas','Inicio','Fin'].forEach(f => {
           const td = document.createElement('td');
-          td.textContent = r[f] || '';
+          td.textContent = r[f] ?? '';
           tr.appendChild(td);
         });
         const tdA = document.createElement('td');
