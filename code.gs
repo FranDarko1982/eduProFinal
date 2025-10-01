@@ -405,20 +405,66 @@ function fetchReservasData() {
   return { headers, rows: data };
 }
 
-function mapRowToReserva(headers, row) {
+let _salaCapacityLookupCache = null;
+
+function buildSalaCapacityKey(ciudad, centro, nombre) {
+  return [normalize(ciudad), normalize(centro), normalize(nombre)].join('||');
+}
+
+function buildSalaCapacityLookup() {
+  const lookup = new Map();
+  const salas = getAllSalas();
+  salas.forEach(s => {
+    const nombre = String(s.Nombre || '').trim();
+    if (!nombre) return;
+    const key = buildSalaCapacityKey(s.Ciudad, s.Centro, nombre);
+    if (!lookup.has(key)) {
+      lookup.set(key, formatSalaCapacityValue(s.Capacidad));
+    }
+  });
+  return lookup;
+}
+
+function getSalaCapacityLookup() {
+  if (!_salaCapacityLookupCache) {
+    _salaCapacityLookupCache = buildSalaCapacityLookup();
+  }
+  return _salaCapacityLookupCache;
+}
+
+function invalidateSalaCapacityLookup() {
+  _salaCapacityLookupCache = null;
+}
+
+function mapRowToReserva(headers, row, capacityLookup) {
   // Proyecta una fila de 'Reservas' a un objeto con campos tipados.
   const idx = name => headers.indexOf(name);
   const idxPersonas = idx('Personas');
+  const idxNombre = idx('Nombre');
+  const idxCiudad = idx('Ciudad');
+  const idxCentro = idx('Centro');
+  const nombre = idxNombre > -1 ? row[idxNombre] : '';
+  const ciudad = idxCiudad > -1 ? row[idxCiudad] : '';
+  const centro = idxCentro > -1 ? row[idxCentro] : '';
+  const lookup = capacityLookup || getSalaCapacityLookup();
+  let capacidad = '';
+  if (lookup && nombre) {
+    const key = buildSalaCapacityKey(ciudad, centro, nombre);
+    if (lookup.has(key)) {
+      capacidad = lookup.get(key) || '';
+    }
+  }
   return {
     id:      row[idx('ID Reserva')],
-    nombre:  row[idx('Nombre')],
-    ciudad:  row[idx('Ciudad')],
-    centro:  row[idx('Centro')],
+    nombre:  nombre,
+    ciudad:  ciudad,
+    centro:  centro,
     usuario: row[idx('Usuario')],
     motivo:  row[idx('Motivo')],
     inicio:  row[idx('Fecha inicio')],
     fin:     row[idx('Fecha fin')],
-    personas: idxPersonas > -1 ? row[idxPersonas] : ''
+    personas: idxPersonas > -1 ? row[idxPersonas] : '',
+    capacidad: capacidad
   };
 }
 
@@ -428,8 +474,9 @@ function mapRowToReserva(headers, row) {
 function getReservasGeneric({ filterFn, formatFn }) {
   // Aplica mapeo, filtro y formateo genérico sobre todas las reservas.
   const { headers, rows } = fetchReservasData();
+  const capacityLookup = getSalaCapacityLookup();
   return rows
-    .map(row => mapRowToReserva(headers, row))
+    .map(row => mapRowToReserva(headers, row, capacityLookup))
     .filter(filterFn)
     .map(formatFn);
 }
@@ -486,6 +533,7 @@ function getTodasReservas() {
     formatFn: r => ({
       ID:       r.id,
       Sala:     r.nombre,
+      Capacidad: r.capacidad,
       Ciudad:   r.ciudad,
       Centro:   r.centro,
       Usuario:  r.usuario,
@@ -517,6 +565,7 @@ function getMisReservas(email) {
     formatFn: r => ({
       ID:       r.id,
       Sala:     r.nombre,
+      Capacidad: r.capacidad,
       Ciudad:   r.ciudad,
       Centro:   r.centro,
       Motivo:   r.motivo,
@@ -1652,6 +1701,7 @@ function crearSala(sala) {
   if (idxImagen      !== -1) row[idxImagen]       = sala['Imagen Sala'] || sala.ImagenSala || sala.MapaSala || sala['Mapa Sala'] || '';
 
   sheet.appendRow(row);
+  invalidateSalaCapacityLookup();
   return idSala;
 }
 
@@ -1688,6 +1738,7 @@ function actualizarSala(sala) {
       if (idxImagen       !== -1 && (sala['Imagen Sala'] || sala.ImagenSala || sala.MapaSala || sala['Mapa Sala'])) {
         sheet.getRange(rowNumber, idxImagen + 1).setValue(sala['Imagen Sala'] || sala.ImagenSala || sala.MapaSala || sala['Mapa Sala'] || '');
       }
+      invalidateSalaCapacityLookup();
       return true;
     }
   }
@@ -1719,6 +1770,7 @@ function eliminarSala(idSala) {
         }
       }
       sheet.deleteRow(i + 2); // +1 cabecera +1 base-1
+      invalidateSalaCapacityLookup();
       return true;
     }
   }
