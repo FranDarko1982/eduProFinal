@@ -484,14 +484,17 @@ function getTodasReservas() {
     filterFn: () => true,
     // mismo formateo plano que en mis reservas
     formatFn: r => ({
-      ID:      r.id,
-      Sala:    r.nombre,
-      Ciudad:  r.ciudad,
-      Centro:  r.centro,
-      Usuario: r.usuario,
-      Motivo:  r.motivo,
-      Inicio:  formatFecha(r.inicio),
-      Fin:     formatFecha(r.fin)
+      ID:       r.id,
+      Sala:     r.nombre,
+      Ciudad:   r.ciudad,
+      Centro:   r.centro,
+      Usuario:  r.usuario,
+      Motivo:   r.motivo,
+      Personas: (r.personas !== undefined && r.personas !== null && String(r.personas).trim() !== '')
+        ? String(r.personas)
+        : '',
+      Inicio:   formatFecha(r.inicio),
+      Fin:      formatFecha(r.fin)
     })
   })
   // opcional: ordenamos por fecha de inicio ascendente
@@ -512,13 +515,16 @@ function getMisReservas(email) {
   return getReservasGeneric({
     filterFn: r => normalize(r.usuario) === me,
     formatFn: r => ({
-      ID:      r.id,
-      Sala:    r.nombre,
-      Ciudad:  r.ciudad,
-      Centro:  r.centro,
-      Motivo:  r.motivo,
-      Inicio:  formatFecha(r.inicio),
-      Fin:     formatFecha(r.fin)
+      ID:       r.id,
+      Sala:     r.nombre,
+      Ciudad:   r.ciudad,
+      Centro:   r.centro,
+      Motivo:   r.motivo,
+      Personas: (r.personas !== undefined && r.personas !== null && String(r.personas).trim() !== '')
+        ? String(r.personas)
+        : '',
+      Inicio:   formatFecha(r.inicio),
+      Fin:      formatFecha(r.fin)
     })
   });
 }
