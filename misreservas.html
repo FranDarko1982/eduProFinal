@@ -48,6 +48,7 @@
         <tr>
           <th data-sort="ID">ID Reserva</th>
           <th data-sort="Sala">Sala</th>
+          <th data-sort="Capacidad">Capacidad</th>
           <th data-sort="Ciudad">Ciudad</th>
           <th data-sort="Centro">Centro</th>
           <th data-sort="Motivo">Motivo</th>
@@ -383,7 +384,7 @@
       if (!data.length) {
         const tr = document.createElement('tr');
         const td = document.createElement('td');
-        td.colSpan = 8; td.style.textAlign = 'center';
+        td.colSpan = 10; td.style.textAlign = 'center';
         td.style.color = '#bc348b';
         td.textContent = emptyMessage;
         tr.appendChild(td);
@@ -393,7 +394,7 @@
       data.forEach(r => {
         const tr = document.createElement('tr');
         tr.dataset.id = String(r.ID);
-        ['ID','Sala','Ciudad','Centro','Motivo','Personas','Inicio','Fin'].forEach(f => {
+        ['ID','Sala','Capacidad','Ciudad','Centro','Motivo','Personas','Inicio','Fin'].forEach(f => {
           const td = document.createElement('td');
           td.textContent = r[f] ?? '';
           tr.appendChild(td);
