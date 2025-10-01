@@ -61,6 +61,7 @@
         <tr>
           <th data-sort="ID">ID Reserva</th>
           <th data-sort="Sala">Sala</th>
+          <th data-sort="Capacidad">Capacidad</th>
           <th data-sort="Ciudad">Ciudad</th>
           <th data-sort="Centro">Centro</th>
           <th data-sort="Usuario">Usuario</th>
@@ -386,6 +387,7 @@
           <tr data-id="${r.ID}">
             <td>${r.ID}</td>
             <td>${r.Sala}</td>
+            <td>${r.Capacidad ?? ''}</td>
             <td>${r.Ciudad}</td>
             <td>${r.Centro}</td>
             <td>${r.Usuario}</td>
