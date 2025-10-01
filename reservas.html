@@ -65,6 +65,7 @@
           <th data-sort="Centro">Centro</th>
           <th data-sort="Usuario">Usuario</th>
           <th data-sort="Motivo">Motivo</th>
+           <th data-sort="Personas">Personas</th>
           <th data-sort="Inicio">Inicio</th>
           <th data-sort="Fin">Fin</th>
           <th>Acciones</th>
@@ -375,7 +376,7 @@
       this.updateSortIndicators();
 
       if (!datos.length) {
-        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#bc348b;">No hay reservas</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#bc348b;">No hay reservas</td></tr>';
         return;
       }
 
@@ -389,6 +390,7 @@
             <td>${r.Centro}</td>
             <td>${r.Usuario}</td>
             <td>${r.Motivo || ''}</td>
+            <td>${r.Personas ?? ''}</td>
             <td>${r.Inicio}</td>
             <td>${r.Fin}</td>
             <td class="actions">
