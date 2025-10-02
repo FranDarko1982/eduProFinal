@@ -59,6 +59,7 @@
     <table id="allReservasTable" class="table-style">
       <thead>
         <tr>
+          <th data-sort="FechaReserva">Fecha reserva</th>
           <th data-sort="ID">ID Reserva</th>
           <th data-sort="Sala">Sala</th>
           <th data-sort="Capacidad">Capacidad</th>
@@ -333,6 +334,7 @@
 
     _sortValue(row, key) {
       switch (key) {
+        case 'FechaReserva': return this.parseFechaDMY(row.FechaReserva);
         case 'Inicio': return this.parseFechaDMY(row.Inicio);
         case 'Fin':    return this.parseFechaDMY(row.Fin);
         default:
@@ -377,7 +379,7 @@
       this.updateSortIndicators();
 
       if (!datos.length) {
-        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#bc348b;">No hay reservas</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;color:#bc348b;">No hay reservas</td></tr>';
         return;
       }
 
@@ -385,6 +387,7 @@
       datos.forEach(r => {
         tbody.insertAdjacentHTML('beforeend', `
           <tr data-id="${r.ID}">
+            <td>${r.FechaReserva || ''}</td>
             <td>${r.ID}</td>
             <td>${r.Sala}</td>
             <td>${r.Capacidad ?? ''}</td>
