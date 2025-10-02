@@ -3,6 +3,8 @@ const USUARIOS_SHEET    = 'Usuarios';
 const SHEET_NAME        = 'Salas';
 const RESERVAS_SHEET    = 'Reservas';
 const CAMBIOS_RESERVAS_SHEET = 'Cambios reservas';
+const RESERVAS_PERSONAS_HEADER = 'Personas';
+const RESERVA_FECHA_CREACION_HEADER = 'Fecha reserva';
 const CIUDADES_SHEET    = 'Ciudades';
 const CENTROS_SHEET     = 'Centros';
 const CITY_IMAGES_FOLDER_NAME = 'ReservaSalas_Ciudades';
@@ -405,6 +407,28 @@ function fetchReservasData() {
   return { headers, rows: data };
 }
 
+function ensureReservasHeaders(sheet, headers) {
+  // Garantiza que existen las columnas "Personas" y "Fecha reserva" en la hoja de reservas.
+  let updated = false;
+  const ensured = headers.slice();
+
+  if (ensured.indexOf(RESERVAS_PERSONAS_HEADER) === -1) {
+    ensured.push(RESERVAS_PERSONAS_HEADER);
+    updated = true;
+  }
+
+  if (ensured.indexOf(RESERVA_FECHA_CREACION_HEADER) === -1) {
+    ensured.push(RESERVA_FECHA_CREACION_HEADER);
+    updated = true;
+  }
+
+  if (updated) {
+    sheet.getRange(1, 1, 1, ensured.length).setValues([ensured]);
+  }
+
+  return ensured;
+}
+
 let _salaCapacityLookupCache = null;
 
 function buildSalaCapacityKey(ciudad, centro, nombre) {
@@ -439,7 +463,8 @@ function invalidateSalaCapacityLookup() {
 function mapRowToReserva(headers, row, capacityLookup) {
   // Proyecta una fila de 'Reservas' a un objeto con campos tipados.
   const idx = name => headers.indexOf(name);
-  const idxPersonas = idx('Personas');
+  const idxPersonas = idx(RESERVAS_PERSONAS_HEADER);
+  const idxCreacion = idx(RESERVA_FECHA_CREACION_HEADER);
   const idxNombre = idx('Nombre');
   const idxCiudad = idx('Ciudad');
   const idxCentro = idx('Centro');
@@ -464,6 +489,7 @@ function mapRowToReserva(headers, row, capacityLookup) {
     inicio:  row[idx('Fecha inicio')],
     fin:     row[idx('Fecha fin')],
     personas: idxPersonas > -1 ? row[idxPersonas] : '',
+    creada: idxCreacion > -1 ? row[idxCreacion] : '',
     capacidad: capacidad
   };
 }
@@ -589,20 +615,22 @@ function crearReserva(reserva) {
   // Valida solapamientos, inserta la reserva, notifica por email y crea evento.
   const ss    = SpreadsheetApp.openById(SPREADSHEET_ID);
   let sheet   = ss.getSheetByName(RESERVAS_SHEET);
-  const PERSONAS_HEADER = 'Personas';
   if (!sheet) {
     sheet = ss.insertSheet(RESERVAS_SHEET);
     sheet.appendRow([
-      'ID Reserva','Nombre','Ciudad','Centro','Usuario','Motivo','Fecha inicio','Fecha fin', PERSONAS_HEADER
+      'ID Reserva','Nombre','Ciudad','Centro','Usuario','Motivo','Fecha inicio','Fecha fin', RESERVAS_PERSONAS_HEADER, RESERVA_FECHA_CREACION_HEADER
     ]);
   }
 
   // 1) Leer todas las reservas actuales
   let { headers, rows } = fetchReservasData();
-  if (headers.length && headers.indexOf(PERSONAS_HEADER) === -1) {
-    headers = headers.concat([PERSONAS_HEADER]);
-    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  if (!headers.length && sheet.getLastRow() > 0) {
+    headers = sheet
+      .getRange(1, 1, 1, sheet.getLastColumn())
+      .getValues()[0]
+      .map(h => String(h).trim());
   }
+  headers = ensureReservasHeaders(sheet, headers);
   const personasValue = normalizePersonas(reserva.personas);
   reserva.personas = personasValue;
   const idxId = headers.indexOf('ID Reserva');
@@ -646,6 +674,9 @@ function crearReserva(reserva) {
 
   // 4) Si no hay solapamiento, seguimos con la creación
   const idReserva = reserva.idReserva ? String(reserva.idReserva) : newId;
+  const fechaReserva = new Date();
+  reserva.fechaReserva = fechaReserva;
+
   sheet.appendRow([
     idReserva,
     reserva.nombre,
@@ -655,7 +686,8 @@ function crearReserva(reserva) {
     reserva.motivo,
     reserva.fechaInicio,
     reserva.fechaFin,
-    reserva.personas
+    reserva.personas,
+    fechaReserva
   ]);
 
   // 5) Notificar por email y Calendar
@@ -968,13 +1000,10 @@ function actualizarReserva(reserva) {
   
   const data = sheet.getDataRange().getValues();
   let headers = data[0].map(h => String(h).trim());
+  headers = ensureReservasHeaders(sheet, headers);
   const personasValue = reserva.personas !== undefined
     ? normalizePersonas(reserva.personas)
     : undefined;
-  if (personasValue !== undefined && headers.indexOf('Personas') === -1) {
-    headers = headers.concat(['Personas']);
-    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-  }
   const idxId = headers.indexOf('ID Reserva');
   const idxMotivo = headers.indexOf('Motivo');
   const idxInicio = headers.indexOf('Fecha inicio');
@@ -983,7 +1012,7 @@ function actualizarReserva(reserva) {
   const idxCiudad = headers.indexOf('Ciudad');
   const idxCentro = headers.indexOf('Centro');
   const idxUsuario = headers.indexOf('Usuario');
-  const idxPersonas = headers.indexOf('Personas');
+  const idxPersonas = headers.indexOf(RESERVAS_PERSONAS_HEADER);
 
   const reservas = data.slice(1).map(row => mapRowToReserva(headers, row));
   const actual = reservas.find(r => String(r.id) === String(reserva.id));
