@@ -674,7 +674,12 @@ function crearReserva(reserva) {
 
   // 4) Si no hay solapamiento, seguimos con la creación
   const idReserva = reserva.idReserva ? String(reserva.idReserva) : newId;
-  const fechaReserva = new Date();
+  const fechaReservaDate = new Date();
+  const fechaReserva = Utilities.formatDate(
+    fechaReservaDate,
+    Session.getScriptTimeZone(),
+    'yyyy-MM-dd HH:mm'
+  );
   reserva.fechaReserva = fechaReserva;
 
   sheet.appendRow([
