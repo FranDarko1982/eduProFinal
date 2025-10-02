@@ -189,7 +189,9 @@
       currentEditId: null,
       deleteId: null,
       sortBy: 'Inicio',
-      sortDir: 'asc'
+      sortDir: 'asc',
+      deepLinkFilters: null,
+      deepLinkApplied: false
     },
 
     /* ===================== DATA ===================== */
@@ -200,6 +202,7 @@
           if (typeof hideSpinner === 'function') hideSpinner();
           this.state.misReservas = Array.isArray(reservas) ? reservas : [];
           this.poblarCiudades();
+          this.applyDeepLinkFiltersIfNeeded();
           this.applyFiltersAndRender();
         })
         .withFailureHandler(err => {
@@ -208,6 +211,65 @@
           this.showInfoModal('Error cargando tus reservas.', 'Error');
         })
         .getMisReservas();
+    },
+
+    captureDeepLinkFilters() {
+      try {
+        const params = new URLSearchParams(window.location.search || '');
+        const reservaId = (params.get('reservaId') || params.get('edit') || params.get('reserva') || '').trim();
+        const ciudad = (params.get('ciudad') || '').trim();
+        const centro = (params.get('centro') || '').trim();
+        const sala   = (params.get('sala')   || '').trim();
+        const fechaParam = (params.get('fecha') || params.get('fechaInicio') || params.get('inicio') || '').trim();
+        const fecha = fechaParam ? fechaParam.split('T')[0] : '';
+        if (reservaId || ciudad || centro || sala || fecha) {
+          this.state.deepLinkFilters = { reservaId, ciudad, centro, sala, fecha };
+        }
+      } catch (err) {
+        console.warn('No se pudieron leer los filtros desde la URL', err);
+      }
+    },
+
+    selectHasOption(selectEl, value) {
+      if (!selectEl || !value) return false;
+      const target = value.trim();
+      return Array.from(selectEl.options || []).some(opt => (opt.value || '').trim() === target);
+    },
+
+    applyDeepLinkFiltersIfNeeded() {
+      if (this.state.deepLinkApplied || !this.state.deepLinkFilters) return;
+      const { reservaId, ciudad, centro, sala, fecha } = this.state.deepLinkFilters;
+
+      const selCiudad = document.getElementById('filterCiudadMis');
+      if (ciudad && this.selectHasOption(selCiudad, ciudad)) {
+        selCiudad.value = ciudad;
+      }
+      this.poblarCentros();
+
+      const selCentro = document.getElementById('filterCentroMis');
+      if (centro && this.selectHasOption(selCentro, centro)) {
+        selCentro.value = centro;
+      }
+      this.poblarSalas();
+
+      const selSala = document.getElementById('filterSalaMis');
+      if (sala && this.selectHasOption(selSala, sala)) {
+        selSala.value = sala;
+      }
+
+      if (fecha) {
+        const fechaInput = document.getElementById('filterFechaMis');
+        fechaInput.value = fecha;
+        if (window.fp_filterFechaMis) {
+          window.fp_filterFechaMis.setDate(fecha, false, 'Y-m-d');
+        }
+      }
+
+      if (reservaId) {
+        document.getElementById('searchIdMis').value = reservaId;
+      }
+
+      this.state.deepLinkApplied = true;
     },
 
     getFilters() {
@@ -561,7 +623,7 @@
         .addEventListener('click', this.loadMisReservas.bind(this));
       document.getElementById('mis-export-csv')
         .addEventListener('click', this.exportCsv.bind(this));
-    
+
       // editar
       document.getElementById('btnEditCancelar')
         .addEventListener('click', this.closeEditModal.bind(this));
@@ -606,5 +668,11 @@
     }
   };
 
-  document.addEventListener('DOMContentLoaded', () => App.init());
+  document.addEventListener('DOMContentLoaded', () => {
+    App.captureDeepLinkFilters();
+    App.init();
+  });
+
+  window.MisReservasApp = App;
+  window.loadMisReservas = App.loadMisReservas.bind(App);
 </script>

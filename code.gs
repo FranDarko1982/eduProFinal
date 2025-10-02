@@ -1346,14 +1346,25 @@ function enviarSolicitudUso(datos) {
         <li><b>Fecha/Hora solicitud:</b> ${Utilities.formatDate(new Date(), tz, 'dd/MM/yyyy HH:mm')}</li>
         <li><b>Solicitante:</b> ${solicitante}</li>
       </ul>
-      ${idSolapada && WEBAPP_URL ? `
+      ${WEBAPP_URL ? (() => {
+        const params = [];
+        params.push('tab=mybookings');
+        if (idSolapada) params.push(`reservaId=${encodeURIComponent(idSolapada)}`);
+        if (datos.ciudad) params.push(`ciudad=${encodeURIComponent(datos.ciudad)}`);
+        if (datos.centro) params.push(`centro=${encodeURIComponent(datos.centro)}`);
+        if (datos.sala) params.push(`sala=${encodeURIComponent(datos.sala)}`);
+        const fechaFiltro = (datos.fechaInicio || '').split('T')[0];
+        if (fechaFiltro) params.push(`fecha=${encodeURIComponent(fechaFiltro)}`);
+        const query = params.length ? `?${params.join('&')}` : '';
+        return `
         <div style="margin-top:20px;">
-          <a href="${WEBAPP_URL}?edit=${idSolapada}#mybookings"
+          <a href="${WEBAPP_URL}${query}#mybookings"
              style="display:inline-block;padding:10px 16px;background:#bc348b;color:#fff;
                     text-decoration:none;border-radius:4px;">
-            Liberar reserva
+            Liberar sala
           </a>
-        </div>` : ''}
+        </div>`;
+      })() : ''}
       <div style="font-size:15px; margin:14px 0 16px; color:#222;">
         Puedes gestionar esta solicitud desde la aplicación 
         <span style="color:#C9006C; font-weight:bold;">Reserva de salas</span> 

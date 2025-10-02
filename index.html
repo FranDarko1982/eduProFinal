@@ -238,14 +238,40 @@
           }
         });
 
-        // 3) Mostrar la sección activa o la primera visible
+        // 3) Mostrar la sección activa, la solicitada por URL o la primera visible
+        const urlParams = new URLSearchParams(window.location.search || '');
+        const hashTarget = (window.location.hash || '').replace('#','').trim();
+        const forcedTabId = (urlParams.get('tab') || hashTarget || '').trim();
         let found = false;
-        qsa('.tab').forEach(btn => {
-          if (!found && btn.classList.contains('active') && btn.style.display !== 'none') {
-            showSection(btn);
+
+        if (forcedTabId) {
+          const forcedTab = document.querySelector(`.tab[data-id="${forcedTabId}"]`);
+          if (forcedTab && forcedTab.style.display !== 'none') {
+            qsa('.tab').forEach(l => l.classList.remove('active'));
+            forcedTab.classList.add('active');
+            showSection(forcedTab);
+            const id = forcedTab.getAttribute('data-id');
+            if (id === 'mybookings' && typeof loadMisReservas === 'function') {
+              loadMisReservas();
+            }
+            if (id === 'inicio' && window.Dashboard && typeof Dashboard.init === 'function') {
+              Dashboard.init();
+            }
+            if (id === 'calendar') {
+              initOrResizeCalendar();
+            }
             found = true;
           }
-        });
+        }
+
+        if (!found) {
+          qsa('.tab').forEach(btn => {
+            if (!found && btn.classList.contains('active') && btn.style.display !== 'none') {
+              showSection(btn);
+              found = true;
+            }
+          });
+        }
         if (!found) {
           const first = qsa('.tab').find(l => l.style.display !== 'none');
           if (first) { first.classList.add('active'); showSection(first); }
