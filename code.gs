@@ -2101,10 +2101,21 @@ function actualizarCentro(centro) {
   const idxResp = h('Responsable');
   const idxImagen = h('Imagen Centro');
   if (idxId === -1) throw new Error("No se encuentra la columna 'ID Centro'.");
-  const id = String(centro.idCentro || centro['ID Centro'] || '').trim();
+
+  const newId = String(centro.idCentro || centro['ID Centro'] || '').trim();
+  const originalId = String(centro.originalId || '').trim() || newId;
+
+  if (!originalId) throw new Error('ID original del centro no proporcionado.');
+
+  if (newId && newId !== originalId) {
+    const duplicate = rows.some(r => String(r[idxId]).trim() === newId);
+    if (duplicate) throw new Error('Ya existe un centro con ese ID.');
+  }
+
   for (let i = 0; i < rows.length; i++) {
-    if (String(rows[i][idxId]).trim() === id) {
+    if (String(rows[i][idxId]).trim() === originalId) {
       const row = i + 2;
+      if (idxId   !== -1) sheet.getRange(row, idxId   + 1).setValue(newId || originalId);
       if (idxNom  !== -1) sheet.getRange(row, idxNom  + 1).setValue(centro.NombreCentro || centro.nombre || '');
       if (idxDir  !== -1) sheet.getRange(row, idxDir  + 1).setValue(centro.DireccionCentro || centro['Direccion Centro'] || '');
       if (idxTel  !== -1) sheet.getRange(row, idxTel  + 1).setValue(centro.Telefono || '');

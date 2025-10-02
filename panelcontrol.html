@@ -930,6 +930,7 @@ const PanelAdmin = (() => {
     const nombreCentro = qs('#centroNombre').value.trim();
     const payload = {
       idCentro: qs('#centroId').value.trim(),
+      originalId: currentCentroId ? String(currentCentroId).trim() : '',
       NombreCentro: nombreCentro,
       'Nombre Centro': nombreCentro,
       'Direccion Centro': qs('#centroDireccion').value.trim(),
