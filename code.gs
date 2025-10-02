@@ -557,6 +557,7 @@ function getTodasReservas() {
     filterFn: () => true,
     // mismo formateo plano que en mis reservas
     formatFn: r => ({
+      FechaReserva: formatFecha(r.creada),
       ID:       r.id,
       Sala:     r.nombre,
       Capacidad: r.capacidad,
